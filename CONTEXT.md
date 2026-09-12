@@ -71,14 +71,14 @@ The signature interaction: take the safe Suggestions for this Page Context, run 
 order, verify each, and report what actually happened. Confirm-risk steps pause for
 approval; blocked-risk steps are never included.
 
-## Routine
+## Routine *(planned — not in this version)*
 
 A saved sequence of Actions bound to a trigger Surface, created only after the user has
 explicitly agreed to save one. A Routine has a maximum step count, an allowed Action
 list, and a failure policy. Routines are never created silently from observed behaviour —
 the user is always asked.
 
-## Goal
+## Goal *(planned — not in this version)*
 
 A short-lived plan the user has named ("apply for this job"), holding an ordered set of
 steps and their completion state. A Goal spans pages; it ends when completed or dropped.

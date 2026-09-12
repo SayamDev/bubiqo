@@ -247,8 +247,15 @@ does less.
 3. Booking and meeting surfaces
 4. Teach Me Once — routines offered after you repeat the same steps, never created
    silently
-5. Cross-page memory: connecting a job advert to the company page you open later
-6. A human accessibility audit before any store listing
+5. Goal Mode — naming a goal ("apply for this job") and tracking its steps across pages
+6. Cross-page memory: connecting a job advert to the company page you open later
+7. An in-panel command bar, and local search across reminders and memory
+8. CV comparison on a job advert — matching requirements against evidence you supply
+9. A weekly review of what you completed and what patterns repeated
+10. A human accessibility audit before any store listing
+
+Items 4–9 are in the original brief and are deliberately **not** in this version.
+Nothing stubs them: there are no unused types or dead interfaces implying they exist.
 
 ## Licence
 

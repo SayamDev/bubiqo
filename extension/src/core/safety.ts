@@ -55,7 +55,7 @@ export interface PermissionDecision {
  * Decide whether an Action may run in this context.
  *
  * Called by the executor before every single execution, including steps inside a
- * Routine and steps inside Complete It. There is no "trusted" caller that skips it.
+ * every step inside Complete It. There is no "trusted" caller that skips it.
  */
 export function decide(
   action: ActionDefinition | undefined,

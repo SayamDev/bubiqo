@@ -210,40 +210,8 @@ export interface Analysis {
 }
 
 // ---------------------------------------------------------------------------
-// Routine, Goal, Memory, Activity
+// Memory, Activity, Reminders
 // ---------------------------------------------------------------------------
-
-export interface RoutineStep {
-  readonly actionId: string;
-  readonly params: Readonly<Record<string, string | number | boolean>>;
-}
-
-export type RoutineFailurePolicy = "stop" | "continue";
-
-export interface Routine {
-  readonly id: string;
-  readonly name: string;
-  readonly trigger: Surface;
-  readonly steps: readonly RoutineStep[];
-  readonly allowedDomains: readonly string[];
-  readonly maxSteps: number;
-  readonly risk: Risk;
-  readonly failurePolicy: RoutineFailurePolicy;
-  readonly createdAt: number;
-}
-
-export interface GoalStep {
-  readonly label: string;
-  readonly actionId?: string;
-  readonly done: boolean;
-}
-
-export interface Goal {
-  readonly id: string;
-  readonly name: string;
-  readonly steps: readonly GoalStep[];
-  readonly createdAt: number;
-}
 
 export type MemoryKind = "job" | "invoice" | "trip" | "task" | "contact" | "note";
 

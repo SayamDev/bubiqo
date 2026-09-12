@@ -4,7 +4,7 @@
  * The invariants, which the tests in tests/executor.test.ts hold to:
  *
  *   - Every execution passes through decide() first. There is no privileged caller.
- *   - A `blocked` Action never executes, by any route, including inside a Routine.
+ *   - A `blocked` Action never executes, by any route, including batched ones.
  *   - A `confirm` Action never executes without an explicit approval for that step.
  *   - Nothing is reported as done until verify() has confirmed it. When verification
  *     cannot confirm, the user is told exactly that rather than shown a tick.
@@ -35,7 +35,7 @@ export interface CompleteItReport {
 export interface ExecuteOptions {
   /** Action ids the user has explicitly approved for this run. */
   readonly approved?: readonly string[];
-  /** Cap on steps, so a Routine can never loop. */
+  /** Hard cap on steps, so no caller can turn this into a loop. */
   readonly maxSteps?: number;
 }
 
