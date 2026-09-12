@@ -69,6 +69,31 @@ rules can't reach, never to replace them.
 
 Booking and meeting pages are on the roadmap, not in this version.
 
+## Design
+
+The panel is warm and soft-edged on purpose, and disciplined on purpose. It holds
+your deadlines, so it has to read as trustworthy as well as friendly.
+
+- **A cream ground and a honey accent**, taken from the product mark — not the
+  blue/indigo that most AI-built tools default to.
+- **Rounding is a hierarchy, not a constant.** Pills for actions, soft bubbles for
+  cards, tighter radii for inputs. Rounding everything equally is the giveaway.
+- **Warm-tinted shadows, used once.** Only the primary action lifts off the page;
+  grey shadows on a cream ground look like dirt.
+- **The headline answers the user's question,** not the classifier's: *"3 things need
+  you"*, with the surface as a small chip above it.
+- **Motion is springy and short** — cards lift, buttons compress, Complete It results
+  stagger in so three steps read as a sequence — and all of it is off under
+  `prefers-reduced-motion`.
+
+Every text/background pairing was **measured** against its real backdrop in both
+themes rather than eyeballed. Seven failed WCAG AA on the first pass, between 3.66:1
+and 4.45:1; the tokens were darkened until all sixteen pass. The tightest is now
+4.79:1 in light and 4.92:1 in dark. Urgency is always carried by a word and a dot,
+never by colour alone.
+
+To see it: `npm run demo`, then open the panel on any of the pages.
+
 ## Privacy
 
 - **Nothing leaves your machine.** Out of the box, zero network requests.
