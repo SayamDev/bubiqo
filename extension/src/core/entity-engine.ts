@@ -11,6 +11,8 @@
 import type { Entity, EntityType, PageContext, Sensitivity } from "./types";
 import { resolveDates } from "./dates";
 import { findRequirements, findSkills } from "./job-details";
+import { isFurnitureHeading } from "./readability";
+import { preferredTitle } from "./storage-hygiene";
 import { CURRENCY_CODES, NUMBER_PATTERN, SYMBOL_TO_CODE, formatAmount, formatRange, looksLikeSalary, readNumber } from "./money";
 
 
@@ -50,7 +52,58 @@ export function extractEntities(page: PageContext, now: number): Entity[] {
   found.push(...extractActionableLinks(page));
   found.push(...extractSkillsAndRequirements(page));
 
-  return dedupe(found);
+  return preferTitleAnchoredOrganisation(preferLabelledAmounts(dedupe(found), page.text));
+}
+
+/**
+ * The employer beside the title wins.
+ *
+ * A job page carries other companies — sidebar cards, "people also viewed" — and
+ * a legal suffix makes those easy to find, so an Indeed advert from Lowen Talent
+ * was credited to "Activate Group Limited" four cards away. When a company was
+ * found directly beside the title this page is about, it is the answer and the
+ * rest are noise. When none was, everything found stays.
+ */
+function preferTitleAnchoredOrganisation(entities: Entity[]): Entity[] {
+  const anchored = entities.find((e) => e.type === "organisation" && e.source.startsWith("beside "));
+  if (!anchored) return entities;
+  return entities.filter((e) => e.type !== "organisation" || e === anchored);
+}
+
+
+
+/**
+ * Drop pay figures that belong to a different advert.
+ *
+ * A job page shows a list of other jobs beside the one being read, and each one
+ * carries its own salary — a real Indeed page produced five ranges, four of them
+ * from the sidebar. The DOM scoping is supposed to exclude that region and does
+ * not always manage it, so this is a second line of defence at the text level.
+ *
+ * The signal is labelling and repetition: the advert's own pay is announced
+ * ("Pay", "Salary", "Total") or stated more than once, in the header and again in
+ * a details block. A number that is neither is very likely someone else's.
+ *
+ * Only ever subtracts when something better exists, so a page with a single
+ * unlabelled amount keeps it.
+ */
+function preferLabelledAmounts(entities: Entity[], text: string): Entity[] {
+  const amounts = entities.filter((e) => e.type === "amount");
+  if (amounts.length < 2) return entities;
+
+  const LABEL = /\b(?:pay|salary|compensation|package|total|amount due|subtotal|balance|OTE)\b/i;
+
+  const strong = new Set<string>();
+  for (const amount of amounts) {
+    const labelled = LABEL.test(amount.source);
+    const figure = amount.value.split(" ")[1] ?? "";
+    const first = figure.split("–")[0] ?? "";
+    const repeated = first.length > 2 && text.split(first).length - 1 > 1;
+    if (labelled || repeated) strong.add(amount.value);
+  }
+
+  if (strong.size === 0) return entities;
+  return entities.filter((e) => e.type !== "amount" || strong.has(e.value));
 }
 
 function extractEmails(text: string): Entity[] {
@@ -191,6 +244,12 @@ function extractReferences(text: string): Entity[] {
     const value = (m[1] ?? "").toUpperCase();
     // A bare year is not a reference number.
     if (/^\d{4}$/.test(value)) continue;
+    /*
+     * Nor is a word. "booking platforms would be useful" was producing a
+     * reference of PLATFORMS, because the pattern only asked for characters a
+     * reference COULD contain. A reference number contains a number.
+     */
+    if (!/\d/.test(value)) continue;
     out.push(entity("reference", value, 0.85, windowAround(text, m.index ?? 0, m[0].length)));
   }
   return out;
@@ -264,10 +323,32 @@ function extractPeople(text: string): Entity[] {
   return out;
 }
 
+/**
+ * Could this string be a company name?
+ *
+ * Shared by every rule that guesses one. Written once because each rule was
+ * separately producing its own nonsense: "On-site" from a byline, "Inbox" from a
+ * mail client's folder list, "the" and "About" from prose.
+ */
+function plausibleCompanyName(candidate: string): boolean {
+  const name = candidate.trim();
+  if (name.length < 2 || name.length > 48) return false;
+  if (!/^[A-Z]/.test(name)) return false;
+  if (/[.!?,;:]$/.test(name)) return false;
+  if (name.split(/\s+/).length > 5) return false;
+
+  const NOT_A_COMPANY =
+    /^(?:apply|save|share|posted|full|part|permanent|remote|hybrid|on-?site|about|what|you|the|this|we|our|your|experience|salary|pay|job|jobs|location|benefits|inbox|sent|drafts|archive|spam|starred|snoozed|important|unsubscribe|reply|forward|today|yesterday|tomorrow|leeds|london|manchester|liverpool|birmingham|bristol|glasgow|edinburgh)\b/i;
+
+  return !NOT_A_COMPANY.test(name);
+}
+
 function extractOrganisations(page: PageContext): Entity[] {
   const out: Entity[] = [];
   for (const m of page.text.matchAll(
-    /\b([A-Z][A-Za-z&.'-]{1,24}(?:\s+[A-Z][A-Za-z&.'-]{1,24}){0,3})\s+(Ltd|Limited|LLC|Inc\.?|PLC|GmbH|Pty|LLP|AB|SA|BV)\b/g,
+    // [^\S\n] keeps a company name on one line. With \s+ it ran up into the
+    // heading above it and came out as "Software Developer\nActivate Group Limited".
+    /\b([A-Z][A-Za-z&.'-]{1,24}(?:[^\S\n]+[A-Z][A-Za-z&.'-]{1,24}){0,3})[^\S\n]+(Ltd|Limited|LLC|Inc\.?|PLC|GmbH|Pty|LLP|AB|SA|BV)\b/g,
   )) {
     out.push(entity("organisation", `${m[1]} ${m[2]}`, 0.85, windowAround(page.text, m.index ?? 0, m[0].length)));
   }
@@ -280,7 +361,9 @@ function extractOrganisations(page: PageContext): Entity[] {
   for (const m of page.text.matchAll(
     /\b(?:role|job|position|opportunity|programme|program|internship|vacancy|working)\s+(?:at|with|for)\s+([A-Z][A-Za-z&.'-]{1,24}(?:\s+[A-Z][A-Za-z&.'-]{1,24}){0,2})\b/g,
   )) {
-    out.push(entity("organisation", (m[1] ?? "").trim(), 0.8, windowAround(page.text, m.index ?? 0, m[0].length)));
+    const name = (m[1] ?? "").trim();
+    if (!plausibleCompanyName(name)) continue;
+    out.push(entity("organisation", name, 0.8, windowAround(page.text, m.index ?? 0, m[0].length)));
   }
 
   /*
@@ -295,8 +378,36 @@ function extractOrganisations(page: PageContext): Entity[] {
     /^([A-Z][A-Za-z0-9&.'’-]{1,30}(?:[^\S\n]+[A-Z][A-Za-z0-9&.'’-]{1,30}){0,3})[^\S\n]*[·•][^\S\n]*[A-Z]/gm,
   )) {
     const name = (m[1] ?? "").trim();
-    if (/^(?:About|Save|Apply|Posted|Full|Part|Hybrid|Remote)\b/i.test(name)) continue;
+    if (!plausibleCompanyName(name)) continue;
     out.push(entity("organisation", name, 0.8, windowAround(page.text, m.index ?? 0, m[0].length)));
+  }
+
+  /*
+   * The line beside the page's OWN title.
+   *
+   * Job boards print the employer directly above or below the job title, on its
+   * own line, with no legal suffix and no preposition — LinkedIn above ("Better
+   * Placed" then "Javascript Developer"), Indeed below ("Graduate Associate
+   * Consultant" then "Lowen Talent").
+   *
+   * Anchored to the title this page is actually about, not to any line that
+   * mentions a role. An earlier version scanned for role-like lines and picked up
+   * "IPSUM" and "On-site" from sidebar cards and body prose — confidently wrong,
+   * which is worse than finding nothing.
+   */
+  const title = preferredTitle(page);
+  if (title.length > 3) {
+    const lines = page.text.split("\n");
+    const titleLine = lines.findIndex((line) => line.trim().startsWith(title));
+
+    if (titleLine >= 0) {
+      for (const neighbour of [lines[titleLine - 1], lines[titleLine + 1]]) {
+        const name = (neighbour ?? "").trim();
+        if (!plausibleCompanyName(name)) continue;
+        // Marked so it can outrank a company found elsewhere on the page.
+        out.push(entity("organisation", name, 0.95, `beside "${title}"`));
+      }
+    }
   }
 
   // Structured data is the most reliable source when a page provides it.
@@ -322,15 +433,27 @@ function extractJobTitle(page: PageContext): Entity[] {
    * page heading, which an email does not have.
    */
   for (const m of page.text.matchAll(
-    /\b(?:looking for|hiring|recruiting|role[: ]|position[: ]|apply for)\s+(?:a|an|the)?\s*([A-Z0-9][A-Za-z0-9]*(?:\s+[A-Z0-9][A-Za-z0-9-]*){1,6})/g,
+    /*
+     * An advert rarely says "looking for a Full Stack Engineer" — it says
+     * "looking for a talented Full Stack Engineer". One optional lowercase
+     * adjective is allowed between the article and the role.
+     */
+    /\b(?:looking for|hiring|recruiting|role[: ]|position[: ]|apply for)\s+(?:a|an|the)?\s*(?:[a-z]+\s+)?([A-Z0-9][A-Za-z0-9]*(?:\s+[A-Z0-9][A-Za-z0-9-]*){1,6})/g,
   )) {
     const title = (m[1] ?? "").trim();
     if (title.length < 6) continue;
     out.push(entity("job_title", title, 0.75, windowAround(page.text, m.index ?? 0, m[0].length)));
   }
 
-  if (out.length === 0) {
-    const heading = page.headings[0];
+  /*
+   * The heading is a second, independent name for the role — a job board shows
+   * its own card title ("Javascript Developer") while the advert body names the
+   * position ("Full Stack Engineer"). Both are worth keeping; an earlier version
+   * only fell back to the heading when the prose found nothing, so whichever the
+   * reader was actually looking at could be the one discarded.
+   */
+  {
+    const heading = page.headings.find((h) => !isFurnitureHeading(h));
     if (
       heading &&
       /\b(engineer|developer|designer|manager|analyst|scientist|architect|lead|director|consultant|specialist)\b/i.test(

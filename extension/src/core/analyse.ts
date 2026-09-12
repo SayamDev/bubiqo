@@ -11,6 +11,7 @@
 
 import type { ActionDefinition, ActionInput, Analysis, PageContext, Settings } from "./types";
 import { sanitise } from "./sanitize";
+import { narrowToContent } from "./readability";
 import { classify } from "./context-engine";
 import { extractEntities } from "./entity-engine";
 import { detectIntents } from "./intent-engine";
@@ -29,8 +30,16 @@ export function analyse(
   registry: ReadonlyMap<string, ActionDefinition>,
   options: AnalyseOptions,
 ): Analysis {
+  /*
+   * Narrow before reasoning. Block scoring chooses a region of the DOM; this
+   * removes the site's own furniture from inside it — upsells, applicant counts,
+   * the hiring team — which is what put a Premium heading on a saved job and a
+   * skill in an advert that never mentioned it.
+   */
+  const content = narrowToContent(page.text);
+
   // Page text is untrusted input. It is cleaned before anything reasons about it.
-  const cleaned = sanitise(page.text);
+  const cleaned = sanitise(content);
   const safePage: PageContext = { ...page, text: cleaned.text };
 
   const classification = classify(safePage);

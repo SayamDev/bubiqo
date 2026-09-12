@@ -89,3 +89,50 @@ describe("headings that are furniture, not titles", () => {
     expect(isFurnitureHeading("Invoice INV-2026-0042")).toBe(false);
   });
 });
+
+describe("removing a site's own furniture", () => {
+  it("drops upsells and prompts entirely", async () => {
+    const { narrowToContent } = await import("@core/readability");
+    const text = [
+      "Javascript Developer",
+      "Better Placed",
+      "Take the next step in your job search",
+      "Reactivate Premium: 50% Off",
+      "Determine your fit and how to stand out",
+      "Meet the hiring team",
+      "About the job",
+      "x".repeat(400),
+    ].join("\n");
+
+    const narrowed = narrowToContent(text);
+    expect(narrowed).not.toMatch(/Premium|next step|Determine your fit|hiring team/);
+    expect(narrowed).toContain("Javascript Developer");
+    expect(narrowed).toContain("Better Placed");
+  });
+
+  it("scrubs metadata from a line that also carries something useful", async () => {
+    /*
+     * "Manchester Area, United Kingdom · 1 week ago · Over 100 applicants" is a
+     * location plus two pieces of site chrome. Dropping the line loses the
+     * location; keeping it leaves an applicant count to be read as a number.
+     */
+    const { narrowToContent } = await import("@core/readability");
+    const text = `Manchester Area, United Kingdom · 1 week ago · Over 100 applicants\n${"x".repeat(400)}`;
+    const narrowed = narrowToContent(text);
+
+    expect(narrowed).toContain("Manchester Area, United Kingdom");
+    expect(narrowed).not.toMatch(/applicants|week ago/);
+  });
+
+  it("never narrows a page down to nothing", async () => {
+    const { narrowToContent } = await import("@core/readability");
+    const short = "Reactivate Premium: 50% Off";
+    expect(narrowToContent(short)).toBe(short);
+  });
+
+  it("leaves an ordinary page untouched", async () => {
+    const { narrowToContent } = await import("@core/readability");
+    const prose = `Dear Sayam,\n\n${"This is an ordinary email. ".repeat(20)}`;
+    expect(narrowToContent(prose)).toBe(prose.trim());
+  });
+});

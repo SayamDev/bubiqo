@@ -95,12 +95,120 @@ export function pickBestBlock(blocks: readonly BlockStats[]): BlockStats | undef
  * saved jobs. A heading that asks the reader a question, or names a UI control, is
  * not what the page is about.
  */
-const FURNITURE_HEADING =
-  /^(?:are these|was this|how (?:did|was)|rate\b|feedback|share\b|save\b|(?:easy\s+)?apply\b|sign in|log in|create (?:a )?(?:job )?alert|job alert|similar jobs|people also|recommended for you|more jobs|jobs? based on|search\b|filters?\b|messaging|notifications|promoted|suggested)\b/i;
+/**
+ * Lines that are the site talking about itself.
+ *
+ * Removing them one line at a time, rather than slicing everything above the
+ * advert, matters: the block at the top of a job page holds the title, the
+ * company, the location and the pay, and an earlier version that sliced from
+ * "About the job" threw all of that away to get rid of the upsells sitting
+ * between them.
+ */
+const FURNITURE_LINE: readonly RegExp[] = [
+  /^\s*(?:reactivate|upgrade to|try) premium/i,
+  /^\s*get (?:ai-powered|personali[sz]ed|more) /i,
+  /^\s*take the next step/i,
+  /^\s*determine your fit/i,
+  /^\s*practice an interview/i,
+  /^\s*(?:welcome|hi|hello),\s+[A-Z]/,
+  /^\s*(?:are these results|was this helpful)/i,
+  /^\s*people you can reach out to/i,
+  /^\s*meet the hiring team/i,
+  /^\s*(?:job poster|school alumni|show all|see all)\s*$/i,
+  /^\s*application (?:status|submitted)\s*$/i,
+  /^\s*(?:promoted|promoted by hirer)/i,
+  /^\s*over \d[\d,]* applicants/i,
+  /^\s*\d+ (?:applicants|people clicked apply)/i,
+  /^\s*(?:easily apply|easy apply|apply with indeed|save|share|report this job)\s*$/i,
+  /^\s*here.s how the job details align/i,
+  /^\s*pulled from the full job description\s*$/i,
+  /^\s*(?:jobs for you|jobs based on your preferences|similar jobs|people also viewed)/i,
+  /^\s*(?:actively reviewing applicants|be an early applicant)/i,
+  /^\s*(?:viewed|saved|applied)\s*[·•]/i,
+  /^\s*\d+ (?:min|hour|day|week|month)s? ago\s*$/i,
+];
+
+/**
+ * Furniture that shares a line with something worth keeping.
+ *
+ * "Manchester Area, United Kingdom · 1 week ago · Over 100 applicants" is a
+ * location and two pieces of site metadata on one line. Dropping the line loses
+ * the location; keeping it leaves an applicant count to be read as a number.
+ * These are scrubbed from within the line instead.
+ */
+const FURNITURE_SEGMENT: readonly RegExp[] = [
+  /\s*[·•|]\s*(?:over\s+)?\d[\d,]*\+?\s*applicants?\b/gi,
+  /\s*[·•|]\s*\d+\s*(?:second|minute|min|hour|day|week|month)s?\s*ago\b/gi,
+  /\s*[·•|]\s*(?:promoted(?:\s+by\s+hirer)?|actively reviewing applicants|be an early applicant|easily apply|easy apply)\b/gi,
+  /\s*[·•|]\s*reposted\b[^·•|\n]*/gi,
+];
+
+/** Where it stops being the advert and becomes the site again. */
+const CONTENT_ENDS =
+  /^[^\S\n]*(?:similar jobs|people also viewed|more jobs (?:like|from)|jobs you may be interested in|set (?:a )?job alert|show more jobs|related searches|looking for talent|report this job)[^\S\n]*$/im;
+
+/** The smallest run of text still worth treating as the content. */
+const MIN_NARROWED_LENGTH = 300;
+
+/**
+ * Remove the site's own furniture, keeping everything else.
+ *
+ * Subtractive on purpose. Slicing from a marker like "About the job" removed the
+ * upsells but also removed the header block above them — so a page lost its
+ * title, its company and its salary in order to lose an advert for Premium.
+ */
+export function narrowToContent(text: string): string {
+  const kept = text
+    .split("\n")
+    .filter((line) => !FURNITURE_LINE.some((pattern) => pattern.test(line)))
+    .map((line) => {
+      let scrubbed = line;
+      for (const segment of FURNITURE_SEGMENT) scrubbed = scrubbed.replace(segment, "");
+      return scrubbed.replace(/\s*[·•|]\s*$/, "").trimEnd();
+    })
+    .join("\n");
+
+  const end = CONTENT_ENDS.exec(kept);
+  const trimmed = end && end.index >= MIN_NARROWED_LENGTH ? kept.slice(0, end.index) : kept;
+
+  // Never narrow to nothing; a page with no recognisable furniture is unchanged.
+  return trimmed.trim().length >= MIN_NARROWED_LENGTH ? trimmed.trim() : text.trim();
+}
+const FURNITURE_HEADING = new RegExp(
+  "^(?:" +
+    [
+      // Feedback and survey widgets
+      "are these", "was this", "how (?:did|was)", "rate\\b", "feedback",
+      "jobs for you", "job details", "full job description", "your profile",
+      // Controls
+      "share\\b", "save\\b", "(?:easy\\s+)?apply\\b", "sign in", "log in", "message\\b",
+      // Upsells and coaching prompts — these are what named a saved job
+      // "Determine your fit and how to stand out".
+      "determine your fit", "take the next step", "get personalali?sed", "get ai-powered",
+      "practice an interview", "premium", "reactivate", "upgrade",
+      // Page sections that are about the site, not the content
+      "application status", "people you can reach", "meet the hiring team", "job poster",
+      "school alumni", "show all", "create (?:a )?(?:job )?alert", "job alert",
+      "similar jobs", "people also", "recommended for you", "more jobs", "jobs? based on",
+      "search\\b", "filters?\\b", "messaging", "notifications", "promoted", "suggested",
+    ].join("|") +
+    ")\\b",
+  "i",
+);
+
+/**
+ * A greeting is not a title.
+ *
+ * Checked separately because the list above is joined with a trailing \b, and
+ * there is no word boundary after the comma in "Welcome, Sayam" — so it silently
+ * never matched, and a job was saved under the user's own greeting.
+ */
+const GREETING = /^(?:welcome|hi|hey|hello|good (?:morning|afternoon|evening))\s*[,!]/i;
 
 export function isFurnitureHeading(heading: string): boolean {
   const text = heading.trim();
   if (text.length < 3 || text.length > 120) return true;
+  if (GREETING.test(text)) return true;
   if (FURNITURE_HEADING.test(text)) return true;
   // A heading that is only a question is asking the reader something, not naming
   // the page — "Are these results helpful?", "Know someone who'd be a good fit?".

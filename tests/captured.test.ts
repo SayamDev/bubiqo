@@ -282,3 +282,147 @@ describe("the real advert that was reported as capturing nothing", () => {
     expect(analysis.classification.surface).toBe("job");
   });
 });
+
+describe("a real LinkedIn page, furniture and all", () => {
+  /*
+   * This fixture is the full page as a user actually pasted it: the company link,
+   * applicant counts, two Premium upsells, an interview-practice prompt, the
+   * application status, the hiring team — and then, 800 characters in, the advert.
+   *
+   * Reading all of it produced a saved job titled "Determine your fit and how to
+   * stand out" (a Premium heading), a skill of Python in an advert that never
+   * mentions Python, and a salary of GBP 55 where the page says £45,000–£60,000.
+   */
+  const page = captured("linkedin-real-page");
+  const analysis = run(page);
+
+  it("titles the job from the advert, not from an upsell heading", async () => {
+    const { preferredTitle } = await import("@core/storage-hygiene");
+    const title = preferredTitle(page);
+    expect(title).toBe("Javascript Developer");
+    expect(title).not.toMatch(/determine your fit|next step|hiring team|results helpful/i);
+  });
+
+  it("reads the salary the advert states", () => {
+    const amounts = analysis.entities.filter((e) => e.type === "amount").map((e) => e.value);
+    expect(amounts).toContain("GBP 45000–60000");
+    expect(amounts).not.toContain("GBP 55");
+  });
+
+  it("finds the stack the advert names", () => {
+    const skills = analysis.entities.filter((e) => e.type === "skill").map((e) => e.value);
+    for (const expected of ["React", "TypeScript", "Node.js", "JavaScript"]) {
+      expect(skills, `${expected} was missed`).toContain(expected);
+    }
+  });
+
+  it("invents no skill the advert never mentions", () => {
+    const skills = analysis.entities.filter((e) => e.type === "skill").map((e) => e.value);
+    expect(skills).not.toContain("Python");
+    for (const skill of skills) {
+      expect(page.text.toLowerCase(), `${skill} is not on the page`).toContain(skill.toLowerCase());
+    }
+  });
+
+  it("invents no dates", () => {
+    // "741 days ago" and "11 days ago" appeared from LinkedIn's own furniture.
+    expect(analysis.entities.filter((e) => e.resolvedAt !== undefined)).toHaveLength(0);
+  });
+
+  it("does not mistake a word for a reference number", () => {
+    // "booking platforms would be useful" produced a reference of PLATFORMS.
+    const references = analysis.entities.filter((e) => e.type === "reference").map((e) => e.value);
+    expect(references).not.toContain("PLATFORMS");
+    for (const reference of references) expect(reference).toMatch(/\d/);
+  });
+
+  it("removes the furniture but keeps the header block", async () => {
+    /*
+     * Subtractive, not a slice. An earlier version cut everything above "About
+     * the job", which removed the upsells and the title, company, location and
+     * salary along with them — the header block is content, it just has adverts
+     * sitting under it.
+     */
+    const { narrowToContent } = await import("@core/readability");
+    const narrowed = narrowToContent(page.text);
+
+    expect(narrowed).not.toMatch(/Reactivate Premium|Over 100 applicants|Meet the hiring team|Determine your fit/);
+    expect(narrowed).toContain("Javascript Developer");
+    expect(narrowed).toContain("Better Placed");
+    expect(narrowed).toContain("About the job");
+    expect(narrowed.length).toBeLessThan(page.text.length);
+  });
+
+  it("still keeps the whole advert", () => {
+    expect(analysis.entities.length).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe("a real Indeed page, sidebar and all", () => {
+  /*
+   * Indeed shows a list of other jobs beside the one being read, each with its own
+   * company and its own salary. Reading the page produced five pay ranges — four
+   * of them belonging to other adverts — and credited the job to a company from
+   * the sidebar, under the title "Welcome, Sayam", which is the site's greeting.
+   */
+  const page = captured("indeed-job");
+  const analysis = run(page);
+
+  it("does not name the job after the site's greeting", async () => {
+    const { preferredTitle } = await import("@core/storage-hygiene");
+    const title = preferredTitle(page);
+    expect(title).not.toMatch(/welcome|jobs for you|job details/i);
+    expect(title).toMatch(/Graduate Associate Consultant/);
+  });
+
+  it("reads only this advert's salary, not the sidebar's", () => {
+    const amounts = analysis.entities.filter((e) => e.type === "amount").map((e) => e.value);
+    expect(amounts).toContain("GBP 35000–100000");
+    // These belong to other jobs in the list beside it.
+    expect(amounts).not.toContain("GBP 55000");
+    expect(amounts).not.toContain("GBP 29680–32099");
+    expect(amounts).not.toContain("GBP 22");
+  });
+
+  it("credits the job to the right employer", () => {
+    const companies = analysis.entities.filter((e) => e.type === "organisation").map((e) => e.value);
+    expect(companies).toContain("Lowen Talent");
+    expect(companies).not.toContain("Activate Group Limited");
+    expect(companies).not.toContain("IPSUM");
+  });
+
+  it("finds the right-to-work condition", () => {
+    const requirements = analysis.entities.filter((e) => e.type === "requirement").map((e) => e.value);
+    expect(requirements.some((r) => /right to work/i.test(r))).toBe(true);
+  });
+
+  it("is recognised as a job advert", () => {
+    expect(analysis.classification.surface).toBe("job");
+  });
+});
+
+describe("nothing a job page teaches breaks an invoice", () => {
+  /*
+   * The salary and company rules were added for job boards. An invoice is the
+   * page most likely to be damaged by them: it legitimately carries several
+   * amounts, and dropping its subtotal or VAT would be a regression introduced in
+   * the name of fixing something else.
+   */
+  const analysis = run(captured("invoice"));
+
+  it("keeps the subtotal, the VAT and the total", () => {
+    const amounts = analysis.entities.filter((e) => e.type === "amount").map((e) => e.value);
+    expect(amounts).toContain("EUR 2400.00");
+    expect(amounts).toContain("EUR 480.00");
+    expect(amounts).toContain("EUR 2880.00");
+  });
+
+  it("still names the supplier", () => {
+    expect(analysis.entities.some((e) => e.type === "organisation" && /Brightfold/.test(e.value))).toBe(true);
+  });
+
+  it("still reads the due date, not the invoice date", () => {
+    const problem = analysis.problems.find((p) => p.kind === "payment_due");
+    expect(new Date(problem!.dueAt!).getDate()).toBe(20);
+  });
+});
