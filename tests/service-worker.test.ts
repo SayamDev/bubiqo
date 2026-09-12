@@ -569,3 +569,44 @@ describe("knowing a page is already saved", () => {
     expect(asState(await dispatch({ type: "GET_MEMORY" })).memory).toHaveLength(1);
   });
 });
+
+describe("the panel must never lose the analysis it is showing", () => {
+  /*
+   * The stuck-skeleton bug, reported twice. MV3 terminates the worker after about
+   * thirty seconds idle, so by the time a user reads the panel and changes a
+   * setting, the in-memory analysis is usually gone. Every message that was not
+   * itself an analysis then returned a state with no analysis, and the panel fell
+   * back to its loading skeleton with nothing left to pull it out.
+   *
+   * One test per message that goes through baseState, because it was never about
+   * settings specifically — that was just the easiest way to hit it.
+   */
+  const SURVIVES: { label: string; request: unknown }[] = [
+    { label: "SET_SETTINGS", request: { type: "SET_SETTINGS", settings: { mode: "proactive" } } },
+    { label: "GET_SETTINGS", request: { type: "GET_SETTINGS" } },
+    { label: "GET_MEMORY", request: { type: "GET_MEMORY" } },
+    { label: "GET_REMINDERS", request: { type: "GET_REMINDERS" } },
+    { label: "GET_ACTIVITY", request: { type: "GET_ACTIVITY" } },
+    { label: "GET_DRAFTS", request: { type: "GET_DRAFTS" } },
+    { label: "CLEAR_ACTIVITY", request: { type: "CLEAR_ACTIVITY" } },
+    { label: "CLEAR_REMINDERS", request: { type: "CLEAR_REMINDERS" } },
+    { label: "CLEAR_MEMORY", request: { type: "CLEAR_MEMORY" } },
+    { label: "DISMISS_SUGGESTION", request: { type: "DISMISS_SUGGESTION", actionId: "draft_reply" } },
+  ];
+
+  for (const { label, request } of SURVIVES) {
+    it(`keeps the analysis across ${label}, even after the worker restarted`, async () => {
+      await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+
+      // The worker is terminated. Session storage survives; memory does not.
+      const chrome = installFakeChrome({ ...state, store: state.store, session: state.session });
+      vi.resetModules();
+      await import("../extension/src/background/service-worker");
+      const after = (r: unknown) => chrome.runtime.onMessage.dispatch(r) as Promise<Response>;
+
+      const panel = asState(await after(request));
+      expect(panel.analysis, `${label} came back with no analysis`).toBeDefined();
+      expect(panel.page, `${label} came back with no page`).toBeDefined();
+    });
+  }
+});

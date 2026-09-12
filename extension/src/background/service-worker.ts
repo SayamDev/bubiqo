@@ -442,6 +442,17 @@ async function analyseActiveTab(): Promise<PanelState> {
  * there, because nothing ever asked it to read the page again.
  */
 async function baseState(settings: Settings): Promise<PanelState> {
+  /*
+   * Restore the analysis from session storage before building anything.
+   *
+   * Reading the in-memory `current` directly was the bug: MV3 terminates the
+   * worker constantly, so any message that was not itself an analysis — changing
+   * a setting, deleting a reminder, clearing a list — came back with no analysis
+   * attached, and the panel fell back to its loading skeleton with nothing left
+   * to pull it out of there.
+   */
+  await loadCurrent();
+
   return {
     ...(current ? { page: current.page, analysis: current.analysis } : {}),
     settings,

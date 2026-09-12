@@ -103,6 +103,24 @@ export function App() {
   }, [analyse]);
 
   /*
+   * A loading skeleton with nothing coming is the worst state to be stuck in: it
+   * looks like work in progress forever. If a reply ever arrives with no analysis
+   * and no reason why, re-read the page rather than sitting there. This guards the
+   * whole class of bug, not just the one that caused it.
+   */
+  const recovering = useRef(false);
+  useEffect(() => {
+    if (!state) return;
+    if (state.analysis || state.unavailableReason || busy) {
+      recovering.current = false;
+      return;
+    }
+    if (recovering.current) return;
+    recovering.current = true;
+    void analyse();
+  }, [state, busy, analyse]);
+
+  /*
    * "system" sets no attribute, so the prefers-color-scheme media query decides.
    * An explicit choice stamps data-theme, which the stylesheet weights above the
    * media query in both directions.
