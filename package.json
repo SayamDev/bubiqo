@@ -15,7 +15,8 @@
     "verify": "npm run typecheck && npm run lint && npm run test && npm run build",
     "demo": "python3 -m http.server 8123 --directory fixtures",
     "icons": "python3 tools/make-icons.py",
-    "prove:reminders": "vitest run tests/reminders.test.ts --reporter=basic"
+    "prove:reminders": "vitest run tests/reminders.test.ts --reporter=basic",
+    "capture-snippet": "node tools/make-capture-snippet.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -1416,3 +1416,19 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 .intro__mark { width: 22px; height: 22px; flex: none; color: var(--accent); margin-top: 1px; }
 .intro strong { display: block; margin-bottom: 2px; }
 .intro__dismiss { margin-left: auto; flex: none; }
+
+/*
+ * The job brief's verdict.
+ *
+ * One-sided by design: this says "ruled out" or it says nothing, so it is styled
+ * as the alert it is rather than as a neutral label.
+ */
+.brief__verdict {
+  margin: 0 0 8px;
+  padding: 7px 11px;
+  border-radius: var(--r-input);
+  background: var(--alert-bg);
+  color: var(--alert);
+  font-size: var(--step-0);
+  font-weight: 700;
+}

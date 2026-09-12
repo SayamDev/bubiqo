@@ -56,3 +56,38 @@ export function relativeTime(at: number, now: number): string {
 export function clockTime(at: number): string {
   return new Date(at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
+
+/**
+ * An amount as a person reads it.
+ *
+ * Amounts are stored as "GBP 70000–85000": a currency code and unpunctuated
+ * digits, which is the right shape for comparing and converting and the wrong one
+ * for showing anybody. The job brief put that string straight on screen, where it
+ * read like a database row.
+ *
+ * Anything that is not in the stored shape is passed through untouched — a salary
+ * the advert wrote as "Competitive" is still the most honest thing to show.
+ */
+const CODE_TO_SYMBOL: Readonly<Record<string, string>> = {
+  GBP: "£",
+  USD: "$",
+  EUR: "€",
+  JPY: "¥",
+  INR: "₹",
+};
+
+export function displayMoney(value: string): string {
+  const match = /^([A-Z]{3})\s+(\d+(?:\.\d+)?)(?:\s*[–-]\s*(\d+(?:\.\d+)?))?$/.exec(value.trim());
+  if (!match) return value;
+
+  const [, code = "", low = "", high] = match;
+  const symbol = CODE_TO_SYMBOL[code];
+  const group = (n: string): string => {
+    const [whole = "", fraction] = n.split(".");
+    const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return fraction ? `${grouped}.${fraction}` : grouped;
+  };
+
+  const amount = high ? `${group(low)}–${group(high)}` : group(low);
+  return symbol ? `${symbol}${amount}` : `${code} ${amount}`;
+}

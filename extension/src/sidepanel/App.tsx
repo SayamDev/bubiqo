@@ -20,7 +20,7 @@ import { send } from "@shared/messages";
 import { formatDue } from "@core/dates";
 import { shortenUrl } from "@core/storage-hygiene";
 import { riskLabel } from "@core/safety";
-import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime } from "./format";
+import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime, displayMoney } from "./format";
 import { splitSuggestions } from "@core/ranker";
 import { BubbleMark, ShieldIcon, QuietMark, ActionIcon, HeaderArt } from "./icons";
 import { Welcome, WhatItDoes } from "./Welcome";
@@ -1009,11 +1009,11 @@ function Results({
  * of prose and could be wrong about it. Collapsing that distinction would be the
  * dishonest kind of confidence.
  */
-function JobBriefBlock({ brief, now }: { brief: JobBrief | undefined; now: number }) {
+export function JobBriefBlock({ brief, now }: { brief: JobBrief | undefined; now: number }) {
   if (!brief) return null;
 
-  const facts: { label: string; field: BriefField<string> | undefined }[] = [
-    { label: "Salary", field: brief.salary },
+  const facts: { label: string; field: BriefField<string> | undefined; display?: (v: string) => string }[] = [
+    { label: "Salary", field: brief.salary, display: displayMoney },
     { label: "Working pattern", field: brief.workingPattern },
     { label: "Location", field: brief.location },
     { label: "Employment type", field: brief.employmentType },
@@ -1035,6 +1035,13 @@ function JobBriefBlock({ brief, now }: { brief: JobBrief | undefined; now: numbe
       </h2>
 
       {brief.blockers.length > 0 && (
+        <p className="brief__verdict">
+          Ruled out — {brief.blockers.length === 1 ? "one condition" : `${brief.blockers.length} conditions`} you would
+          have to meet
+        </p>
+      )}
+
+      {brief.blockers.length > 0 && (
         <ul className="list" aria-label="Conditions that would rule you out">
           {brief.blockers.map((blocker) => (
             <li className="row problem--blocking" key={blocker.rule}>
@@ -1048,11 +1055,11 @@ function JobBriefBlock({ brief, now }: { brief: JobBrief | undefined; now: numbe
       )}
 
       <ul className="list">
-        {shown.map(({ label, field }) => (
+        {shown.map(({ label, field, display }) => (
           <li className="row" key={label}>
             <div>
               <p className="row__title">
-                {label}: {field!.value}
+                {label}: {display ? display(field!.value) : field!.value}
               </p>
               <p className="row__meta">{provenance(field!.source)}</p>
             </div>
@@ -1069,7 +1076,7 @@ function JobBriefBlock({ brief, now }: { brief: JobBrief | undefined; now: numbe
       </ul>
 
       {brief.eligibility.length > 0 && (
-        <details className="why">
+        <details className="why disclosure" style={{ marginTop: 10 }}>
           <summary>What the advert says it needs</summary>
           <ul className="list">
             {brief.eligibility.map((line) => (
