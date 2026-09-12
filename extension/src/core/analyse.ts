@@ -81,7 +81,7 @@ export function analyse(
    * Problems come out of it. Only for job adverts: on an invoice there is nothing
    * for it to say.
    */
-  const brief = classification.surface === "job" ? buildJobBrief(safePage, options.now) : undefined;
+  const brief = classification.surface === "job" ? buildJobBrief(safePage, entities, options.now) : undefined;
 
   const allProblems = scanForProblems(safePage, classification.surface, entities, options.now, brief);
 

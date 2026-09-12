@@ -20,10 +20,11 @@
  * and the reader is entitled to tell them apart.
  */
 
-import type { Blocker, BriefField, JobBrief, PageContext } from "./types";
+import type { Blocker, BriefField, Entity, JobBrief, PageContext } from "./types";
 import { readJobPosting } from "./job-posting";
 import { resolveDates } from "./dates";
-import { NUMBER_PATTERN, SYMBOL_TO_CODE, formatAmount, formatRange, looksLikeSalary, readNumber } from "./money";
+import { looksLikeSalary } from "./money";
+import { preferredTitle } from "./storage-hygiene";
 
 interface BlockerRule {
   readonly id: string;
@@ -84,9 +85,15 @@ export const BLOCKER_RULES: readonly BlockerRule[] = [
 const ELIGIBILITY_HEADING =
   /\b(?:eligib|essential(?: requirements| criteria)?|you must|what you(?:'|’)?ll need|requirements|security requirements|to apply|person specification)\b/i;
 
-/** Headings that mean the conditions have ended and the sales pitch has resumed. */
+/**
+ * Headings that mean the conditions have ended and the sales pitch has resumed.
+ *
+ * "Whats on offer" is in here without its apostrophe because that is how the
+ * heading arrived from a real LinkedIn advert, and the section it ends ran on
+ * into nine bullets of pension and holiday before this was noticed.
+ */
 const SECTION_BREAK =
-  /\b(?:what we offer|benefits|package|about (?:us|the company|the team)|how to apply|next steps|salary|our values|equal opportunit)\b/i;
+  /\b(?:what(?:'|’)?s on offer|what we offer|we offer|benefits|package|about (?:us|the company|the team)|how to apply|next steps|salary|our values|equal opportunit)\b/i;
 
 const MAX_ELIGIBILITY_ITEMS = 8;
 const MAX_ELIGIBILITY_CHARS = 400;
@@ -118,7 +125,8 @@ function quoteAround(text: string, index: number, length: number): string {
   const stop = after.search(/[.!?](?:\s|$)/);
   const end = stop === -1 ? line.length : inLine + length + stop + 1;
 
-  return line.slice(start, end).trim();
+  // Bullet markers are the advert's typography, not its words.
+  return line.slice(start, end).replace(/^[-•*\u2022\s]+/, "").trim();
 }
 
 function findBlockers(text: string): Blocker[] {
@@ -147,71 +155,79 @@ function readEligibility(page: PageContext): string[] {
   const lines = page.text.split("\n").map((l) => l.trim());
   const headingSet = new Set(page.headings.map((h) => h.trim()));
 
-  const startsSection = (line: string): boolean =>
-    line.length > 0 && line.length < 80 && ELIGIBILITY_HEADING.test(line);
+  /*
+   * A heading is short, and does not end in a full stop.
+   *
+   * Without the punctuation test, "Consultancy experience would be helpful, but
+   * it is not essential." opened an eligibility section — it contains the word
+   * "essential" and is under eighty characters — and the section then quoted the
+   * real heading beneath it back as if it were a requirement.
+   */
+  const isHeading = (line: string): boolean =>
+    line.length > 0 && line.length < 80 && !/[.!?:;]$/.test(line) && !/^[-•*\u2022]/.test(line);
 
-  const start = lines.findIndex(startsSection);
-  if (start === -1) return [];
+  const opensSection = (line: string): boolean => isHeading(line) && ELIGIBILITY_HEADING.test(line);
+  const closesSection = (line: string): boolean =>
+    isHeading(line) && (headingSet.has(line) || SECTION_BREAK.test(line) || ELIGIBILITY_HEADING.test(line));
 
   const out: string[] = [];
   let chars = 0;
 
-  for (const line of lines.slice(start + 1)) {
-    if (line.length === 0) continue;
-    // A new heading ends the section: either one the page declared, or one of the
-    // headings that always mean the requirements are over.
-    if (line.length < 80 && (headingSet.has(line) || SECTION_BREAK.test(line))) break;
-    if (out.length >= MAX_ELIGIBILITY_ITEMS || chars >= MAX_ELIGIBILITY_CHARS) break;
+  // Every eligibility section, not just the first: an advert routinely states its
+  // security requirements under one heading and its citizenship requirements under
+  // another, and taking only the first loses half the conditions.
+  for (let i = 0; i < lines.length; i += 1) {
+    if (!opensSection(lines[i] ?? "")) continue;
 
-    const quote = line.replace(/^[-•*•\s]+/, "").slice(0, MAX_QUOTE);
-    if (quote.length === 0) continue;
-    out.push(quote);
-    chars += quote.length;
+    for (const line of lines.slice(i + 1)) {
+      if (line.length === 0) continue;
+      if (closesSection(line)) break;
+      if (out.length >= MAX_ELIGIBILITY_ITEMS || chars >= MAX_ELIGIBILITY_CHARS) break;
+
+      const quote = line.replace(/^[-•*\u2022\s]+/, "").slice(0, MAX_QUOTE);
+      if (quote.length === 0 || out.includes(quote)) continue;
+      out.push(quote);
+      chars += quote.length;
+    }
   }
 
   return out;
 }
 
-const SYMBOLS = Object.keys(SYMBOL_TO_CODE).map((s) => `\\${s}`).join("");
-/*
- * A "k" suffix has to be tried before the plain number pattern. Alternation is
- * first-match, and `\d+` happily matches the "55" of "£55k" and stops — which
- * read as a salary of fifty-five pounds and was then discarded as implausible,
- * losing a salary the advert had stated plainly.
- */
-const AMOUNT = String.raw`\d+(?:\.\d+)?\s*[kKmM]\b|${NUMBER_PATTERN}`;
-const SALARY_RANGE = new RegExp(
-  String.raw`([${SYMBOLS}])\s?(${AMOUNT})\s*(?:-|–|—|to)\s*[${SYMBOLS}]?\s?(${AMOUNT})`,
-);
-const SALARY_SINGLE = new RegExp(String.raw`([${SYMBOLS}])\s?(${AMOUNT})`);
-
 /**
- * A salary from prose, or nothing.
+ * A salary from prose, taken from the amount the Entity engine already chose.
  *
- * `looksLikeSalary` is the guard that matters: an advert's text is full of
- * currency amounts that are not the salary — a £9 parking charge, a £500 referral
- * bonus — and quoting one of those as the pay is worse than saying nothing.
+ * An Indeed job page carries four salaries: the advert's own, and three belonging
+ * to other adverts in the rail beside it. Picking the first currency match found
+ * "£22 - £24 an hour" from a neighbouring card, discarded it as implausible, and
+ * then reported no salary at all for an advert that plainly stated one.
+ *
+ * `extractAmounts` and `preferLabelledAmounts` in core/entity-engine.ts already
+ * decide which amount on a page is the one being talked about, and there are tests
+ * pinning that decision against real captured pages. Writing a second answer to
+ * the same question here would mean two rules disagreeing about the same advert.
  */
-function readProseSalary(text: string): BriefField<string> | undefined {
-  const range = SALARY_RANGE.exec(text);
-  if (range) {
-    const code = SYMBOL_TO_CODE[range[1] ?? ""] ?? "GBP";
-    const low = readNumber(range[2] ?? "");
-    const high = readNumber(range[3] ?? "");
-    if (low !== undefined && high !== undefined && looksLikeSalary(low) && looksLikeSalary(high)) {
-      return field(formatRange(code, low, high), "prose", quoteAround(text, range.index, range[0].length), 0.8);
-    }
-  }
+/**
+ * An Entity's source snippet is a fixed-width window around the match, so it
+ * routinely opens mid-word — "pt Manchester – 3 days per week onsite". Shown to a
+ * user as the evidence for a salary, that reads like a bug. Drop the fragment.
+ */
+function tidyQuote(snippet: string): string {
+  const trimmed = snippet.trim();
+  return /^[a-z]/.test(trimmed) ? trimmed.replace(/^\S+\s+/, "") : trimmed;
+}
 
-  const single = SALARY_SINGLE.exec(text);
-  if (single) {
-    const code = SYMBOL_TO_CODE[single[1] ?? ""] ?? "GBP";
-    const value = readNumber(single[2] ?? "");
-    if (value !== undefined && looksLikeSalary(value)) {
-      return field(formatAmount(code, value), "prose", quoteAround(text, single.index, single[0].length), 0.7);
-    }
-  }
+function readProseSalary(entities: readonly Entity[]): BriefField<string> | undefined {
+  for (const amount of entities) {
+    if (amount.type !== "amount") continue;
 
+    // "GBP 35000–100000" or "GBP 55000" — the shapes core/money.ts formats.
+    const figures = amount.value.match(/\d+(?:\.\d+)?/g) ?? [];
+    if (figures.length === 0) continue;
+    if (!figures.every((f) => looksLikeSalary(Number(f)))) continue;
+
+    return field(amount.value, "prose", tidyQuote(amount.source), amount.confidence);
+  }
   return undefined;
 }
 
@@ -260,9 +276,18 @@ function readStructuredDate(raw: string): number | undefined {
   return Number.isFinite(at) ? at : undefined;
 }
 
+/**
+ * The advert's title from prose.
+ *
+ * Delegated to `preferredTitle`, which already knows that the first heading on a
+ * LinkedIn page is "Are these results helpful?" — a feedback widget — and that
+ * the document title is a template ending in the site's own name. Reimplementing
+ * that here produced briefs headed "Are these results helpful?" and "Welcome,
+ * Sayam".
+ */
 function readProseTitle(page: PageContext): BriefField<string> | undefined {
-  const heading = page.headings.find((h) => h.trim().length > 2 && h.trim().length < 120);
-  return heading ? field(heading.trim(), "prose", heading, 0.6) : undefined;
+  const title = preferredTitle(page).trim();
+  return title.length > 2 && title.length < 120 ? field(title, "prose", title, 0.6) : undefined;
 }
 
 /**
@@ -276,7 +301,7 @@ function readProseTitle(page: PageContext): BriefField<string> | undefined {
  * or the company advertising in the sidebar — and the Entity extractor already
  * offers organisations with their own evidence.
  */
-export function buildJobBrief(page: PageContext, now: number): JobBrief {
+export function buildJobBrief(page: PageContext, entities: readonly Entity[], now: number): JobBrief {
   const posting = readJobPosting(page.structuredData);
   const text = page.text;
 
@@ -294,7 +319,7 @@ export function buildJobBrief(page: PageContext, now: number): JobBrief {
 
   const salary = posting?.salary
     ? field(posting.salary, "structured", "JobPosting.baseSalary", 0.95)
-    : readProseSalary(text);
+    : readProseSalary(entities);
 
   const closingDate =
     structuredClosing !== undefined
