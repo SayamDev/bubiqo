@@ -95,10 +95,15 @@ the page cannot close the fence and write outside it.
 | `alarms` | Schedule reminders | Background work while Chrome is closed |
 | `sidePanel` | Show the panel | Page modification |
 
-**There are no `host_permissions`.** A content script declared over `<all_urls>`
-would run on every page you ever open. Injecting on demand under `activeTab` means
-Chrome grants access only on a user gesture and only for that tab, so Bubiqo
-physically cannot read a page you haven't opened it on.
+**There are no `host_permissions` at install.** A content script declared over
+`<all_urls>` would run on every page you ever open. Injecting on demand under
+`activeTab` means Chrome grants access only on a user gesture and only for that tab,
+so Bubiqo physically cannot read a page you haven't opened it on.
+
+`optional_host_permissions` is declared so the user *may* grant one named site
+standing access. Nothing is granted at install; Chrome's own prompt names the domain;
+the offer appears only after a read on that site has already succeeded; and it is
+revocable. The default posture — no standing access to anything — is unchanged.
 
 The `notifications` permission is deliberately not requested: a toolbar badge
 conveys a due reminder without widening the manifest.

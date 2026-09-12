@@ -38,6 +38,12 @@ export interface PanelState {
   readonly analysedAt?: number;
   /** Set when the active tab cannot be analysed, e.g. a chrome:// page. */
   readonly unavailableReason?: string;
+  /** True when the failure is a missing permission the user can grant. */
+  readonly canRequestAccess?: boolean;
+  /** Origin of the page just read, e.g. "https://mail.google.com". */
+  readonly siteOrigin?: string;
+  /** Whether standing access to that origin has already been granted. */
+  readonly siteAccessGranted?: boolean;
   /** Present only on an invoice, only when the user switched conversion on. */
   readonly conversion?: {
     readonly from: string;

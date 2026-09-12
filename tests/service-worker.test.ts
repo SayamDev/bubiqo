@@ -75,6 +75,36 @@ describe("analysing the active tab", () => {
     expect(panel.unavailableReason).toMatch(/switched Bubiqo off/i);
   });
 
+  it("asks the user to grant access when Chrome refuses the injection", async () => {
+    // The real failure mode: activeTab was never granted for this tab.
+    state.denyInjection = true;
+    const panel = asState(await dispatch({ type: "ANALYSE_ACTIVE_TAB" }));
+
+    expect(panel.analysis).toBeUndefined();
+    expect(panel.canRequestAccess).toBe(true);
+    // It must tell the user what to DO, not just that it failed.
+    expect(panel.unavailableReason).toMatch(/click the bubiqo icon/i);
+  });
+
+  it("never claims there is no page open, which is what a missing tabs permission looked like", async () => {
+    /*
+     * chrome.tabs.query only populates `url` when the extension holds the `tabs`
+     * permission or a host permission. Bubiqo holds neither by design, so the old
+     * gate on tab.url made every single page report "There is no page open in this
+     * tab" — the bug this test exists to prevent.
+     */
+    state.activeTab = { id: 1 };
+    const panel = asState(await dispatch({ type: "ANALYSE_ACTIVE_TAB" }));
+    expect(panel.unavailableReason ?? "").not.toMatch(/no page open/i);
+    expect(panel.analysis).toBeDefined();
+  });
+
+  it("reports the origin so the panel can offer standing access", async () => {
+    const panel = asState(await dispatch({ type: "ANALYSE_ACTIVE_TAB" }));
+    expect(panel.siteOrigin).toBe("https://mail.example.com");
+    expect(panel.siteAccessGranted).toBe(false);
+  });
+
   it("makes no network request while conversion is off", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);

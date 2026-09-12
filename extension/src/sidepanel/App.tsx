@@ -186,6 +186,24 @@ export function App() {
     setAnnounce(`Downloaded ${response.filename}. Open it to add the event to your calendar.`);
   }, []);
 
+  const grantSiteAccess = useCallback(async (origin: string) => {
+    /*
+     * chrome.permissions.request must be called from a user gesture in an
+     * extension page. A service worker has no gesture, so this lives here.
+     */
+    try {
+      const granted = await chrome.permissions.request({ origins: [`${origin}/*`] });
+      setAnnounce(
+        granted
+          ? `Bubiqo can now read ${new URL(origin).hostname} without being asked each time.`
+          : "Left as it was — Bubiqo will keep asking each time.",
+      );
+      if (granted) await analyse();
+    } catch {
+      setAnnounce("Chrome would not show the permission prompt. Try clicking the Bubiqo icon instead.");
+    }
+  }, [analyse]);
+
   const analysis = state?.analysis;
   const safeSuggestions = useMemo(
     () => (analysis?.suggestions ?? []).filter((s) => s.risk === "safe").slice(0, 3),
@@ -250,6 +268,7 @@ export function App() {
             onRefresh={analyse}
             onCopy={copyText}
             onDownload={downloadCalendar}
+            onGrantSite={grantSiteAccess}
             now={now}
           />
         )}
@@ -317,6 +336,7 @@ interface NowProps {
   onRefresh: () => void;
   onCopy: (text: string) => void;
   onDownload: (handle: string) => void;
+  onGrantSite: (origin: string) => void;
   now: number;
 }
 
@@ -329,6 +349,17 @@ function NowTab(props: NowProps) {
     return (
       <>
         <p className="notice">{state.unavailableReason}</p>
+        {state.canRequestAccess && (
+          <div style={{ marginTop: 12 }}>
+            <button className="btn btn--primary" onClick={props.onRefresh}>
+              Try again
+            </button>
+            <p className="why" style={{ marginTop: 8 }}>
+              Chrome grants Bubiqo access to a page only when you ask for it — that is why it
+              has no permission to read sites in the background.
+            </p>
+          </div>
+        )}
         <BriefingBlock briefing={briefing} now={now} />
       </>
     );
@@ -447,6 +478,21 @@ function NowTab(props: NowProps) {
       </section>
 
       <BriefingBlock briefing={briefing} now={now} />
+
+      {state?.siteOrigin && !state.siteAccessGranted && (
+        <section className="section">
+          <div className="notice">
+            <strong>Reading {new URL(state.siteOrigin).hostname} each time?</strong>
+            <p style={{ margin: "6px 0 10px" }}>
+              Right now Bubiqo can only read this page when you open it from the toolbar. Allow
+              this one site and it will keep up as you move between messages.
+            </p>
+            <button className="btn btn--small" onClick={() => props.onGrantSite(state.siteOrigin!)}>
+              Allow {new URL(state.siteOrigin).hostname}
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="section">
         <button className="btn btn--quiet btn--small" onClick={props.onRefresh} disabled={busy}>

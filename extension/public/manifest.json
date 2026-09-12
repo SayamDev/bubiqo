@@ -4,7 +4,16 @@
   "version": "0.1.0",
   "description": "Finds what needs your attention on the page you're already on, and completes the useful next steps in one click.",
   "minimum_chrome_version": "116",
-  "permissions": ["activeTab", "scripting", "storage", "alarms", "sidePanel"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "alarms",
+    "sidePanel"
+  ],
+  "optional_host_permissions": [
+    "*://*/*"
+  ],
   "background": {
     "service_worker": "service-worker.js",
     "type": "module"
@@ -29,7 +38,10 @@
   },
   "commands": {
     "_execute_action": {
-      "suggested_key": { "default": "Ctrl+Shift+A", "mac": "Command+Shift+A" },
+      "suggested_key": {
+        "default": "Ctrl+Shift+A",
+        "mac": "Command+Shift+A"
+      },
       "description": "Open Bubiqo"
     }
   },

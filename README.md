@@ -97,14 +97,22 @@ To see it: `npm run demo`, then open the panel on any of the pages.
 ## Privacy
 
 - **Nothing leaves your machine.** Out of the box, zero network requests.
-- **No host permissions.** Bubiqo cannot read a page you haven't opened it on. The
-  page reader is injected on demand under `activeTab`, which Chrome grants only on a
-  user gesture and only for that one tab.
+- **No host permissions at install.** Bubiqo cannot read a page you haven't opened it
+  on. The page reader is injected on demand under `activeTab`, which Chrome grants
+  only on a user gesture and only for that one tab. You may optionally grant one
+  named site standing access — see below — and revoke it at any time.
 - **No raw content is stored.** Only extracted entities — a date, an amount, a
   reference. Never page text, never email bodies.
 - **Password and payment fields are never read.** Not their values, not their labels,
   not whether they're filled.
 - **No hidden profile.** Memory contains what you explicitly saved and nothing else.
+
+**Standing access, if you want it.** By default Chrome only lets Bubiqo read a page
+at the moment you open it from the toolbar, so it cannot keep up as you move between
+messages. The panel offers, *after a read has already worked*, to let you grant one
+site — and only that site. It is `optional_host_permissions`, so nothing is granted
+at install, the prompt names the exact domain, and you can revoke it at
+`chrome://extensions`.
 
 Full detail in [PRIVACY.md](PRIVACY.md).
 

@@ -49,6 +49,13 @@ gesture happened in. Opening the side panel is that gesture.
 - The injected function must be entirely self-contained — Chrome serialises it — so
   it cannot import from `core/` and duplicates a little shape information. This is
   the cost, and it is paid in one file (`background/extract.ts`).
+- **`activeTab` expires when the tab changes.** The panel cannot re-read as the user
+  moves between messages in a webmail client, which is the single most common way
+  this product is used. This was not obvious until the extension ran against a real
+  inbox. The answer is `optional_host_permissions`: the user may grant one named
+  site standing access, from a prompt that appears only after a read has already
+  worked there. The default — nothing granted — is preserved, and the decision
+  stays the user's rather than the manifest's.
 - No passive background monitoring is possible. A feature like "watch my inbox and
   tell me when something arrives" cannot be built this way. That is a real capability
   given up, and it was given up deliberately: it is the same capability that makes

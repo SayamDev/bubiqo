@@ -161,9 +161,17 @@ async function pushIdList(key: string, id: string): Promise<void> {
 // Analysis
 // ---------------------------------------------------------------------------
 
-/** Pages the extension cannot and should not read. */
+/**
+ * Pages the extension cannot and should not read.
+ *
+ * Takes the URL the EXTRACTOR reported, not one from chrome.tabs.query.
+ * chrome.tabs.query only populates `url` when the extension holds the `tabs`
+ * permission or a host permission, and Bubiqo deliberately holds neither — so
+ * that field is always undefined here. Gating on it made every page look like
+ * "there is no page open in this tab", which is exactly what it did.
+ */
 function blockedUrl(url: string | undefined): string | undefined {
-  if (!url) return "There is no page open in this tab.";
+  if (!url) return undefined;
   if (/^(chrome|edge|about|devtools|view-source):/i.test(url)) {
     return "Bubiqo can't read browser pages like this one. Open an ordinary web page and try again.";
   }
@@ -177,17 +185,18 @@ async function analyseActiveTab(): Promise<PanelState> {
   const settings = await getSettings();
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  const unavailable = blockedUrl(tab?.url);
-  if (unavailable || !tab?.id) {
+  if (!tab?.id) {
     current = undefined;
-    return { ...(await baseState(settings)), unavailableReason: unavailable ?? "No active tab." };
+    return { ...(await baseState(settings)), unavailableReason: "No active tab." };
   }
 
-  if (settings.disabledDomains.some((d) => tab.url?.includes(d))) {
-    current = undefined;
-    return { ...(await baseState(settings)), unavailableReason: "You've switched Bubiqo off for this site." };
-  }
-
+  /*
+   * Inject FIRST, then look at the URL the page itself reported.
+   *
+   * We cannot know the URL beforehand without widening permissions, and we do not
+   * need to: injection is what requires permission, and it either succeeds — in
+   * which case the page tells us where it is — or it throws.
+   */
   let page: PageContext;
   try {
     const [injection] = await chrome.scripting.executeScript({
@@ -196,12 +205,37 @@ async function analyseActiveTab(): Promise<PanelState> {
     });
     if (!injection?.result) throw new Error("no result");
     page = injection.result as PageContext;
-  } catch {
+  } catch (error) {
     current = undefined;
+
+    /*
+     * Two very different failures arrive here, and telling them apart matters:
+     * a privileged page can NEVER be read, so "click the icon" would be a lie,
+     * while a missing activeTab grant is fixed by exactly that. Chrome's error
+     * text is the only signal available, because without the `tabs` permission we
+     * cannot see the URL to check it ourselves.
+     */
+    const message = error instanceof Error ? error.message : "";
+    const privileged = /chrome:\/\/|chrome-extension:\/\/|edge:\/\/|about:|devtools|extensions gallery|Web Store/i.test(message);
+
     return {
       ...(await baseState(settings)),
-      unavailableReason: "Bubiqo couldn't read this page. Reload it and open the panel again.",
+      unavailableReason: privileged
+        ? "Bubiqo can't read browser pages like this one. Open an ordinary web page and try again."
+        : "Click the Bubiqo icon in your toolbar to let me read this page. Chrome only grants access when you ask for it.",
+      ...(privileged ? {} : { canRequestAccess: true }),
     };
+  }
+
+  const unavailable = blockedUrl(page.url);
+  if (unavailable) {
+    current = undefined;
+    return { ...(await baseState(settings)), unavailableReason: unavailable };
+  }
+
+  if (settings.disabledDomains.some((d) => page.domain.includes(d))) {
+    current = undefined;
+    return { ...(await baseState(settings)), unavailableReason: "You've switched Bubiqo off for this site." };
   }
 
   const analysis = analyse(page, registry, {
@@ -219,7 +253,31 @@ async function analyseActiveTab(): Promise<PanelState> {
     });
   }
 
-  const state: PanelState = { ...(await baseState(settings)), page, analysis, analysedAt: Date.now() };
+  /*
+   * Whether the user has granted standing access to this site.
+   *
+   * Without it, activeTab only lasts until the tab changes, so switching to
+   * another email leaves the panel stale — the user has to click the icon again.
+   * With it, the panel can re-read on every tab switch. It is opt-in per site and
+   * the panel offers it only after a read has already succeeded, so the user is
+   * agreeing to something they have seen work.
+   */
+  let siteOrigin: string | undefined;
+  let siteAccessGranted = false;
+  try {
+    siteOrigin = new URL(page.url).origin;
+    siteAccessGranted = await chrome.permissions.contains({ origins: [`${siteOrigin}/*`] });
+  } catch {
+    siteOrigin = undefined;
+  }
+
+  const state: PanelState = {
+    ...(await baseState(settings)),
+    page,
+    analysis,
+    analysedAt: Date.now(),
+    ...(siteOrigin ? { siteOrigin, siteAccessGranted } : {}),
+  };
 
   /*
    * Conversion is the only thing here that can touch the network, so it is last,

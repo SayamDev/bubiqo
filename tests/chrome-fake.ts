@@ -15,6 +15,7 @@ export interface FakeChrome {
   tabs: { query(q: unknown): Promise<{ id?: number; url?: string; active?: boolean }[]> };
   scripting: { executeScript(opts: unknown): Promise<{ result: unknown }[]> };
   action: { setBadgeText(o: { text: string }): Promise<void>; setBadgeBackgroundColor(o: unknown): Promise<void> };
+  permissions: { contains(o: { origins: string[] }): Promise<boolean> };
   sidePanel: { setPanelBehavior(o: unknown): Promise<void> };
 }
 
@@ -27,6 +28,9 @@ export interface FakeState {
   badge: string;
   activeTab: { id?: number; url?: string };
   pageResult: unknown;
+  /** Simulates Chrome refusing injection for want of activeTab. */
+  denyInjection?: boolean;
+  grantedOrigins: string[];
 }
 
 export function installFakeChrome(state: FakeState): FakeChrome {
@@ -76,7 +80,23 @@ export function installFakeChrome(state: FakeState): FakeChrome {
     },
     scripting: {
       async executeScript() {
-        return [{ result: state.pageResult }];
+        /*
+         * Chrome throws when you try to inject into a privileged page, and refuses
+         * without activeTab or a host permission. The fake has to do the same, or
+         * tests will "pass" against behaviour the browser never allows.
+         */
+        const url = state.activeTab.url ?? "";
+        if (/^(chrome|edge|about|devtools|view-source):/i.test(url)) {
+          throw new Error("Cannot access a chrome:// URL");
+        }
+        if (state.denyInjection) throw new Error("Cannot access contents of the page");
+
+        // The injected script reports the page's own location, so keep them in step.
+        const page = state.pageResult as Record<string, unknown>;
+        const result = url
+          ? { ...page, url, domain: new URL(url).hostname }
+          : page;
+        return [{ result }];
       },
     },
     action: {
@@ -86,6 +106,11 @@ export function installFakeChrome(state: FakeState): FakeChrome {
       async setBadgeBackgroundColor() {},
     },
     sidePanel: { async setPanelBehavior() {} },
+    permissions: {
+      async contains(o) {
+        return o.origins.some((origin) => state.grantedOrigins.includes(origin));
+      },
+    },
   };
 
   (globalThis as unknown as { chrome: FakeChrome }).chrome = chrome;
@@ -94,5 +119,5 @@ export function installFakeChrome(state: FakeState): FakeChrome {
 }
 
 export function freshState(page: unknown, url = "https://mail.example.com/f001"): FakeState {
-  return { store: {}, alarms: new Map(), badge: "", activeTab: { id: 1, url }, pageResult: page };
+  return { store: {}, alarms: new Map(), badge: "", activeTab: { id: 1, url }, pageResult: page, grantedOrigins: [] };
 }
