@@ -27,6 +27,10 @@ it came from, and a sensitivity level.
 Entities are the only form in which page content is ever persisted. Raw page text and raw
 email bodies are not stored.
 
+Job-specific facts — salary, closing date, eligibility conditions — live in the **Job
+Brief** rather than as Entities, because they need provenance and an Entity does not
+carry one.
+
 ## Intent
 
 What the user is likely trying to do on this Surface — applying, replying, scheduling,
@@ -40,6 +44,21 @@ deadline, a commitment the user made, an unanswered question, an upcoming event,
 unfinished form. Problems are what the **Problem Radar** reports.
 
 A Problem is not an error. It is a thing the user might otherwise forget.
+
+## Job Brief
+
+The answer to the one question a job advert is read to settle: is this worth an hour
+of my time. It holds the conditions that would rule the reader out, the salary, the
+closing date and the working pattern, and it is derived only for the `job` Surface.
+
+Every fact in a Job Brief records where it came from — the site's own structured data,
+or the advert's prose — because those are different kinds of claim and the reader is
+entitled to tell them apart.
+
+A Job Brief's verdict is one-sided. It says `ruled out`, with the advert's own sentence
+behind it, or it says nothing. There is no verdict meaning "you are eligible".
+
+Not to be confused with **Briefing**, which is the daily digest of Reminders.
 
 ## Action
 
