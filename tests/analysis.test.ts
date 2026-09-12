@@ -54,9 +54,23 @@ describe("the email in §119 — the whole point of the product", () => {
     expect(ask?.summary).toMatch(/send me the revised proposal/i);
   });
 
-  it("detects the commitment John made", () => {
-    const commitment = analysis.problems.find((p) => p.kind === "commitment");
-    expect(commitment?.summary).toMatch(/circulate the budget figures/i);
+  it("attributes the sender's promise to the sender, not to you", () => {
+    /*
+     * John wrote "I'll circulate the budget figures". On an email you are READING,
+     * the first person is the sender. Reporting that as "You said you would
+     * circulate the budget figures" invents an obligation the user never took on.
+     */
+    const promise = analysis.problems.find((p) => /circulate the budget figures/i.test(p.summary));
+    expect(promise).toBeDefined();
+    expect(promise!.summary).toMatch(/^John.* said they would/i);
+    expect(promise!.summary).not.toMatch(/^You said/i);
+    expect(promise!.kind).toBe("pending_response");
+  });
+
+  it("still reports a first-person promise as yours when there is no sender", () => {
+    const notes = { ...emailWithDeadline, text: "I'll send the deck to the team tomorrow." };
+    const own = run(notes).problems.find((p) => p.kind === "commitment");
+    expect(own?.summary).toMatch(/^You said you would send the deck/i);
   });
 
   it("detects the Tuesday call", () => {

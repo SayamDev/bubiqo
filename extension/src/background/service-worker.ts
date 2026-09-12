@@ -337,8 +337,17 @@ async function analyseActiveTab(): Promise<PanelState> {
   return state;
 }
 
+/**
+ * The state every reply is built from.
+ *
+ * It carries the CURRENT analysis if there is one. Without that, any message that
+ * is not itself an analysis — changing a setting, deleting a reminder — returned a
+ * state with no analysis, and the panel fell back to its loading skeleton and sat
+ * there, because nothing ever asked it to read the page again.
+ */
 async function baseState(settings: Settings): Promise<PanelState> {
   return {
+    ...(current ? { page: current.page, analysis: current.analysis } : {}),
     settings,
     reminders: await ports.reminders.all(),
     memory: await ports.memory.all(),

@@ -25,6 +25,14 @@ const WAITING =
 
 const MEETING_WORDS = /\b(?:meeting|call|interview|appointment|catch[- ]?up|standup|session|webinar)\b/i;
 
+/**
+ * Marketing filler that matches the commitment and request patterns but is never
+ * something anyone has to act on. Bulk mail is full of it — "I'll get sharper with
+ * the matches", "let me know if you have questions", "just hit reply".
+ */
+const BOILERPLATE =
+  /\b(?:get sharper|fine[- ]tune|unsubscribe|hit reply|let me know if|any other questions|get back to you|be in touch|keep you posted|good fit|opted in)\b/i;
+
 function problem(
   kind: ProblemKind,
   summary: string,
@@ -39,6 +47,40 @@ function problem(
     : { kind, summary, urgency, confidence, evidence: trimmed, dueAt };
 }
 
+/**
+ * Who wrote the first person in this text?
+ *
+ * On a page you are READING, "I'll send it over" is the sender speaking, not you.
+ * Reporting it as "You said you would send it over" is not a small wording problem:
+ * it invents a commitment the user never made, and the first time they see that
+ * they stop trusting everything else on the panel.
+ *
+ * A From: header, or a signed-off message addressed to the reader, means the first
+ * person belongs to someone else.
+ */
+function firstPersonIsTheSender(page: PageContext, surface: Surface): string | undefined {
+  if (surface !== "email") return undefined;
+
+  const from = /^\s*from\s*:\s*([^<\n]{2,60})/im.exec(page.text);
+  if (from?.[1]) return from[1].trim().replace(/["']/g, "");
+
+  /*
+   * Gmail does not render a "From:" header — it shows "Archer
+   * <archer@mail-hackajob.com>". A name immediately followed by an address is the
+   * same signal, and without this every bulk email's "I'll ..." was being read as
+   * something the user had promised.
+   */
+  const named = /([A-Z][A-Za-z'’-]{1,30}(?:\s+[A-Z][A-Za-z'’-]{1,30})?)\s*<[^@\s>]+@[^>\s]+>/.exec(page.text);
+  if (named?.[1]) return named[1].trim();
+
+  // A salutation to someone else plus a sign-off is the same shape.
+  if (/^\s*(?:hi|hello|dear|hey)\s+[A-Z][a-z]+/m.test(page.text)) {
+    const signoff = /\b(?:kind regards|best regards|regards|thanks|cheers|sincerely)[,!]?\s*\n+\s*([A-Z][a-z]{1,20})/i.exec(page.text);
+    if (signoff?.[1]) return signoff[1].trim();
+  }
+  return undefined;
+}
+
 export function scanForProblems(
   page: PageContext,
   surface: Surface,
@@ -47,6 +89,7 @@ export function scanForProblems(
 ): Problem[] {
   const text = page.text;
   const found: Problem[] = [];
+  const sender = firstPersonIsTheSender(page, surface);
 
   // --- Deadlines -----------------------------------------------------------
   for (const e of entities) {
@@ -71,17 +114,28 @@ export function scanForProblems(
     }
   }
 
-  // --- Commitments the user made ------------------------------------------
+  // --- Commitments --------------------------------------------------------
   for (const m of text.matchAll(COMMITMENT)) {
     const promise = (m[1] ?? "").trim();
     if (promise.length < 4) continue;
-    found.push(problem("commitment", `You said you would ${promise}.`, "soon", 0.7, m[0]));
+    if (BOILERPLATE.test(promise)) continue;
+
+    if (sender) {
+      /*
+       * Someone else's promise to you. Still worth surfacing — it is a thing you
+       * are waiting on — but at lower confidence and never as your own obligation.
+       */
+      found.push(problem("pending_response", `${sender} said they would ${promise}.`, "later", 0.5, m[0]));
+    } else {
+      found.push(problem("commitment", `You said you would ${promise}.`, "soon", 0.7, m[0]));
+    }
   }
 
   // --- Requests aimed at the user ------------------------------------------
   for (const m of text.matchAll(REQUEST)) {
     const ask = ((m[1] ?? m[2]) ?? "").trim();
     if (ask.length < 4) continue;
+    if (BOILERPLATE.test(ask)) continue;
     found.push(problem("unanswered_question", `Someone asked you to ${ask}.`, "soon", 0.75, m[0]));
   }
 

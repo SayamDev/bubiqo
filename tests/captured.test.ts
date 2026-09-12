@@ -139,3 +139,52 @@ describe("a real hostile page", () => {
     }
   });
 });
+
+describe("a real recruiter email from a live inbox", () => {
+  /*
+   * The email that exposed how thin the extraction was. On first run the panel
+   * found exactly one thing, and it was wrong: it reported "You said you would get
+   * sharper with the matches" — marketing copy from the SENDER, attributed to the
+   * user as a promise they had made. Meanwhile it missed the company, the role, the
+   * June 2027 requirement and the £500.
+   */
+  const analysis = run(captured("hackajob-email"));
+
+  it("does not invent a commitment out of the sender's marketing copy", () => {
+    const summaries = analysis.problems.map((p) => p.summary).join(" | ");
+    expect(summaries).not.toMatch(/you said you would get sharper/i);
+    expect(summaries).not.toMatch(/you said you would fine.?tune/i);
+  });
+
+  it("never attributes the sender's first person to the user", () => {
+    for (const problem of analysis.problems) {
+      expect(problem.summary, `misattributed: ${problem.summary}`).not.toMatch(/^You said you would/i);
+    }
+  });
+
+  it("finds the company, which carries no Ltd or PLC", () => {
+    expect(analysis.entities.some((e) => e.type === "organisation" && e.value === "Barclays")).toBe(true);
+  });
+
+  it("finds the role, even though it is inside an email rather than on a careers page", () => {
+    const role = analysis.entities.find((e) => e.type === "job_title");
+    expect(role?.value).toMatch(/Technology Developer Graduate Programme/i);
+  });
+
+  it("reads 'before June 2027' as a date", () => {
+    const june = analysis.entities.find(
+      (e) => e.resolvedAt !== undefined && new Date(e.resolvedAt).getFullYear() === 2027 && new Date(e.resolvedAt).getMonth() === 5,
+    );
+    expect(june, "June 2027 was not parsed").toBeDefined();
+  });
+
+  it("reads the £500 referral amount", () => {
+    expect(analysis.entities.some((e) => e.type === "amount" && e.value === "GBP 500")).toBe(true);
+  });
+
+  it("gets meaningfully more out of the email than it used to", () => {
+    // It previously produced one entity of substance. Six is not a lot, but it is
+    // the difference between useful and embarrassing.
+    expect(analysis.entities.length).toBeGreaterThanOrEqual(6);
+  });
+});

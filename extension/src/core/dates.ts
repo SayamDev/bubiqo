@@ -175,6 +175,25 @@ export function resolveDates(text: string, now: number): ResolvedDate[] {
     push(atLocal(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0), m[0].trim(), 0.8, false);
   }
 
+  /*
+   * Month and year with no day: "before June 2027", "closes March 2027".
+   * Resolved to the FIRST of that month, which is the conservative reading of a
+   * requirement like "completed before June 2027" — being early is never wrong.
+   * Skipped when a day number precedes it, or "12 March 2026" would be counted
+   * twice, once correctly and once as the 1st.
+   */
+  for (const m of text.matchAll(
+    /\b(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sept|sep|october|oct|november|nov|december|dec)\.?\s+(\d{4})\b/gi,
+  )) {
+    const month = MONTHS[(m[1] ?? "").toLowerCase()];
+    if (month === undefined) continue;
+
+    const preceding = text.slice(Math.max(0, (m.index ?? 0) - 6), m.index ?? 0);
+    if (/\d\s*(?:st|nd|rd|th)?\s*$/.test(preceding)) continue;
+
+    push(atLocal(Number(m[2]), month, 1, 9, 0), m[0].trim(), 0.7, false);
+  }
+
   // ISO 8601: 2026-03-12
   for (const m of text.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)) {
     const y = Number(m[1]);

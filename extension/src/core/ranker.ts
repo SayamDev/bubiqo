@@ -66,6 +66,18 @@ export function rankSuggestions(
     const affinity = SURFACE_AFFINITY[ctx.surface][action.id] ?? 0.1;
     let score = affinity;
 
+    /*
+     * A page can be two things at once. A recruiter email IS an email — it wants a
+     * reply, it has a sender — but it also carries a role and a company, and the
+     * useful action there is to save the job, which the email affinity ranks low.
+     * Surface picks the shape; the entities present can still argue for an action
+     * the shape alone would bury.
+     */
+    const carriesAJob = ctx.entities.some((e) => e.type === "job_title");
+    if (carriesAJob && (action.id === "save_to_memory" || action.id === "copy_details")) {
+      score += 0.3;
+    }
+
     const { rationale, bonus } = explain(action.id, ctx);
     score += bonus;
 
@@ -151,6 +163,17 @@ function explain(actionId: string, ctx: RankingContext): { rationale: string; bo
     }
 
     case "save_to_memory": {
+      const role = ctx.entities.find((e) => e.type === "job_title");
+      const company = ctx.entities.find((e) => e.type === "organisation");
+      if (role) {
+        // Name the thing being saved. "7 details" tells the user nothing.
+        return {
+          rationale: company
+            ? `Keeps the ${role.value} role at ${company.value} — with its dates and requirements — in one place.`
+            : `Keeps the ${role.value} role, with its dates and requirements, in one place.`,
+          bonus: 0.15,
+        };
+      }
       if (ctx.surface === "job") return { rationale: "Saving the role keeps the requirements and the closing date together.", bonus: 0.15 };
       if (ctx.surface === "invoice") return { rationale: "Saving the supplier, amount and reference means you won't reopen this page.", bonus: 0.15 };
       return { rationale: `There are ${ctx.entities.length} details here worth keeping.`, bonus: 0 };

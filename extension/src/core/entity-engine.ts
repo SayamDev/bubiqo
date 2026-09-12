@@ -175,6 +175,17 @@ function extractOrganisations(page: PageContext): Entity[] {
     out.push(entity("organisation", `${m[1]} ${m[2]}`, 0.85, windowAround(page.text, m.index ?? 0, m[0].length)));
   }
 
+  /*
+   * Most companies are not written "Acme Ltd" in prose. "a role at Barclays" is far
+   * more common, and the preposition is what makes it safe to capture — a bare
+   * capitalised word would match half the sentence.
+   */
+  for (const m of page.text.matchAll(
+    /\b(?:role|job|position|opportunity|programme|program|internship|vacancy|working)\s+(?:at|with|for)\s+([A-Z][A-Za-z&.'-]{1,24}(?:\s+[A-Z][A-Za-z&.'-]{1,24}){0,2})\b/g,
+  )) {
+    out.push(entity("organisation", (m[1] ?? "").trim(), 0.8, windowAround(page.text, m.index ?? 0, m[0].length)));
+  }
+
   // Structured data is the most reliable source when a page provides it.
   for (const block of page.structuredData) {
     const org = readPath(block, ["hiringOrganization", "name"]) ?? readPath(block, ["provider", "name"]);
@@ -192,6 +203,19 @@ function extractJobTitle(page: PageContext): Entity[] {
       out.push(entity("job_title", block["title"], 0.95, "structured data on the page"));
     }
   }
+  /*
+   * A job advert often arrives inside an email rather than on a careers page, so
+   * the role has to be findable in prose too — not only from structured data or a
+   * page heading, which an email does not have.
+   */
+  for (const m of page.text.matchAll(
+    /\b(?:looking for|hiring|recruiting|role[: ]|position[: ]|apply for)\s+(?:a|an|the)?\s*([A-Z0-9][A-Za-z0-9]*(?:\s+[A-Z0-9][A-Za-z0-9-]*){1,6})/g,
+  )) {
+    const title = (m[1] ?? "").trim();
+    if (title.length < 6) continue;
+    out.push(entity("job_title", title, 0.75, windowAround(page.text, m.index ?? 0, m[0].length)));
+  }
+
   if (out.length === 0) {
     const heading = page.headings[0];
     if (

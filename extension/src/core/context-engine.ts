@@ -36,6 +36,14 @@ const SIGNALS: Readonly<Record<Exclude<Surface, "generic">, readonly Signal[]>> 
   ],
   email: [
     { pattern: /^\s*(?:from|to|cc|subject)\s*:/im, weight: 3, label: "email headers" },
+    /*
+     * Gmail and friends render no "From:" header. What they do render is a name
+     * beside an address, a "to me" line, and an Unsubscribe link — which is why a
+     * real recruiter email scored 3 against a floor of 4 and came out "generic".
+     */
+    { pattern: /[A-Z][A-Za-z'’-]{1,30}\s*<[^@\s>]+@[^>\s]+>/, weight: 3, label: "a sender address" },
+    { pattern: /^\s*to me\s*$/im, weight: 2, label: "a “to me” line" },
+    { pattern: /\bunsubscribe\b/i, weight: 1, label: "an unsubscribe link" },
     { pattern: /\b(?:hi|hello|dear|hey)\s+[A-Z][a-z]+/,  weight: 2, label: "a salutation" },
     { pattern: /\b(?:kind regards|best regards|regards|thanks,|cheers,|sincerely)\b/i, weight: 2, label: "a sign-off" },
     { pattern: /\b(?:wrote|replied|forwarded message|on .{3,30} wrote:)\b/i, weight: 2, label: "a quoted reply" },
