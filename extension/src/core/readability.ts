@@ -228,10 +228,16 @@ const FURNITURE_HEADING = new RegExp(
       // "Determine your fit and how to stand out".
       "determine your fit", "take the next step", "get personalali?sed", "get ai-powered",
       "practice an interview", "premium", "reactivate", "upgrade",
+      // September 2026: LinkedIn's first heading on a job page is now an AI
+      // upsell, and it titled a brief "Use AI to assess how you fit".
+      "use ai\\b", "assess how you fit",
       // Page sections that are about the site, not the content
       "application status", "people you can reach", "meet the hiring team", "job poster",
       "school alumni", "show all", "create (?:a )?(?:job )?alert", "job alert",
       "similar jobs", "people also", "recommended for you", "more jobs", "jobs? based on",
+      // Section names, not titles: falling back to the document title beats
+      // naming a job "About the job".
+      "about the (?:job|company|role)", "set (?:a )?(?:job )?alert",
       "search\\b", "filters?\\b", "messaging", "notifications", "promoted", "suggested",
     ].join("|") +
     ")\\b",

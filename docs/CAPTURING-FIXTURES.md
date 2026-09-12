@@ -47,9 +47,10 @@ Every page captured to date publishes **no** `JobPosting` JSON-LD:
 | Greenhouse-hosted posting (`job-boards.greenhouse.io`) | none |
 | NHS Jobs advert (`jobs.nhs.uk`) | none |
 | Ashby-hosted posting (`jobs.ashbyhq.com`) | **a full JobPosting** |
+| LinkedIn job page, logged in, Sept 2026 | none |
+| Indeed `/viewjob` page, logged in, Sept 2026 | **a full JobPosting** |
 
-The Ashby posting is the exception, and it is the one that proves the structured path is
-worth having: title, employer, a `MonetaryAmount` salary range, a nested postal address
+The Ashby and Indeed pages are the ones that prove the structured path is worth having: title, employer, a `MonetaryAmount` salary range, a nested postal address
 and an employment type, all stated by the site. It is committed as
 `tests/captured/ashby-job.json`, and its test asserts the published salary wins over the
 page's own "$230K – $385K".
@@ -64,10 +65,15 @@ immediately: the advert says "Disclosure and Barring Service Check", never "DBS 
 so the rule written against software adverts read a whole sector's standard wording as
 no condition at all. Fixed, with the advert's phrasing pinned in a test.
 
+Two captures from a logged-in session, September 2026, are now in the repo:
+`linkedin-prompt-engineer.json` and `indeed-viewjob.json`. The LinkedIn one caught a
+regression the moment it landed — LinkedIn's first heading is now an AI upsell, "Use AI
+to assess how you fit", and the brief was titled with it. That is the argument for
+recapturing on a schedule rather than once: the fixtures in this directory age at the
+speed the sites redesign.
+
 Still wanted: a Lever-hosted posting, a Workday posting, and a Civil Service advert
-(civilservicejobs.service.gov.uk sits behind a bot check, so it needs a human). LinkedIn
-and Indeed captures have to come from a logged-in session — the fixtures in the repo for
-those two predate this work.
+(civilservicejobs.service.gov.uk sits behind a bot check, so it needs a human).
 
 The Greenhouse capture showed the extractor taking the whole region, so the text runs
 from the advert straight into the application form and its voluntary self-identification

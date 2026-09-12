@@ -520,3 +520,88 @@ describe("a real Ashby posting, which publishes structured data", () => {
     expect(analysis.brief?.verdict).toBeUndefined();
   });
 });
+
+/*
+ * A logged-in LinkedIn job page, captured September 2026 — the state of the site
+ * as it actually is, not as it was when the earlier LinkedIn fixtures were taken.
+ *
+ * It found a regression the moment it landed: LinkedIn's first heading is now an
+ * AI upsell, "Use AI to assess how you fit", and the brief was titled with it.
+ */
+describe("a logged-in LinkedIn job page, 2026", () => {
+  const page = captured("linkedin-prompt-engineer");
+  const analysis = run(page);
+
+  it("is recognised as a job advert", () => {
+    expect(analysis.classification.surface).toBe("job");
+  });
+
+  it("publishes no structured data, so the brief is built from prose", () => {
+    expect(page.structuredData).toHaveLength(0);
+    expect(analysis.brief?.salary?.source).toBe("prose");
+  });
+
+  it("names the job rather than LinkedIn's upsell", () => {
+    // Falls back to the document title once every heading is furniture. The
+    // employer rides along after the pipe, which beats "Use AI to assess how you
+    // fit" by a distance.
+    expect(analysis.brief?.title?.value).toContain("Senior Prompt Engineer");
+    expect(analysis.brief?.title?.value).not.toMatch(/use ai|assess how you fit/i);
+  });
+
+  it("reads the salary out of the advert's own bullet", () => {
+    expect(analysis.brief?.salary?.value).toBe("GBP 55000–60000");
+  });
+
+  it("reads the working pattern", () => {
+    expect(analysis.brief?.workingPattern?.value).toBe("Hybrid");
+  });
+
+  it("reports no blocker, because this advert states none", () => {
+    expect(analysis.brief?.blockers).toHaveLength(0);
+    expect(analysis.brief?.verdict).toBeUndefined();
+  });
+});
+
+/*
+ * A real Indeed job page, captured September 2026 from a logged-in session.
+ *
+ * This one corrects a conclusion drawn earlier from `indeed-job.json`, which has
+ * no structured data: Indeed's /viewjob page publishes a complete JobPosting —
+ * title, employer, a GBP salary range, a nested postal address, an employment
+ * type given as an array, and a validThrough date. So the structured path fires
+ * on an aggregator after all, and every field in this brief comes from it.
+ */
+describe("a real Indeed viewjob page, 2026", () => {
+  const page = captured("indeed-viewjob");
+  const analysis = run(page);
+
+  it("publishes a JobPosting", () => {
+    expect(page.structuredData.map((b) => b["@type"])).toContain("JobPosting");
+  });
+
+  it("takes every headline fact from what the site published", () => {
+    expect(analysis.brief?.title?.value).toBe("Business Applications Developer");
+    expect(analysis.brief?.organisation?.value).toBe("Data8 Ltd");
+    expect(analysis.brief?.location?.value).toBe("Chester");
+    expect(analysis.brief?.salary?.value).toBe("GBP 35000–40000");
+    for (const field of [analysis.brief?.title, analysis.brief?.organisation, analysis.brief?.salary]) {
+      expect(field?.source).toBe("structured");
+    }
+  });
+
+  it("reads an employmentType given as an array", () => {
+    // Indeed sends ["FULL_TIME"], where the schema documents a bare string.
+    expect(analysis.brief?.employmentType?.value).toBe("Full time");
+  });
+
+  it("reads the closing date the site published", () => {
+    expect(analysis.brief?.closingDate?.value).toBe(Date.parse("2027-01-10T22:49:19.595Z"));
+    expect(analysis.brief?.closingDate?.source).toBe("structured");
+  });
+
+  it("still reads the working pattern out of prose, which the posting does not state", () => {
+    expect(analysis.brief?.workingPattern?.value).toBe("Hybrid");
+    expect(analysis.brief?.workingPattern?.source).toBe("prose");
+  });
+});

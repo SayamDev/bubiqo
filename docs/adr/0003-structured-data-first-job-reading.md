@@ -59,16 +59,21 @@ sentence behind it, and otherwise absent. There is no verdict meaning eligible.
 
 **Bad:**
 
-- **The structured path does not fire on the sites that matter most.** LinkedIn (three
-  captures), Indeed, a Greenhouse-hosted posting and an NHS Jobs advert all have an
-  empty `structuredData`. Whatever those sites serve to crawlers, what the extension
-  sees on the page contains no JSON-LD. So prose is not a fallback here; it is the path
-  that runs on the job boards people actually use.
+- **Whether the structured path fires is a property of the page, not of the site.**
+  LinkedIn publishes no JSON-LD on a job page — checked twice, most recently from a
+  logged-in session in September 2026 — and neither does a Greenhouse-hosted posting or
+  an NHS Jobs advert. An Ashby-hosted posting publishes a full `JobPosting`, and so does
+  Indeed's `/viewjob` page: title, employer, a GBP range, a nested postal address, an
+  employment type sent as an array, and a `validThrough` date.
 
-  An Ashby-hosted posting does publish one, in full — title, employer, a salary range,
-  a nested postal address, an employment type — and `tests/captured/ashby-job.json`
-  pins it. So the split is roughly: company career pages hosted on an ATS that cares
-  about Google for Jobs, yes; the big aggregators, no.
+  An earlier draft of this ADR said the structured path "does not fire on the sites that
+  matter most", generalising from `indeed-job.json`, a fixture with an empty
+  `structuredData`. Capturing a current Indeed job page disproved it. The honest version
+  is narrower: a job *board's* result list gives you nothing, a job *page* often gives
+  you everything, and the only way to know is to look. `tests/captured/` now holds both
+  kinds, and the prose path has to be as good as the structured one regardless, because
+  LinkedIn is the site people actually read adverts on and it gives us nothing.
+
 - The employer is read only from structured data. Naming it from prose is the guess
   that went wrong most often — a job board's own name, or the company advertising
   beside the advert — and it is left to the Entity extractor, which carries its own

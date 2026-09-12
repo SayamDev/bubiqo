@@ -83,6 +83,20 @@ describe("headings that are furniture, not titles", () => {
     expect(isFurnitureHeading("Know someone who'd be a good fit?")).toBe(true);
   });
 
+  it("knows the headings LinkedIn shows in 2026", () => {
+    // Captured from a logged-in LinkedIn job page in September 2026. The first
+    // heading on the page is now an AI upsell, and the brief came out titled
+    // "Use AI to assess how you fit".
+    for (const heading of [
+      "Use AI to assess how you fit",
+      "About the job",
+      "About the company",
+      "Set alert for similar jobs",
+    ]) {
+      expect(isFurnitureHeading(heading), heading).toBe(true);
+    }
+  });
+
   it("accepts a real title", () => {
     expect(isFurnitureHeading("Javascript Developer")).toBe(false);
     expect(isFurnitureHeading("Senior Software Engineer — Cathcart Technology")).toBe(false);
