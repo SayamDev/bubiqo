@@ -13,7 +13,7 @@ import type { ActionDefinition, ActionInput, ActionResult, Entity, VerificationR
 import type { Ports } from "./ports";
 import { assertWellFormed } from "./safety";
 import { formatDue } from "./dates";
-import { cleanTitle } from "./storage-hygiene";
+import { preferredTitle } from "./storage-hygiene";
 
 const ok = (message: string, handle: string | undefined, undoable: boolean): ActionResult =>
   handle === undefined ? { ok: true, message, undoable } : { ok: true, message, handle, undoable };
@@ -48,7 +48,7 @@ function paramString(input: ActionInput, key: string, fallback: string): string 
  * user's own email address into every reminder and saved item they made.
  */
 function pageTitle(input: ActionInput): string {
-  return cleanTitle(input.page.title, input.page.domain);
+  return preferredTitle(input.page);
 }
 
 export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {

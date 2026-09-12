@@ -77,8 +77,28 @@ function extractPhones(text: string): Entity[] {
 function extractAmounts(text: string): Entity[] {
   const out: Entity[] = [];
 
-  // Symbol first: £2,400.00
+  /*
+   * A pay range is a single fact. Read as two separate amounts it says almost
+   * nothing — "GBP 45000" and "GBP 60000" sitting in a list — and on a job advert
+   * the range IS the number the reader cares about.
+   */
+  const rangeSpans: [number, number][] = [];
+
+  for (const m of text.matchAll(
+    /([£$€])\s?(\d{1,3}(?:,\d{3})+)\s*(?:-|–|—|to)\s*\1?\s?(\d{1,3}(?:,\d{3})+)/g,
+  )) {
+    rangeSpans.push([m.index ?? 0, (m.index ?? 0) + m[0].length]);
+    const code = CURRENCY_SYMBOLS[m[1] ?? ""] ?? "";
+    const low = (m[2] ?? "").replace(/,/g, "");
+    const high = (m[3] ?? "").replace(/,/g, "");
+    out.push(entity("amount", `${code} ${low}–${high}`, 0.95, windowAround(text, m.index ?? 0, m[0].length)));
+    out.push(entity("currency", code, 0.95, windowAround(text, m.index ?? 0, m[0].length)));
+  }
+
+  // Symbol first: £2,400.00 — but not the two ends of a range already read above.
   for (const m of text.matchAll(/([£$€¥₹])\s?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)/g)) {
+    const at = m.index ?? 0;
+    if (rangeSpans.some(([start, end]) => at >= start && at < end)) continue;
     const code = CURRENCY_SYMBOLS[m[1] ?? ""] ?? "";
     const numeric = (m[2] ?? "").replace(/,/g, "");
     const context = windowAround(text, m.index ?? 0, m[0].length);
@@ -202,6 +222,22 @@ function extractOrganisations(page: PageContext): Entity[] {
     /\b(?:role|job|position|opportunity|programme|program|internship|vacancy|working)\s+(?:at|with|for)\s+([A-Z][A-Za-z&.'-]{1,24}(?:\s+[A-Z][A-Za-z&.'-]{1,24}){0,2})\b/g,
   )) {
     out.push(entity("organisation", (m[1] ?? "").trim(), 0.8, windowAround(page.text, m.index ?? 0, m[0].length)));
+  }
+
+  /*
+   * Job boards print the employer on its own line under the role, separated from
+   * the location by a middot or a bullet: "Better Placed · Manchester Area (Hybrid)".
+   * No legal suffix, no preposition — so neither of the rules above could see it,
+   * and a job advert was being saved with no company at all.
+   */
+  for (const m of page.text.matchAll(
+    // [^\S\n] is "whitespace but not a line break" — without it the name ran
+    // up into the heading on the line above and came out as two joined lines.
+    /^([A-Z][A-Za-z0-9&.'’-]{1,30}(?:[^\S\n]+[A-Z][A-Za-z0-9&.'’-]{1,30}){0,3})[^\S\n]*[·•][^\S\n]*[A-Z]/gm,
+  )) {
+    const name = (m[1] ?? "").trim();
+    if (/^(?:About|Save|Apply|Posted|Full|Part|Hybrid|Remote)\b/i.test(name)) continue;
+    out.push(entity("organisation", name, 0.8, windowAround(page.text, m.index ?? 0, m[0].length)));
   }
 
   // Structured data is the most reliable source when a page provides it.

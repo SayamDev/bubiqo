@@ -50,7 +50,13 @@ const URGENCY_BONUS: Readonly<Record<Urgency, number>> = { overdue: 0.4, today: 
 const SURFACE_AFFINITY: Readonly<Record<Surface, Readonly<Record<string, number>>>> = {
   email: { create_reminder: 0.5, draft_reply: 0.45, create_task: 0.4, export_calendar_event: 0.3, save_to_memory: 0.2, copy_details: 0.1 },
   invoice: { create_reminder: 0.55, save_to_memory: 0.45, copy_details: 0.3, export_calendar_event: 0.25, draft_reply: 0.05 },
-  job: { save_to_memory: 0.55, create_reminder: 0.45, copy_details: 0.35, export_calendar_event: 0.2, create_task: 0.2 },
+  /*
+   * Opening the application is the obvious next step on a job advert, so its
+   * affinity has to clear BOTH the relevance floor and the 0.2 penalty every
+   * confirm-risk action carries. At 0.45 it scored 0.25 against a floor of 0.35
+   * and was silently never offered, despite the link being extracted correctly.
+   */
+  job: { save_to_memory: 0.55, create_reminder: 0.45, open_application_link: 0.62, copy_details: 0.35, export_calendar_event: 0.2, create_task: 0.2 },
   generic: { save_to_memory: 0.3, create_reminder: 0.25, copy_details: 0.25, export_calendar_event: 0.2 },
 };
 
@@ -184,11 +190,14 @@ function explain(actionId: string, ctx: RankingContext): { rationale: string; bo
       const role = ctx.entities.find((e) => e.type === "job_title");
       const company = ctx.entities.find((e) => e.type === "organisation");
       if (role) {
-        // Name the thing being saved. "7 details" tells the user nothing.
+        // Name the thing being saved. "7 details" tells the user nothing — and do
+        // not promise dates on an advert that states none.
+        const hasDate = ctx.entities.some((e) => e.resolvedAt !== undefined);
+        const extras = hasDate ? "its dates, pay and requirements" : "the pay and requirements";
         return {
           rationale: company
-            ? `Keeps the ${role.value} role at ${company.value} — with its dates and requirements — in one place.`
-            : `Keeps the ${role.value} role, with its dates and requirements, in one place.`,
+            ? `Keeps the ${role.value} role at ${company.value}, and ${extras}, in one place.`
+            : `Keeps the ${role.value} role, and ${extras}, in one place.`,
           bonus: 0.15,
         };
       }
@@ -200,8 +209,15 @@ function explain(actionId: string, ctx: RankingContext): { rationale: string; bo
     case "copy_details":
       return { rationale: "The key details are ready to paste somewhere else.", bonus: 0 };
 
-    case "open_application_link":
-      return { rationale: "This job lists an application link.", bonus: 0 };
+    case "open_application_link": {
+      const company = ctx.entities.find((e) => e.type === "organisation");
+      return {
+        rationale: company
+          ? `Opens the application for ${company.value} in a new tab. Nothing is submitted.`
+          : "Opens the application page in a new tab. Nothing is submitted.",
+        bonus: 0,
+      };
+    }
 
     default:
       return { rationale: "This looked relevant to what is on the page.", bonus: 0 };

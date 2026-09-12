@@ -188,3 +188,73 @@ describe("a real recruiter email from a live inbox", () => {
     expect(analysis.entities.length).toBeGreaterThanOrEqual(6);
   });
 });
+
+describe("a real LinkedIn job advert", () => {
+  /*
+   * The page that made someone call this pointless, and fairly. It said "Nothing
+   * needs you here" on the single most obvious job-advert page on the internet.
+   *
+   * The cause was overfitting: the job signals had been written against a fixture
+   * I wrote myself, using my own phrasing — "job description", "requirements",
+   * "salary:". A real advert says "About the job", "What you'll be doing",
+   * "You'll ideally have", and prints a bare "£45,000 – £60,000". Exactly one of
+   * six signals fired, against a floor of four.
+   */
+  const page = captured("linkedin-job");
+  const analysis = run(page);
+
+  it("is recognised as a job advert", () => {
+    expect(analysis.classification.surface).toBe("job");
+    expect(analysis.classification.confidence).toBeGreaterThan(0.8);
+  });
+
+  it("reads the pay as a range, not as two loose numbers", () => {
+    const amounts = analysis.entities.filter((e) => e.type === "amount").map((e) => e.value);
+    expect(amounts).toContain("GBP 45000–60000");
+    // The two ends of the range must not also appear on their own.
+    expect(amounts).not.toContain("GBP 45000");
+    expect(amounts).not.toContain("GBP 60000");
+  });
+
+  it("finds the employer from the byline, which carries no legal suffix", () => {
+    expect(analysis.entities.some((e) => e.type === "organisation" && e.value === "Better Placed")).toBe(true);
+  });
+
+  it("does not let a company name run across a line break", () => {
+    for (const e of analysis.entities.filter((x) => x.type === "organisation")) {
+      expect(e.value, `"${e.value}" spans lines`).not.toMatch(/\n/);
+    }
+  });
+
+  it("finds the role", () => {
+    expect(analysis.entities.some((e) => e.type === "job_title" && /Javascript Developer/i.test(e.value))).toBe(true);
+  });
+
+  it("offers something useful even though the advert states no deadline", () => {
+    expect(analysis.suggestions.length).toBeGreaterThan(0);
+    expect(analysis.suggestions.map((s) => s.actionId)).toContain("save_to_memory");
+  });
+
+  it("offers to open the application, as a confirm-risk step", () => {
+    const open = analysis.suggestions.find((s) => s.actionId === "open_application_link");
+    expect(open, "the Apply link was captured but never offered").toBeDefined();
+    expect(open!.risk).toBe("confirm");
+  });
+
+  it("does not promise dates on an advert that states none", () => {
+    const save = analysis.suggestions.find((s) => s.actionId === "save_to_memory")!;
+    expect(save.rationale).not.toMatch(/dates/i);
+    expect(save.rationale).toMatch(/Better Placed/);
+  });
+
+  it("files it under the role on screen, not the stale tab title", async () => {
+    /*
+     * LinkedIn is a single-page app: document.title still read "Frontend
+     * Developer | G.Digital | LinkedIn" — the job viewed BEFORE this one — while a
+     * different advert was on screen. Saving that files it under the wrong name.
+     */
+    const { preferredTitle } = await import("@core/storage-hygiene");
+    expect(preferredTitle(page)).toBe("Javascript Developer");
+    expect(preferredTitle(page)).not.toMatch(/LinkedIn|G\.Digital/);
+  });
+});

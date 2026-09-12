@@ -34,13 +34,41 @@ const EMAIL_ANYWHERE = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
 export function cleanTitle(rawTitle: string, domain: string): string {
   let title = rawTitle.replace(/\s+/g, " ").trim();
 
-  title = title.replace(CLIENT_SUFFIX, "");
+  title = title.replace(CLIENT_SUFFIX, "").replace(SITE_SUFFIX, "");
   // "Subject - someone@example.com" -> "Subject"
   title = title.replace(EMAIL_ANYWHERE, "").replace(/\s[-–|]\s*$/, "").replace(/\s{2,}/g, " ").trim();
   title = title.replace(/^[-–|\s]+|[-–|\s]+$/g, "").trim();
 
   if (title.length === 0) return domain || "Saved page";
   return title.length > 120 ? `${title.slice(0, 119).trimEnd()}…` : title;
+}
+
+/** Site names appended to a tab title by the site itself. */
+const SITE_SUFFIX = /\s[-–|]\s(?:LinkedIn|Indeed|Glassdoor|Reed\.co\.uk|Totaljobs|Monster|Otta|Welcome to the Jungle)\s*$/i;
+
+/**
+ * The best title for this page.
+ *
+ * On a single-page app the tab title lags behind what is on screen — LinkedIn was
+ * showing a "Javascript Developer" advert while `document.title` still read
+ * "Frontend Developer | G.Digital | LinkedIn", the job viewed before it. Saving
+ * that would file the advert under the wrong name entirely.
+ *
+ * The page's own first heading is rendered from what the user is actually looking
+ * at, so it wins whenever the tab title carries a site's name.
+ */
+export function preferredTitle(page: {
+  title: string;
+  domain: string;
+  headings: readonly string[];
+}): string {
+  const heading = page.headings[0]?.trim();
+  const templated = SITE_SUFFIX.test(page.title);
+
+  if (heading && heading.length > 2 && (templated || heading.length > page.title.length)) {
+    return cleanTitle(heading, page.domain);
+  }
+  return cleanTitle(page.title, page.domain);
 }
 
 /** A URL short enough to read, for display. Never used to navigate. */

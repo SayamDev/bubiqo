@@ -1,0 +1,14 @@
+{
+  "url": "https://www.linkedin.com/jobs/view/4123456789/",
+  "domain": "www.linkedin.com",
+  "title": "Frontend Developer | G.Digital | LinkedIn",
+  "headings": ["Javascript Developer", "About the job"],
+  "fields": [],
+  "structuredData": [],
+  "links": [
+    { "text": "Easy Apply", "href": "https://www.linkedin.com/jobs/view/4123456789/apply" },
+    { "text": "Better Placed", "href": "https://www.linkedin.com/company/better-placed" }
+  ],
+  "capturedAt": 0,
+  "text": "Javascript Developer\nBetter Placed · Manchester Area, United Kingdom (Hybrid)\nSave Easy Apply\n\nAbout the job\nFull Stack Engineer – React / Node / TypeScript\nManchester – 3 days per week onsite (Central Manchester)\n£45,000 – £60,000 / + Share options\n\nIf you're looking to work for a Manchester based early stage startup with big ambitions, a place where you can work closely with founders and shape product decisions this could be an interesting opportunity for you. They're building a consumer-facing platform that is already in market and gaining traction rapidly.\n\nFollowing continued growth, they are looking for a talented Full Stack Engineer to become one of the earliest members of their engineering team.\n\nThis is a great opportunity for a strong mid-level developer who wants to progress towards Senior Engineer while having significantly more ownership than you'd typically get in a larger technology team.\n\nWhat you'll be doing\nBuilding new features across React, Node.js and TypeScript\nWorking across both frontend and backend development\nTaking features from idea through to production\nBuilding and maintaining APIs and third-party integrations\nContributing to architecture and technical decisions\nSupporting CI/CD and cloud infrastructure\nWriting clean, maintainable and well-tested code\n\nYou'll ideally have:\n3+ years' commercial software engineering experience\nStrong JavaScript / TypeScript\nCommercial experience with React\nBackend development experience with Node.js\nGenuine full-stack experience rather than being heavily weighted towards just frontend or backend\nExperience working within an early-stage startup or similar environment"
+}

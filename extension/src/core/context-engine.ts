@@ -26,13 +26,31 @@ const SIGNALS: Readonly<Record<Exclude<Surface, "generic">, readonly Signal[]>> 
     { pattern: /\bpayment\s+(?:terms|reference|due)\b/i, weight: 2, label: "payment terms" },
     { pattern: /\bsubtotal\b/i, weight: 1, label: "a subtotal" },
   ],
+  /*
+   * These are the words real job adverts use.
+   *
+   * The first version of this list was written against a hand-made fixture, using
+   * the phrasing I had chosen myself — "job description", "requirements",
+   * "salary:". A real LinkedIn advert says "About the job", "What you'll be
+   * doing", "You'll ideally have" and prints a bare "£45,000 – £60,000", so
+   * exactly one of six signals fired and the page came out as generic. Every
+   * pattern below is taken from advert text seen in the wild.
+   */
   job: [
+    { pattern: /\babout (?:the|this) (?:job|role|opportunity|position)\b/i, weight: 3, label: "an “about the job” section" },
     { pattern: /\bjob\s+(?:description|title|advert|posting|spec)\b/i, weight: 3, label: "a job description" },
-    { pattern: /\b(?:apply|application)\s+(?:now|deadline|by|before|closes)\b/i, weight: 3, label: "an application deadline" },
-    { pattern: /\b(?:responsibilities|requirements|what you.ll do|about the role)\b/i, weight: 2, label: "a requirements section" },
-    { pattern: /\b(?:salary|per annum|pro rata|OTE)\b/i, weight: 2, label: "salary information" },
-    { pattern: /\b(?:full[- ]time|part[- ]time|permanent|contract|hybrid|remote)\b/i, weight: 1, label: "a working pattern" },
-    { pattern: /\bclosing date\b/i, weight: 2, label: "a closing date" },
+    { pattern: /\b(?:easy apply|apply now|apply for this|submit your application|application process)\b/i, weight: 3, label: "an apply button" },
+    { pattern: /\bwhat you(?:'|’)?ll be doing\b|\bwhat you(?:'|’)?ll do\b|\bthe role\b|\bday to day\b/i, weight: 2, label: "a “what you'll be doing” section" },
+    { pattern: /\byou(?:'|’)?ll ideally have\b|\bwe(?:'|’)?re looking for\b|\blooking for a\b|\bideal candidate\b|\babout you\b/i, weight: 2, label: "a candidate profile" },
+    { pattern: /\b(?:responsibilities|requirements|qualifications|what we offer|benefits package)\b/i, weight: 2, label: "a requirements section" },
+    { pattern: /\b\d+\+?\s*years?(?:'|’)?\s*(?:of\s+)?(?:commercial\s+)?experience\b/i, weight: 2, label: "an experience requirement" },
+    { pattern: /\b(?:salary|per annum|pro rata|OTE|competitive package)\b/i, weight: 2, label: "salary information" },
+    // A bare range with no "salary:" label is how most adverts actually price a role.
+    { pattern: /[£$€]\s?\d{2,3},\d{3}\s*(?:-|–|—|to)\s*[£$€]?\s?\d{2,3},\d{3}/, weight: 3, label: "a salary range" },
+    { pattern: /\b\d{2,3}K\s*(?:GBP|USD|EUR)?\s*\/?\s*(?:yr|year|pa)\b/i, weight: 2, label: "a salary range" },
+    { pattern: /\b(?:seniority level|employment type|job function|industries)\b/i, weight: 2, label: "job metadata" },
+    { pattern: /\b(?:full[- ]time|part[- ]time|permanent|fixed[- ]term|hybrid|on[- ]?site|remote)\b/i, weight: 1, label: "a working pattern" },
+    { pattern: /\bclosing date\b|\bapplications? close\b/i, weight: 2, label: "a closing date" },
   ],
   email: [
     { pattern: /^\s*(?:from|to|cc|subject)\s*:/im, weight: 3, label: "email headers" },

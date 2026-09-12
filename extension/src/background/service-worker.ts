@@ -12,7 +12,7 @@
 
 import { analyse, toActionInput } from "@core/analyse";
 import { amountToConvert } from "@core/currency";
-import { cleanTitle, memoryFingerprint } from "@core/storage-hygiene";
+import { memoryFingerprint, preferredTitle } from "@core/storage-hygiene";
 import { buildRegistry } from "@core/actions";
 import { Executor } from "@core/executor";
 import { CostGuard, emptyUsage, type ProviderBudget, type ProviderUsage } from "@core/cost-guard";
@@ -389,7 +389,7 @@ async function analyseActiveTab(): Promise<PanelState> {
   const savedAlready = (await ports.memory.all()).find(
     (item) =>
       memoryFingerprint(item) ===
-      memoryFingerprint({ kind: item.kind, title: cleanTitle(page.title, page.domain), url: page.url }),
+      memoryFingerprint({ kind: item.kind, title: preferredTitle(page), url: page.url }),
   );
 
   const state: PanelState = {
