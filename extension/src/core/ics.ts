@@ -21,7 +21,7 @@ export function toIcsTimestamp(ms: number): string {
 
 /** Escape per RFC 5545 §3.3.11. Order matters: backslash first. */
 function escapeText(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+  return value.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
 }
 
 /** RFC 5545 §3.1: lines are folded at 75 octets, continuations start with a space. */

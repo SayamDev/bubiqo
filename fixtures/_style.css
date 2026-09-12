@@ -1,0 +1,30 @@
+/* Shared styling for the demo pages. Deliberately plain: these stand in for real
+   pages, so they should look like ordinary web pages, not like part of Bubiqo. */
+:root { color-scheme: light dark; --ink:#1a1a1f; --muted:#5f5f6b; --line:#e3e1de; --bg:#fbfbfa; --card:#fff; }
+@media (prefers-color-scheme: dark){ :root{ --ink:#eee; --muted:#a0a0aa; --line:#2e2e35; --bg:#131316; --card:#1c1c21; } }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+.wrap{max-width:720px;margin:0 auto;padding:32px 24px 80px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:28px}
+h1{font-size:1.5rem;line-height:1.25;margin:0 0 4px;letter-spacing:-.02em}
+h2{font-size:1.05rem;margin:28px 0 8px}
+.meta{color:var(--muted);font-size:.875rem;margin:0 0 20px}
+.headers{font-size:.875rem;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:20px}
+.headers div{margin:2px 0}
+table{width:100%;border-collapse:collapse;margin:8px 0 4px;font-size:.9375rem}
+th,td{text-align:left;padding:9px 0;border-bottom:1px solid var(--line)}
+td:last-child,th:last-child{text-align:right}
+.total td{font-weight:700;border-bottom:none;padding-top:14px}
+nav{border-bottom:1px solid var(--line);background:var(--card)}
+nav .wrap{padding:14px 24px;display:flex;gap:18px;align-items:center}
+nav a{color:var(--muted);text-decoration:none;font-size:.875rem}
+nav a:hover{color:var(--ink)}
+nav strong{font-size:.9375rem}
+ul{padding-left:20px}
+li{margin:4px 0}
+.tip{margin-top:28px;padding:14px 16px;border:1px dashed var(--line);border-radius:10px;
+  color:var(--muted);font-size:.875rem}
+label{display:block;margin:16px 0 4px;font-weight:600;font-size:.9375rem}
+input,textarea{width:100%;font:inherit;padding:9px 11px;border:1px solid var(--line);
+  border-radius:8px;background:var(--bg);color:var(--ink)}

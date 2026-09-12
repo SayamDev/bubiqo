@@ -12,7 +12,6 @@
 import type { ActionDefinition, ActionInput, ActionResult, Entity, VerificationResult } from "./types";
 import type { Ports } from "./ports";
 import { assertWellFormed } from "./safety";
-import { buildIcs, icsFilename } from "./ics";
 import { formatDue } from "./dates";
 
 const ok = (message: string, handle: string | undefined, undoable: boolean): ActionResult =>

@@ -1,0 +1,12 @@
+{
+  "url": "http://localhost:8123/invoice.html",
+  "domain": "localhost",
+  "title": "Invoice INV-2026-0042 — Brightfold Studio Ltd",
+  "text": "Invoice\n\nBrightfold Studio Ltd · 72 Rivington Street, London EC2A 3AY · VAT Reg No: GB 412 9987 21\n\nBill to: Sayam Ajmal\n\nInvoice number: INV-2026-0042\nInvoice date: 2026-02-27\nDue date: 20 March 2026\n\nDescription Amount\nBrand identity — phase two EUR 2,400.00\nSubtotal EUR 2,400.00\nVAT (20%) EUR 480.00\nTotal amount due EUR 2,880.00\n\nPayment terms: net 21 days. Payment due by 20 March 2026.\n\nBubiqo will read the amount, the reference and the due date, and offer a reminder. It will never offer to pay it — that action is blocked in code, not by policy.",
+  "headings": [
+    "Invoice"
+  ],
+  "fields": [],
+  "structuredData": [],
+  "capturedAt": 0
+}

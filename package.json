@@ -6,15 +6,15 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "npm run build:panel && npm run build:content",
-    "build:panel": "vite build",
-    "build:content": "vite build --config vite.content.config.ts",
+    "build": "vite build",
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint . --ext .ts,.tsx",
-    "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "demo": "python3 -m http.server 8123 --directory fixtures",
+    "icons": "python3 tools/make-icons.py"
   },
   "dependencies": {
     "react": "^18.3.1",

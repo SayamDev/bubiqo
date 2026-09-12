@@ -1,0 +1,638 @@
+/**
+ * The side panel.
+ *
+ * Structure follows the question the user is actually asking, in order:
+ * what is this? what needs attention? what should I do? — then the quieter
+ * surfaces (Memory, Activity, Settings) behind tabs.
+ *
+ * Accessibility notes, since they are easy to lose in a refactor:
+ *  - the tab bar is a real ARIA tablist with roving focus
+ *  - every result is announced through a polite live region
+ *  - risk is always carried by a word ("Needs your approval"), never by colour
+ *  - the only motion is the browser's own, and reduced-motion is honoured in CSS
+ */
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Problem, Suggestion } from "@core/types";
+import type { StepOutcome, CompleteItReport } from "@core/executor";
+import type { Briefing, PanelState, Response } from "@shared/messages";
+import { send } from "@shared/messages";
+import { formatDue } from "@core/dates";
+import { riskLabel } from "@core/safety";
+import { surfaceHeadline, urgencyWord, relativeTime, clockTime } from "./format";
+
+type Tab = "now" | "memory" | "activity" | "settings";
+
+const TABS: readonly { id: Tab; label: string }[] = [
+  { id: "now", label: "Now" },
+  { id: "memory", label: "Memory" },
+  { id: "activity", label: "Activity" },
+  { id: "settings", label: "Settings" },
+];
+
+export function App() {
+  const [state, setState] = useState<PanelState | undefined>();
+  const [briefing, setBriefing] = useState<Briefing | undefined>();
+  const [tab, setTab] = useState<Tab>("now");
+  const [busy, setBusy] = useState(false);
+  const [report, setReport] = useState<CompleteItReport | undefined>();
+  const [steps, setSteps] = useState<StepOutcome[]>([]);
+  const [announcement, setAnnounce] = useState("");
+  const now = Date.now();
+
+  const apply = useCallback((response: Response) => {
+    if (response.type === "STATE") setState(response.state);
+    if (response.type === "BRIEFING") setBriefing(response.briefing);
+    if (response.type === "ERROR") setAnnounce(response.message);
+  }, []);
+
+  const analyse = useCallback(async () => {
+    setBusy(true);
+    setReport(undefined);
+    setSteps([]);
+    try {
+      apply(await send({ type: "ANALYSE_ACTIVE_TAB" }));
+      apply(await send({ type: "BRIEFING" }));
+    } finally {
+      setBusy(false);
+    }
+  }, [apply]);
+
+  useEffect(() => {
+    void analyse();
+  }, [analyse]);
+
+  // Re-read the page when the user switches tab or navigates, so the panel is
+  // never showing a stale answer for a page that is no longer in front of them.
+  useEffect(() => {
+    const onActivated = () => void analyse();
+    const onUpdated = (_id: number, change: chrome.tabs.TabChangeInfo, t: chrome.tabs.Tab) => {
+      if (change.status === "complete" && t.active) void analyse();
+    };
+    chrome.tabs.onActivated.addListener(onActivated);
+    chrome.tabs.onUpdated.addListener(onUpdated);
+    return () => {
+      chrome.tabs.onActivated.removeListener(onActivated);
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+    };
+  }, [analyse]);
+
+  const runAction = useCallback(
+    async (actionId: string, approved = false) => {
+      setBusy(true);
+      try {
+        const response = await send({ type: "RUN_ACTION", actionId, approved });
+        if (response.type === "STEP") {
+          setSteps((previous) => [...previous, response.outcome]);
+          setAnnounce(response.outcome.message);
+          if (response.outcome.status === "done") apply(await send({ type: "GET_STATE" }));
+        } else {
+          apply(response);
+        }
+      } finally {
+        setBusy(false);
+      }
+    },
+    [apply],
+  );
+
+  const completeIt = useCallback(async () => {
+    setBusy(true);
+    setSteps([]);
+    try {
+      const response = await send({ type: "COMPLETE_IT" });
+      if (response.type === "REPORT") {
+        setReport(response.report);
+        setAnnounce(
+          response.report.failed > 0
+            ? `${response.report.done} done, ${response.report.failed} could not be completed.`
+            : `Done. ${response.report.done} ${response.report.done === 1 ? "action" : "actions"} completed and verified.`,
+        );
+        apply(await send({ type: "GET_STATE" }));
+        apply(await send({ type: "BRIEFING" }));
+      } else {
+        apply(response);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }, [apply]);
+
+  const undo = useCallback(
+    async (actionId: string, handle: string) => {
+      const response = await send({ type: "UNDO", actionId, handle });
+      if (response.type === "STEP") {
+        setAnnounce(response.outcome.message);
+        setSteps((previous) => previous.filter((s) => s.undoHandle !== handle));
+        setReport((previous) =>
+          previous ? { ...previous, steps: previous.steps.filter((s) => s.undoHandle !== handle) } : previous,
+        );
+      }
+      apply(await send({ type: "GET_STATE" }));
+    },
+    [apply],
+  );
+
+  const analysis = state?.analysis;
+  const safeSuggestions = useMemo(
+    () => (analysis?.suggestions ?? []).filter((s) => s.risk === "safe").slice(0, 3),
+    [analysis],
+  );
+
+  return (
+    <div className="app">
+      <Header state={state} />
+
+      <nav className="tabs" role="tablist" aria-label="Bubiqo sections">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            id={`tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls={`panel-${t.id}`}
+            tabIndex={tab === t.id ? 0 : -1}
+            className="tab"
+            onClick={() => setTab(t.id)}
+            onKeyDown={(event) => {
+              const index = TABS.findIndex((x) => x.id === tab);
+              if (event.key === "ArrowRight") setTab(TABS[(index + 1) % TABS.length]!.id);
+              if (event.key === "ArrowLeft") setTab(TABS[(index - 1 + TABS.length) % TABS.length]!.id);
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      <p aria-live="polite" className="visually-hidden">{announcement}</p>
+
+      <main className="main" id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
+        {tab === "now" && (
+          <NowTab
+            state={state}
+            briefing={briefing}
+            busy={busy}
+            steps={steps}
+            report={report}
+            safeSuggestions={safeSuggestions}
+            onRun={runAction}
+            onCompleteIt={completeIt}
+            onUndo={undo}
+            onRefresh={analyse}
+            now={now}
+          />
+        )}
+        {tab === "memory" && <MemoryTab state={state} onChange={apply} />}
+        {tab === "activity" && <ActivityTab state={state} now={now} />}
+        {tab === "settings" && <SettingsTab state={state} onChange={apply} />}
+      </main>
+
+      <footer className="footer">
+        Everything stays on this device. Bubiqo never sends the page anywhere.
+      </footer>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+function Header({ state }: { state: PanelState | undefined }) {
+  const analysis = state?.analysis;
+  const headline = state?.unavailableReason
+    ? "Nothing to read here"
+    : analysis
+      ? surfaceHeadline(analysis.classification.surface)
+      : "Looking at this page…";
+
+  return (
+    <header className="header">
+      <div className="brand">
+        <img className="brand__mark" src="icons/icon-32.png" alt="" width={18} height={18} />
+        <span className="brand__name">bubiqo</span>
+      </div>
+      <h1 className="context__what">{headline}</h1>
+      <p className="context__where">
+        {state?.unavailableReason ?? state?.page?.title ?? state?.page?.domain ?? ""}
+      </p>
+    </header>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+interface NowProps {
+  state: PanelState | undefined;
+  briefing: Briefing | undefined;
+  busy: boolean;
+  steps: StepOutcome[];
+  report: CompleteItReport | undefined;
+  safeSuggestions: Suggestion[];
+  onRun: (id: string, approved?: boolean) => void;
+  onCompleteIt: () => void;
+  onUndo: (id: string, handle: string) => void;
+  onRefresh: () => void;
+  now: number;
+}
+
+function NowTab(props: NowProps) {
+  const { state, briefing, busy, steps, report, safeSuggestions, now } = props;
+  const analysis = state?.analysis;
+  const outcomes = report?.steps ?? steps;
+
+  if (state?.unavailableReason) {
+    return (
+      <>
+        <p className="notice">{state.unavailableReason}</p>
+        <BriefingBlock briefing={briefing} now={now} />
+      </>
+    );
+  }
+
+  if (!analysis) {
+    return <p className="empty">Reading the page…</p>;
+  }
+
+  const more = analysis.suggestions.filter((s) => !safeSuggestions.includes(s));
+
+  return (
+    <>
+      {analysis.injectionAttempted && (
+        <p className="notice notice--warn">
+          <strong>Heads up.</strong> This page contains text trying to give Bubiqo instructions.
+          It was ignored — page content is treated as data, never as commands.
+        </p>
+      )}
+
+      {analysis.problems.length > 0 && (
+        <section className="section" aria-labelledby="problems-title">
+          <h2 className="section__title" id="problems-title">Needs attention</h2>
+          {analysis.problems.slice(0, 4).map((problem, i) => (
+            <ProblemRow key={`${problem.kind}-${i}`} problem={problem} now={now} />
+          ))}
+        </section>
+      )}
+
+      <section className="section" aria-labelledby="suggested-title">
+        <h2 className="section__title" id="suggested-title">Suggested</h2>
+
+        {analysis.suggestions.length === 0 ? (
+          <div className="empty">
+            <p>Nothing worth suggesting on this page.</p>
+            <p>That is deliberate — Bubiqo stays quiet unless it has something useful.</p>
+          </div>
+        ) : (
+          <>
+            {analysis.suggestions.slice(0, 3).map((suggestion) => (
+              <SuggestionCard
+                key={suggestion.actionId}
+                suggestion={suggestion}
+                busy={busy}
+                onRun={props.onRun}
+              />
+            ))}
+
+            {more.length > 0 && (
+              <details className="why" style={{ marginTop: 10 }}>
+                <summary>More actions ({more.length})</summary>
+                <div style={{ marginTop: 8 }}>
+                  {more.map((suggestion) => (
+                    <SuggestionCard
+                      key={suggestion.actionId}
+                      suggestion={suggestion}
+                      busy={busy}
+                      onRun={props.onRun}
+                    />
+                  ))}
+                </div>
+              </details>
+            )}
+
+            {safeSuggestions.length > 1 && (
+              <div style={{ marginTop: 14 }}>
+                <button className="btn btn--primary" onClick={props.onCompleteIt} disabled={busy}>
+                  {busy ? "Working…" : "Complete it"}
+                </button>
+                <p className="why" style={{ marginTop: 6 }}>
+                  Runs the {safeSuggestions.length} safe steps above, checks each one worked, and tells you
+                  what happened. Nothing is sent and nothing is paid.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        {outcomes.length > 0 && <Results outcomes={outcomes} onUndo={props.onUndo} />}
+      </section>
+
+      <BriefingBlock briefing={briefing} now={now} />
+
+      <section className="section">
+        <button className="btn btn--quiet btn--small" onClick={props.onRefresh} disabled={busy}>
+          Re-read this page
+        </button>
+      </section>
+    </>
+  );
+}
+
+function ProblemRow({ problem, now }: { problem: Problem; now: number }) {
+  const modifier =
+    problem.urgency === "overdue" ? "problem--overdue" : problem.urgency === "today" ? "problem--today" : "";
+  return (
+    <div className={`problem ${modifier}`}>
+      <div className="problem__body">
+        <p className="problem__summary">{problem.summary}</p>
+        <p className="problem__meta">
+          <span className={`urgency urgency--${problem.urgency}`}>{urgencyWord(problem.urgency)}</span>
+          {problem.dueAt ? ` · ${formatDue(problem.dueAt, now)}` : ""}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SuggestionCard({
+  suggestion,
+  busy,
+  onRun,
+}: {
+  suggestion: Suggestion;
+  busy: boolean;
+  onRun: (id: string, approved?: boolean) => void;
+}) {
+  const needsApproval = suggestion.risk === "confirm";
+  return (
+    <article className="suggestion">
+      <div className="suggestion__head">
+        <h3 className="suggestion__name">{suggestion.name}</h3>
+        {needsApproval && <span className="badge badge--confirm">{riskLabel(suggestion.risk)}</span>}
+      </div>
+
+      <p className="suggestion__rationale">{suggestion.rationale}</p>
+
+      <div className="suggestion__row">
+        <button className="btn" onClick={() => onRun(suggestion.actionId, needsApproval)} disabled={busy}>
+          {needsApproval ? "Approve and do it" : "Do it"}
+        </button>
+      </div>
+
+      <details className="why">
+        <summary>Why am I seeing this?</summary>
+        <dl>
+          <dt>What Bubiqo found</dt>
+          <dd className="why__quote">{suggestion.rationale}</dd>
+          <dt>Risk</dt>
+          <dd>{riskLabel(suggestion.risk)}</dd>
+          <dt>Can it be undone?</dt>
+          <dd>{suggestion.actionId === "copy_details" ? "No — the clipboard can't be put back." : "Yes."}</dd>
+        </dl>
+      </details>
+    </article>
+  );
+}
+
+function Results({
+  outcomes,
+  onUndo,
+}: {
+  outcomes: readonly StepOutcome[];
+  onUndo: (id: string, handle: string) => void;
+}) {
+  return (
+    <div className="result">
+      <h3 className="section__title" style={{ marginTop: 18 }}>What happened</h3>
+      {outcomes.map((outcome, i) => {
+        const mark =
+          outcome.status === "done" ? "✓" : outcome.status === "unconfirmed" ? "!" : outcome.status === "needs_approval" ? "?" : "×";
+        const markClass =
+          outcome.status === "done" ? "done" : outcome.status === "unconfirmed" || outcome.status === "needs_approval" ? "warn" : "fail";
+        return (
+          <div className="result__item" key={`${outcome.actionId}-${i}`}>
+            <span className={`result__mark result__mark--${markClass}`} aria-hidden="true">{mark}</span>
+            <span>
+              <strong>{outcome.name}</strong> — {outcome.message}
+              {outcome.undoable && outcome.undoHandle && (
+                <>
+                  {" "}
+                  <button
+                    className="btn btn--quiet btn--small"
+                    onClick={() => onUndo(outcome.actionId, outcome.undoHandle!)}
+                  >
+                    Undo
+                  </button>
+                </>
+              )}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function BriefingBlock({ briefing, now }: { briefing: Briefing | undefined; now: number }) {
+  if (!briefing) return null;
+  const nothing =
+    briefing.overdue.length === 0 &&
+    briefing.dueToday.length === 0 &&
+    briefing.loose.length === 0 &&
+    briefing.upcoming.length === 0;
+
+  if (nothing) return null;
+
+  return (
+    <section className="section" aria-labelledby="briefing-title">
+      <h2 className="section__title" id="briefing-title">{briefing.greeting}</h2>
+      <ul className="list">
+        {[...briefing.overdue, ...briefing.dueToday].map((reminder) => (
+          <li className="row" key={reminder.id}>
+            <div>
+              <p className="row__title">{reminder.title}</p>
+              <p className="row__meta">
+                <span className={`urgency urgency--${reminder.dueAt < now ? "overdue" : "today"}`}>
+                  {reminder.dueAt < now ? "Overdue" : "Today"}
+                </span>{" "}
+                · {formatDue(reminder.dueAt, now)}
+              </p>
+            </div>
+          </li>
+        ))}
+        {briefing.loose.map((item) => (
+          <li className="row" key={item.title}>
+            <div>
+              <p className="row__title">{item.title}</p>
+              <p className="row__meta">{item.why}</p>
+            </div>
+          </li>
+        ))}
+        {briefing.upcoming.slice(0, 2).map((reminder) => (
+          <li className="row" key={reminder.id}>
+            <div>
+              <p className="row__title">{reminder.title}</p>
+              <p className="row__meta">{formatDue(reminder.dueAt, now)}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+function MemoryTab({ state, onChange }: { state: PanelState | undefined; onChange: (r: Response) => void }) {
+  const memory = state?.memory ?? [];
+  const reminders = state?.reminders ?? [];
+  const now = Date.now();
+
+  return (
+    <>
+      <section className="section">
+        <h2 className="section__title">Reminders</h2>
+        {reminders.length === 0 ? (
+          <p className="empty">No reminders yet.</p>
+        ) : (
+          <ul className="list">
+            {reminders.map((reminder) => (
+              <li className="row" key={reminder.id}>
+                <div>
+                  <p className="row__title">{reminder.title}</p>
+                  <p className="row__meta">{formatDue(reminder.dueAt, now)}</p>
+                </div>
+                <button
+                  className="btn btn--quiet btn--small"
+                  onClick={async () => onChange(await send({ type: "DELETE_REMINDER", id: reminder.id }))}
+                >
+                  Delete<span className="visually-hidden"> reminder: {reminder.title}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="section">
+        <h2 className="section__title">Saved</h2>
+        {memory.length === 0 ? (
+          <div className="empty">
+            <p>Nothing saved yet.</p>
+            <p>Bubiqo only remembers what you explicitly save. There is no hidden profile.</p>
+          </div>
+        ) : (
+          <ul className="list">
+            {memory.map((item) => (
+              <li className="row" key={item.id}>
+                <div>
+                  <p className="row__title">{item.title}</p>
+                  <p className="row__meta">
+                    {item.kind} · {item.entities.length} details · saved {relativeTime(item.savedAt, now)}
+                  </p>
+                </div>
+                <button
+                  className="btn btn--quiet btn--small"
+                  onClick={async () => onChange(await send({ type: "DELETE_MEMORY", id: item.id }))}
+                >
+                  Delete<span className="visually-hidden">: {item.title}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </>
+  );
+}
+
+function ActivityTab({ state, now }: { state: PanelState | undefined; now: number }) {
+  const activity = state?.activity ?? [];
+  return (
+    <section className="section">
+      <h2 className="section__title">Everything Bubiqo has done</h2>
+      {activity.length === 0 ? (
+        <p className="empty">Nothing yet.</p>
+      ) : (
+        <ul className="list">
+          {activity.map((event) => (
+            <li className="row" key={event.id}>
+              <div>
+                <p className="row__title">{event.summary}</p>
+                <p className="row__meta">
+                  {clockTime(event.at)} · {event.kind} · {relativeTime(event.at, now)}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function SettingsTab({ state, onChange }: { state: PanelState | undefined; onChange: (r: Response) => void }) {
+  const settings = state?.settings;
+  if (!settings) return <p className="empty">Loading…</p>;
+
+  const update = async (partial: Parameters<typeof send>[0] extends never ? never : Record<string, unknown>) => {
+    onChange(await send({ type: "SET_SETTINGS", settings: partial as never }));
+  };
+
+  return (
+    <section className="section">
+      <h2 className="section__title">Settings</h2>
+
+      <label className="field">
+        <span className="field__label">How proactive should Bubiqo be?</span>
+        <p className="field__help">
+          Quiet only answers when you ask. Helpful shows what it is confident about. Proactive also surfaces
+          things it thinks you might forget.
+        </p>
+        <select value={settings.mode} onChange={(e) => void update({ mode: e.target.value })}>
+          <option value="quiet">Quiet</option>
+          <option value="helpful">Helpful</option>
+          <option value="proactive">Proactive</option>
+        </select>
+      </label>
+
+      <div className="field">
+        <div className="switch">
+          <input
+            id="currency"
+            type="checkbox"
+            checked={settings.currencyConversion}
+            onChange={(e) => void update({ currencyConversion: e.target.checked })}
+          />
+          <label htmlFor="currency">
+            <span className="field__label">Convert foreign currency amounts</span>
+            <p className="field__help">
+              This is the only feature that uses the internet. When it is on, Bubiqo asks
+              api.frankfurter.dev for an exchange rate — it sends a currency pair such as
+              “EUR to GBP” and nothing else. Never the page, never the amount, never anything about you.
+              It is free, needs no account, and has no paid tier. Off by default.
+            </p>
+          </label>
+        </div>
+      </div>
+
+      <label className="field">
+        <span className="field__label">Your currency</span>
+        <p className="field__help">Used to show what a foreign amount is worth to you.</p>
+        <input
+          type="text"
+          value={settings.homeCurrency}
+          maxLength={3}
+          onChange={(e) => void update({ homeCurrency: e.target.value.toUpperCase() })}
+        />
+      </label>
+
+      <div className="field">
+        <p className="field__help" style={{ marginBottom: 0 }}>
+          Bubiqo asks for four permissions: to read the page you are on when you open the panel
+          (<code>activeTab</code>), to save your reminders and notes on this device (<code>storage</code>),
+          to schedule those reminders (<code>alarms</code>), and to show this panel (<code>sidePanel</code>).
+          It has no permission to read any page you have not opened it on.
+        </p>
+      </div>
+    </section>
+  );
+}

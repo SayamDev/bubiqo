@@ -1,0 +1,26 @@
+{
+  "url": "http://localhost:8123/job.html",
+  "domain": "localhost",
+  "title": "Senior Frontend Engineer — Halcyon Labs",
+  "text": "Senior Frontend Engineer\n\nHalcyon Labs Ltd — London (hybrid, 2 days in office)\n\nSalary: £78,000 per annum\nClosing date: 27 March 2026\n\nAbout the role\nYou'll own the design system and the accessibility standard across three product\nsurfaces, working alongside two designers and a staff engineer.\n\nRequirements\n\nStrong TypeScript and React, including the modern concurrent APIs\nDemonstrable WCAG 2.2 AA experience and a track record of accessible components\nExperience with design tokens and component libraries at scale\nComfortable with Vite, testing with Vitest, and CI you maintain yourself\nNice to have: Rust, or experience with browser extension architecture\n\nApply by 27 March 2026. Applications close at 17:00.\nApply for this role",
+  "headings": [
+    "Senior Frontend Engineer",
+    "About the role",
+    "Requirements"
+  ],
+  "fields": [],
+  "structuredData": [
+    {
+      "@context": "https://schema.org",
+      "@type": "JobPosting",
+      "title": "Senior Frontend Engineer",
+      "hiringOrganization": {
+        "@type": "Organization",
+        "name": "Halcyon Labs Ltd"
+      },
+      "jobLocation": "London",
+      "validThrough": "2026-03-27"
+    }
+  ],
+  "capturedAt": 0
+}
