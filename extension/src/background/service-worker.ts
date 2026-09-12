@@ -11,6 +11,7 @@
  */
 
 import { analyse, toActionInput } from "@core/analyse";
+import { amountToConvert } from "@core/currency";
 import { buildRegistry } from "@core/actions";
 import { Executor } from "@core/executor";
 import { CostGuard, emptyUsage, type ProviderBudget, type ProviderUsage } from "@core/cost-guard";
@@ -18,7 +19,12 @@ import { DEFAULT_SETTINGS, type Analysis, type PageContext, type Settings } from
 import type { Briefing, PanelState, Request, Response } from "@shared/messages";
 import { createPorts, readCollection, STORAGE_KEYS } from "./adapters";
 import { extractPageContext } from "./extract";
-import { FRANKFURTER_PROVIDER_ID, FRANKFURTER_CACHE_TTL_MS } from "../providers/frankfurter";
+import {
+  FrankfurterProvider,
+  FRANKFURTER_PROVIDER_ID,
+  FRANKFURTER_CACHE_TTL_MS,
+  isUnavailable,
+} from "../providers/frankfurter";
 
 const ports = createPorts();
 const registry = buildRegistry(ports);
@@ -43,6 +49,23 @@ const BUDGETS = new Map<string, ProviderBudget>([
 ]);
 
 const guard = new CostGuard(BUDGETS, () => Date.now());
+
+/**
+ * Currency conversion. Constructed once; whether it may actually reach the network
+ * is decided per call by `enabled`, which re-reads the setting each time, so turning
+ * the setting off takes effect immediately rather than at the next worker restart.
+ */
+let currencySettingEnabled = DEFAULT_SETTINGS.currencyConversion;
+
+const currency = new FrankfurterProvider(
+  guard,
+  async (url) => {
+    const response = await fetch(url, { credentials: "omit", cache: "no-store" });
+    return { ok: response.ok, status: response.status, json: () => response.json() as Promise<unknown> };
+  },
+  () => Date.now(),
+  () => currencySettingEnabled,
+);
 
 /** The most recent analysis, kept only until the next one replaces it. */
 let current: { page: PageContext; analysis: Analysis } | undefined;
@@ -111,7 +134,10 @@ async function fireReminder(id: string): Promise<void> {
 async function getSettings(): Promise<Settings> {
   const stored = await chrome.storage.local.get(STORAGE_KEYS.settings);
   const value = stored[STORAGE_KEYS.settings];
-  return typeof value === "object" && value !== null ? { ...DEFAULT_SETTINGS, ...(value as Settings) } : DEFAULT_SETTINGS;
+  const settings =
+    typeof value === "object" && value !== null ? { ...DEFAULT_SETTINGS, ...(value as Settings) } : DEFAULT_SETTINGS;
+  currencySettingEnabled = settings.currencyConversion;
+  return settings;
 }
 
 async function setSettings(partial: Partial<Settings>): Promise<Settings> {
@@ -193,7 +219,36 @@ async function analyseActiveTab(): Promise<PanelState> {
     });
   }
 
-  return { ...(await baseState(settings)), page, analysis, analysedAt: Date.now() };
+  const state: PanelState = { ...(await baseState(settings)), page, analysis, analysedAt: Date.now() };
+
+  /*
+   * Conversion is the only thing here that can touch the network, so it is last,
+   * it is opt-in, and a failure degrades the panel by one line rather than
+   * failing the analysis.
+   */
+  if (settings.currencyConversion && analysis.classification.surface === "invoice") {
+    const amount = amountToConvert(analysis, settings.homeCurrency);
+    if (amount) {
+      const outcome = await currency.convert(amount.value, amount.from, settings.homeCurrency);
+      await persistUsage();
+      if (!isUnavailable(outcome)) {
+        return {
+          ...state,
+          conversion: {
+            from: outcome.from,
+            to: outcome.to,
+            amount: outcome.amount,
+            converted: outcome.converted,
+            rate: outcome.rate,
+            stale: outcome.stale,
+          },
+        };
+      }
+      return { ...state, conversionUnavailable: outcome.reason };
+    }
+  }
+
+  return state;
 }
 
 async function baseState(settings: Settings): Promise<PanelState> {

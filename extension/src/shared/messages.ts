@@ -34,6 +34,17 @@ export interface PanelState {
   readonly analysedAt?: number;
   /** Set when the active tab cannot be analysed, e.g. a chrome:// page. */
   readonly unavailableReason?: string;
+  /** Present only on an invoice, only when the user switched conversion on. */
+  readonly conversion?: {
+    readonly from: string;
+    readonly to: string;
+    readonly amount: number;
+    readonly converted: number;
+    readonly rate: number;
+    readonly stale: boolean;
+  };
+  /** Why no converted figure is shown, when one was expected. */
+  readonly conversionUnavailable?: string;
 }
 
 export interface Briefing {

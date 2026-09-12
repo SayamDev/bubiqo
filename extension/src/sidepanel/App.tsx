@@ -12,7 +12,7 @@
  *  - the only motion is the browser's own, and reduced-motion is honoured in CSS
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Problem, Suggestion } from "@core/types";
 import type { StepOutcome, CompleteItReport } from "@core/executor";
 import type { Briefing, PanelState, Response } from "@shared/messages";
@@ -39,6 +39,27 @@ export function App() {
   const [steps, setSteps] = useState<StepOutcome[]>([]);
   const [announcement, setAnnounce] = useState("");
   const now = Date.now();
+
+  /*
+   * Refs to the tab buttons so keyboard selection can move FOCUS as well as
+   * selection. With a roving tabindex, selecting a tab without moving focus
+   * strands the user on a button that has just become tabindex="-1" — it is no
+   * longer in the tab order, so tabbing away and back lands somewhere else
+   * entirely. The APG tabs pattern requires focus to follow.
+   */
+  const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({
+    now: null, memory: null, activity: null, settings: null,
+  });
+
+  const selectTab = useCallback((next: Tab) => {
+    setTab(next);
+    /*
+     * Focus synchronously. The button is already in the DOM and focus() works on a
+     * tabindex="-1" element, so there is nothing to wait for — and deferring to a
+     * frame makes focus trail a render behind when arrow keys are held down.
+     */
+    tabRefs.current[next]?.focus();
+  }, []);
 
   const apply = useCallback((response: Response) => {
     if (response.type === "STATE") setState(response.state);
@@ -150,14 +171,29 @@ export function App() {
             role="tab"
             id={`tab-${t.id}`}
             aria-selected={tab === t.id}
-            aria-controls={`panel-${t.id}`}
+            /*
+             * aria-controls only on the SELECTED tab. Just one panel is rendered at
+             * a time, so pointing the other three at ids with no element in the DOM
+             * is a broken ARIA relationship — a screen reader announces a control
+             * for something that isn't there.
+             */
+            {...(tab === t.id ? { "aria-controls": `panel-${t.id}` } : {})}
             tabIndex={tab === t.id ? 0 : -1}
             className="tab"
+            ref={(node) => {
+              tabRefs.current[t.id] = node;
+            }}
             onClick={() => setTab(t.id)}
             onKeyDown={(event) => {
               const index = TABS.findIndex((x) => x.id === tab);
-              if (event.key === "ArrowRight") setTab(TABS[(index + 1) % TABS.length]!.id);
-              if (event.key === "ArrowLeft") setTab(TABS[(index - 1 + TABS.length) % TABS.length]!.id);
+              const go = (next: Tab) => {
+                event.preventDefault();
+                selectTab(next);
+              };
+              if (event.key === "ArrowRight") go(TABS[(index + 1) % TABS.length]!.id);
+              if (event.key === "ArrowLeft") go(TABS[(index - 1 + TABS.length) % TABS.length]!.id);
+              if (event.key === "Home") go(TABS[0]!.id);
+              if (event.key === "End") go(TABS[TABS.length - 1]!.id);
             }}
           >
             {t.label}
@@ -261,6 +297,28 @@ function NowTab(props: NowProps) {
         <p className="notice notice--warn">
           <strong>Heads up.</strong> This page contains text trying to give Bubiqo instructions.
           It was ignored — page content is treated as data, never as commands.
+        </p>
+      )}
+
+      {state?.conversion && (
+        <p className="notice" style={{ marginBottom: 14 }}>
+          <strong>
+            {state.conversion.from} {state.conversion.amount.toLocaleString("en-GB", { minimumFractionDigits: 2 })}
+          </strong>{" "}
+          ≈{" "}
+          <strong>
+            {state.conversion.to} {state.conversion.converted.toLocaleString("en-GB", { minimumFractionDigits: 2 })}
+          </strong>
+          <br />
+          {state.conversion.stale
+            ? "Using the last rate Bubiqo fetched — a fresh one wasn't available."
+            : `At ${state.conversion.rate} ${state.conversion.to} to the ${state.conversion.from}, from central bank reference rates.`}
+        </p>
+      )}
+
+      {state?.conversionUnavailable && (
+        <p className="notice" style={{ marginBottom: 14 }}>
+          {state.conversionUnavailable}
         </p>
       )}
 
