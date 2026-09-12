@@ -40,31 +40,33 @@ export function extractPageContext(): {
   const MIN_CONTENT_LENGTH = 280;
   const NAVIGATION_LINK_DENSITY = 0.45;
 
-  const scoreBlock = (b: { textLength: number; linkTextLength: number; linkCount: number; depth: number }): number => {
+  // Mirrors core/readability.ts, where the tested versions live.
+  const UNLIKELY =
+    /-ad-|ai2html|banner|breadcrumb|combx|comment|community|cover-wrap|disqus|extra|footer|gdpr|header|legends|menu|related|remark|replies|rss|shoutbox|sidebar|skyscraper|social|sponsor|supplemental|ad-break|agegate|pagination|pager|popup|yom-remote|promo|paywall|subscribe|newsletter|recommend|jobs-list|job-card|results-list|search-result|upsell|premium/i;
+  const LIKELY =
+    /and|article|body|column|content|main|mainContent|shadow|post|entry|description|details|job-details|job-description/i;
+
+  const scoreBlock = (b: {
+    textLength: number; linkTextLength: number; linkCount: number; depth: number;
+    commas: number; signature: string;
+  }): number => {
     if (b.textLength < MIN_CONTENT_LENGTH) return 0;
+    if (UNLIKELY.test(b.signature) && !LIKELY.test(b.signature)) return 0;
+
     const density = b.textLength === 0 ? 1 : Math.min(1, b.linkTextLength / b.textLength);
     if (density > NAVIGATION_LINK_DENSITY) return 0;
+
     const readable = 1 - density;
     let score = b.textLength * readable * readable;
+    score *= 1 + Math.min(b.commas / 12, 1.5);
+
     const linksPerThousand = (b.linkCount / Math.max(b.textLength, 1)) * 1000;
     if (linksPerThousand > 12) score *= 0.45;
+    if (LIKELY.test(b.signature)) score *= 1.25;
+
     return score * (1 / (1 + b.depth * 0.08));
   };
 
-  const pickBestBlock = <T extends { textLength: number; linkTextLength: number; linkCount: number; depth: number }>(
-    blocks: T[],
-  ): T | undefined => {
-    let best: T | undefined;
-    let bestScore = 0;
-    for (const b of blocks) {
-      const score = scoreBlock(b);
-      if (score > bestScore) {
-        bestScore = score;
-        best = b;
-      }
-    }
-    return best;
-  };
   // --- end inlined ---
 
   /*
@@ -90,6 +92,7 @@ export function extractPageContext(): {
   const candidates: HTMLElement[] = [];
   const stats: {
     index: number; textLength: number; linkTextLength: number; linkCount: number; depth: number;
+    commas: number; signature: string;
   }[] = [];
 
   const measure = (el: HTMLElement, depth: number) => {
@@ -108,6 +111,11 @@ export function extractPageContext(): {
       linkTextLength,
       linkCount: anchors.length,
       depth,
+      commas: (text.match(/[,，、]/g) ?? []).length,
+      // Class and id are how a page names its own regions. Readability leans on
+      // this heavily, and it is the signal that tells a sidebar from an article
+      // without knowing anything about the site.
+      signature: `${el.className || ""} ${el.id || ""}`,
     });
     candidates.push(el);
   };
@@ -126,7 +134,26 @@ export function extractPageContext(): {
   };
   walk(region, 1);
 
-  const best = pickBestBlock(stats);
+  /*
+   * Propagate upward, as Readability does. A container holding several good
+   * paragraphs is a better answer than the best single paragraph inside it,
+   * because the paragraph alone loses the heading and the byline.
+   */
+  const scored = stats.map((b) => ({ block: b, score: scoreBlock(b) }));
+  for (const child of scored) {
+    if (child.score <= 0) continue;
+    for (const other of scored) {
+      if (other === child) continue;
+      if (other.block.depth < child.block.depth && other.block.textLength >= child.block.textLength) {
+        other.score += child.score * 0.25;
+      }
+    }
+  }
+
+  const best = scored.reduce<{ block: (typeof stats)[number]; score: number } | undefined>(
+    (winner, current) => (current.score > (winner?.score ?? 0) ? current : winner),
+    undefined,
+  )?.block;
   const root = best ? (candidates[best.index] ?? region) : region;
 
   const extraction = {

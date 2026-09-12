@@ -136,3 +136,52 @@ describe("removing a site's own furniture", () => {
     expect(narrowToContent(prose)).toBe(prose.trim());
   });
 });
+
+describe("Readability's signals, which I should have started from", () => {
+  /*
+   * These four come from Mozilla's Readability — the algorithm behind Firefox
+   * Reader View — rather than from me guessing. Each targets exactly what kept
+   * going wrong, and looking them up would have saved several rounds of
+   * hand-rolled heuristics that were worse.
+   *
+   * https://webcrawlerapi.com/blog/mozilla-readability-algorithm-readabilityjs
+   */
+  const block = (partial: Partial<BlockStats> & { index: number; textLength: number }): BlockStats => ({
+    linkTextLength: 0, linkCount: 0, depth: 2, ...partial,
+  });
+
+  it("refuses a container that calls itself a sidebar, however well it otherwise scores", () => {
+    const sidebar = block({ index: 0, textLength: 5000, commas: 60, signature: "jobs-sidebar scaffold-layout__list" });
+    expect(scoreBlock(sidebar)).toBe(0);
+  });
+
+  it("refuses promos, upsells and results lists by name", () => {
+    for (const signature of ["premium-upsell", "search-results-list", "job-card-container", "promo-banner"]) {
+      expect(scoreBlock(block({ index: 0, textLength: 4000, signature })), signature).toBe(0);
+    }
+  });
+
+  it("keeps a container whose name says it IS the content, even if it also says sidebar", () => {
+    // "job-details-sidebar" is where LinkedIn actually puts the advert.
+    const s = scoreBlock(block({ index: 0, textLength: 3000, commas: 40, signature: "job-details-sidebar" }));
+    expect(s).toBeGreaterThan(0);
+  });
+
+  it("prefers punctuated prose to an unpunctuated list of the same length", () => {
+    const prose = block({ index: 0, textLength: 3000, commas: 45, signature: "job-description" });
+    const list = block({ index: 1, textLength: 3000, commas: 2, signature: "cards" });
+    expect(scoreBlock(prose)).toBeGreaterThan(scoreBlock(list));
+  });
+
+  it("weights a container that names itself content", () => {
+    const named = block({ index: 0, textLength: 3000, commas: 20, signature: "article-content" });
+    const anonymous = block({ index: 1, textLength: 3000, commas: 20, signature: "" });
+    expect(scoreBlock(named)).toBeGreaterThan(scoreBlock(anonymous));
+  });
+
+  it("still ignores class names when the block is plainly navigation", () => {
+    // A helpful-sounding name does not rescue something that is 80% links.
+    const linky = block({ index: 0, textLength: 3000, linkTextLength: 2400, linkCount: 90, signature: "main-content" });
+    expect(scoreBlock(linky)).toBe(0);
+  });
+});

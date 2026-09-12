@@ -17,6 +17,29 @@
  * that produces those numbers stays in background/extract.ts and does no thinking.
  */
 
+/*
+ * The scoring below follows Mozilla's Readability, the algorithm behind Firefox
+ * Reader View, rather than the home-grown version that preceded it. Four signals
+ * were missing, and each one targets exactly what was going wrong:
+ *
+ *   - reject by class and id, so a container named "sidebar" or "promo" never
+ *     competes with the article at all;
+ *   - comma count, because prose has commas and a list of job cards does not;
+ *   - positive and negative class weighting;
+ *   - propagate a block's score to its parent, so the container holding many good
+ *     paragraphs wins rather than one paragraph inside it.
+ *
+ * Source: https://webcrawlerapi.com/blog/mozilla-readability-algorithm-readabilityjs
+ */
+
+/** Class or id names that mean "this is not the article". */
+export const UNLIKELY_CANDIDATE =
+  /-ad-|ai2html|banner|breadcrumb|combx|comment|community|cover-wrap|disqus|extra|footer|gdpr|header|legends|menu|related|remark|replies|rss|shoutbox|sidebar|skyscraper|social|sponsor|supplemental|ad-break|agegate|pagination|pager|popup|yom-remote|promo|paywall|subscribe|newsletter|recommend|jobs-list|job-card|results-list|search-result|upsell|premium/i;
+
+/** Names that mean "this might well be". */
+export const LIKELY_CANDIDATE =
+  /and|article|body|column|content|main|mainContent|shadow|post|entry|description|details|job-details|job-description/i;
+
 export interface BlockStats {
   /** Index of the candidate, so the caller can map a choice back to its element. */
   readonly index: number;
@@ -27,6 +50,10 @@ export interface BlockStats {
   readonly linkCount: number;
   /** Nesting depth from the root, to prefer the outermost block that scores well. */
   readonly depth: number;
+  /** Commas in the text. Prose has them; a list of links does not. */
+  readonly commas?: number;
+  /** The element's class and id, joined. Used only to weight, never to decide. */
+  readonly signature?: string;
 }
 
 /** Below this a block is a fragment, not the content. */
@@ -50,16 +77,31 @@ export function linkDensity(block: BlockStats): number {
 export function scoreBlock(block: BlockStats): number {
   if (block.textLength < MIN_CONTENT_LENGTH) return 0;
 
+  const signature = block.signature ?? "";
+  // Readability's first move: a container that calls itself a sidebar, a promo or
+  // a results list is not the article, whatever else it scores.
+  if (UNLIKELY_CANDIDATE.test(signature) && !LIKELY_CANDIDATE.test(signature)) return 0;
+
   const density = linkDensity(block);
   if (density > NAVIGATION_LINK_DENSITY) return 0;
 
   const readable = 1 - density;
   let score = block.textLength * readable * readable;
 
+  /*
+   * Commas, from Readability. Prose is punctuated and navigation is not, so this
+   * separates an advert from a list of adverts even when both are long and both
+   * are mostly text.
+   */
+  const commas = block.commas ?? 0;
+  score *= 1 + Math.min(commas / 12, 1.5);
+
   // Many links relative to the prose is the shape of a list even when the density
   // check passes, because list items are short.
   const linksPerThousand = (block.linkCount / Math.max(block.textLength, 1)) * 1000;
   if (linksPerThousand > 12) score *= 0.45;
+
+  if (LIKELY_CANDIDATE.test(signature)) score *= 1.25;
 
   // A shallower block containing the same text is the better answer: it keeps the
   // heading and the byline that a deeper one would have cropped off.
