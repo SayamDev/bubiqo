@@ -15,7 +15,19 @@ export function surfaceChip(surface: Surface): string {
  * anything here for me?" — not "what did you classify this as". The chip above it
  * already says that.
  */
-export function attentionHeadline(problemCount: number, suggestionCount: number): string {
+export function attentionHeadline(
+  problemCount: number,
+  suggestionCount: number,
+  allEligibility = false,
+): string {
+  /*
+   * An eligibility condition does not "need you" — you cannot do anything about
+   * being asked for security clearance. What it needs is checking, before an hour
+   * goes into an application you were never eligible for.
+   */
+  if (allEligibility && problemCount === 1) return "One thing to check first";
+  if (allEligibility && problemCount > 1) return `${problemCount} things to check first`;
+
   if (problemCount === 1) return "One thing needs you";
   if (problemCount > 1) return `${problemCount} things need you`;
   if (suggestionCount > 0) return "Nothing urgent — but I can help";

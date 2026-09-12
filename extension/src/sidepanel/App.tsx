@@ -21,6 +21,7 @@ import { formatDue } from "@core/dates";
 import { shortenUrl } from "@core/storage-hygiene";
 import { riskLabel } from "@core/safety";
 import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime } from "./format";
+import { splitSuggestions } from "@core/ranker";
 import { BubbleMark, ShieldIcon, QuietMark, ActionIcon, HeaderArt } from "./icons";
 import { Welcome, WhatItDoes } from "./Welcome";
 
@@ -54,6 +55,27 @@ export function App() {
    * yet" while a sighted user saw a button that simply did nothing.
    */
   const [error, setError] = useState<string | undefined>();
+  /*
+   * The intro stays until the user has either run something or dismissed it.
+   * localStorage rather than extension storage: it is a per-viewer convenience,
+   * not something worth a round trip to the worker.
+   */
+  const [introDismissed, setIntroDismissed] = useState(() => {
+    try {
+      return localStorage.getItem("bubiqo.introSeen") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const dismissIntro = useCallback(() => {
+    setIntroDismissed(true);
+    try {
+      localStorage.setItem("bubiqo.introSeen", "1");
+    } catch {
+      // Private window, or storage blocked. The intro simply shows again.
+    }
+  }, []);
   const now = Date.now();
 
   /*
@@ -303,6 +325,9 @@ export function App() {
   );
 
   const analysis = state?.analysis;
+  const hasUsedIt = (state?.activity.length ?? 0) > 0;
+  const showIntro = !introDismissed && !hasUsedIt;
+
   const safeSuggestions = useMemo(
     () => (analysis?.suggestions ?? []).filter((s) => s.risk === "safe").slice(0, 3),
     [analysis],
@@ -385,6 +410,8 @@ export function App() {
             onTurnOn={turnOn}
             onDismiss={dismiss}
             onShowMemory={() => setTab("memory")}
+            onDismissIntro={dismissIntro}
+            showIntro={showIntro}
             cardState={cardState}
             now={now}
           />
@@ -415,7 +442,11 @@ function Header({ state }: { state: PanelState | undefined }) {
     : blocked
       ? "Nothing to read here"
       : analysis
-        ? attentionHeadline(analysis.problems.length, analysis.suggestions.length)
+        ? attentionHeadline(
+          analysis.problems.length,
+          analysis.suggestions.length,
+          analysis.problems.length > 0 && analysis.problems.every((p) => p.kind === "eligibility"),
+        )
         : "Reading this page…";
 
   const attention = analysis?.problems.length ?? 0;
@@ -449,6 +480,18 @@ function Header({ state }: { state: PanelState | undefined }) {
           ? "One thing to set up, then it works on whatever you open it on."
           : (state?.unavailableReason ?? state?.page?.title ?? state?.page?.domain ?? "")}
       </p>
+
+      {/*
+        * Whether Bubiqo is actually doing anything. Without this the panel looks
+        * identical whether it is working, finished, or broken — which is most of
+        * why it read as "is this even running?".
+        */}
+      {!firstRun && (
+        <p className={`status${analysis ? "" : " status--working"}`} aria-live="polite">
+          <span className="status__dot" aria-hidden="true" />
+          {analysis ? `Read this page ${relativeTime(state?.analysedAt ?? Date.now(), Date.now())}` : "Reading this page…"}
+        </p>
+      )}
     </header>
   );
 }
@@ -471,12 +514,14 @@ interface NowProps {
   onTurnOn: () => void;
   onDismiss: (id: string) => void;
   onShowMemory: () => void;
+  onDismissIntro: () => void;
+  showIntro: boolean;
   cardState: Record<string, "running" | StepOutcome>;
   now: number;
 }
 
 function NowTab(props: NowProps) {
-  const { state, briefing, busy, report, safeSuggestions, now } = props;
+  const { state, briefing, busy, report, safeSuggestions, showIntro, now } = props;
   const analysis = state?.analysis;
   // Single actions report on their own card now; this list is only Complete It.
   const outcomes = report?.steps ?? [];
@@ -487,10 +532,13 @@ function NowTab(props: NowProps) {
         {/* The welcome explains itself; a one-line reason above it is just noise. */}
         {!state.canRequestAccess && <p className="notice">{state.unavailableReason}</p>}
         {state.canRequestAccess && <Welcome onTurnOn={props.onTurnOn} onSkip={props.onRefresh} />}
-        <BriefingBlock briefing={briefing} now={now} />
+
+      <BriefingBlock briefing={briefing} now={now} />
       </>
     );
   }
+
+  const skills = analysis?.entities.filter((e) => e.type === "skill") ?? [];
 
   if (!analysis) {
     return (
@@ -502,10 +550,37 @@ function NowTab(props: NowProps) {
     );
   }
 
-  const more = analysis.suggestions.filter((s) => !safeSuggestions.includes(s));
+  /*
+   * One split, from the ranker, rather than the panel re-deriving its own.
+   *
+   * The panel had been computing "more" against the SAFE suggestions while
+   * rendering the first three of any risk, so a confirm-risk card in the top
+   * three appeared twice — once as a card and again inside "More actions". Two
+   * places deciding the same thing is how they drift apart.
+   */
+  const { primary, more } = splitSuggestions(analysis.suggestions);
 
   return (
     <>
+      {/*
+        * A one-line reminder of what this is, shown until the user has run
+        * something. The full explanation is on first run and in Settings; this is
+        * for the second and third visit, when "what does this do again?" is a fair
+        * question and there is nothing on screen answering it.
+        */}
+      {showIntro && (
+        <div className="intro">
+          <BubbleMark className="intro__mark" />
+          <span>
+            <strong>Bubiqo finds what needs doing on the page you are on.</strong>
+            Deadlines, requests, amounts, closing dates — then does the useful parts in one click.
+          </span>
+          <button className="btn--link btn--link-quiet intro__dismiss" onClick={props.onDismissIntro}>
+            Got it
+          </button>
+        </div>
+      )}
+
       {analysis.injectionAttempted && (
         <p className="notice notice--warn">
           <strong>Heads up.</strong> This page contains text trying to give Bubiqo instructions.
@@ -567,7 +642,7 @@ function NowTab(props: NowProps) {
           </div>
         ) : (
           <>
-            {analysis.suggestions.slice(0, 3).map((suggestion) => (
+            {primary.map((suggestion) => (
               <SuggestionCard
                 key={suggestion.actionId}
                 suggestion={suggestion}
@@ -630,7 +705,27 @@ function NowTab(props: NowProps) {
         )}
       </section>
 
-      <BriefingBlock briefing={briefing} now={now} />
+      {skills.length > 0 && (
+        <section className="section" aria-labelledby="skills-title">
+          <h2 className="section__title" id="skills-title">
+            What this job wants
+            <span className="section__count">{skills.length}</span>
+          </h2>
+          <ul className="chips">
+            {skills.map((skill) => (
+              <li key={skill.value} className="chips__item">
+                {skill.value}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/*
+        * What the advert is built on. Ordered by how often each is mentioned, so
+        * what the job is actually about sits ahead of what it merely touches.
+        */}
+            <BriefingBlock briefing={briefing} now={now} />
 
       {state?.siteOrigin && !state.siteAccessGranted && (
         <section className="section">
@@ -658,14 +753,22 @@ function NowTab(props: NowProps) {
 
 function ProblemRow({ problem, now }: { problem: Problem; now: number }) {
   const modifier =
-    problem.urgency === "overdue" ? "problem--overdue" : problem.urgency === "today" ? "problem--today" : "";
+    problem.kind === "eligibility"
+      ? "problem--blocking"
+      : problem.urgency === "overdue"
+        ? "problem--overdue"
+        : problem.urgency === "today"
+          ? "problem--today"
+          : "";
   return (
     <div className={`problem ${modifier}`}>
       <span className="problem__dot" aria-hidden="true" />
       <div className="problem__body">
         <p className="problem__summary">{problem.summary}</p>
         <p className="problem__meta">
-          <span className={`urgency urgency--${problem.urgency}`}>{urgencyWord(problem.urgency)}</span>
+          <span className={`urgency urgency--${problem.kind === "eligibility" ? "overdue" : problem.urgency}`}>
+            {problem.kind === "eligibility" ? "Must have" : urgencyWord(problem.urgency)}
+          </span>
           {problem.dueAt ? ` · ${formatDue(problem.dueAt, now)}` : ""}
         </p>
       </div>

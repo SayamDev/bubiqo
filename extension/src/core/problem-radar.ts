@@ -147,6 +147,22 @@ export function scanForProblems(
     found.push(problem("pending_response", "Someone appears to be waiting on you.", "soon", 0.6, m[0]));
   }
 
+  /*
+   * Eligibility conditions.
+   *
+   * These are the only "problems" with no date attached, and they belong here
+   * because they answer the question that decides everything else: can you
+   * actually apply? An advert that mentions security clearance three-quarters of
+   * the way down has effectively hidden it, and an hour spent on an application
+   * you were never eligible for is the worst outcome this product can allow.
+   */
+  for (const e of entities) {
+    if (e.type !== "requirement" || !e.value.includes("(blocking)")) continue;
+    found.push(
+      problem("eligibility", e.value.replace(" (blocking)", ""), "today", e.confidence, e.source),
+    );
+  }
+
   // --- Unfinished forms ----------------------------------------------------
   const required = page.fields.filter((f) => f.required);
   const emptyRequired = required.filter((f) => !f.filled);

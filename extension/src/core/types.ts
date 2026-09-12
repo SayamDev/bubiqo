@@ -80,6 +80,8 @@ export type EntityType =
   | "currency"
   | "reference"
   | "job_title"
+  | "skill"
+  | "requirement"
   | "url";
 
 /**
@@ -134,7 +136,8 @@ export type ProblemKind =
   | "pending_response"
   | "upcoming_event"
   | "unfinished_form"
-  | "payment_due";
+  | "payment_due"
+  | "eligibility";
 
 export type Urgency = "overdue" | "today" | "soon" | "later";
 

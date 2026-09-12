@@ -200,13 +200,19 @@ body::before {
 
 /* ---------------------------------------------------------------- header */
 
+/*
+ * The header scrolls away; the tab bar pins.
+ *
+ * It was written as sticky, and a later rule for the artwork made it relative
+ * without anyone noticing. Leaving it scrolling is the better answer in a panel
+ * this narrow — with the artwork and the wordmark it is nearly 200px tall, which
+ * is a sixth of the viewport to give up permanently — but it should be a decision
+ * rather than an accident, so it is written as one.
+ */
 .header {
   padding: 20px 18px 18px;
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter: blur(10px);
+  position: relative;
+  background: var(--paper);
   border-bottom: 1px solid var(--line);
 }
 
@@ -1300,12 +1306,16 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 
 .suggestion__row .why summary:hover { background: none; color: var(--accent); }
 
+/*
+ * --ink-faint is tuned against the cream ground and measures 4.12:1 on a white
+ * card, which is below AA. Inside a card, secondary text uses the stronger ink.
+ */
 .btn--link-quiet {
   display: inline-block;
   margin-top: 10px;
   font-size: var(--step-0);
   font-weight: 600;
-  color: var(--ink-faint);
+  color: var(--ink-soft);
   text-decoration: none;
 }
 
@@ -1322,3 +1332,87 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 
 .diag dt { color: var(--ink-faint); font-weight: 700; }
 .diag dd { margin: 0; color: var(--ink-soft); overflow-wrap: anywhere; }
+
+/* A blocking condition is not "soon" — it is a wall. */
+.problem--blocking { background: var(--alert-bg); border-color: transparent; }
+.problem--blocking .problem__dot { background: var(--alert); }
+
+/* What the job wants, at a glance. */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+
+.chips__item {
+  padding: 5px 11px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: var(--step-0);
+  font-weight: 600;
+  color: var(--ink-soft);
+  box-shadow: var(--lift-sm);
+}
+
+/* ==========================================================================
+   Is it actually doing anything?
+   ==========================================================================
+
+   The panel looked identical whether it was working, finished or broken. A dot
+   and a timestamp is the smallest honest answer: green and still when a reading
+   is done, amber and pulsing while one is in flight.
+   ========================================================================== */
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0 0;
+  font-size: var(--step-00);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: var(--ink-faint);
+}
+
+.status__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-pill);
+  background: var(--ok);
+  flex: none;
+}
+
+.status--working { color: var(--accent); }
+
+.status--working .status__dot {
+  background: var(--accent);
+  animation: breathe 1.2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.75); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status--working .status__dot { animation: none; opacity: 0.7; }
+}
+
+/* ==========================================================================
+   The one-line reminder of what this is for
+   ========================================================================== */
+
+.intro {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  border-radius: var(--r-bubble);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-line);
+  font-size: var(--step-0);
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.intro__mark { width: 22px; height: 22px; flex: none; color: var(--accent); margin-top: 1px; }
+.intro strong { display: block; margin-bottom: 2px; }
+.intro__dismiss { margin-left: auto; flex: none; }

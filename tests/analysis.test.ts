@@ -279,3 +279,66 @@ describe("actionable links", () => {
     if (open) expect(open.risk).toBe("confirm");
   });
 });
+
+describe("splitting suggestions for display", () => {
+  /*
+   * The panel used to re-derive this: it listed the first three of any risk as
+   * cards, but computed "More actions" against the SAFE ones — so a confirm-risk
+   * card in the top three was rendered twice, once as a card and once inside the
+   * disclosure. Two places deciding the same thing is how they drift.
+   */
+  it("never lists the same suggestion twice", async () => {
+    const { splitSuggestions } = await import("@core/ranker");
+    const analysis = analyse(jobPage, registry, { settings: { ...DEFAULT_SETTINGS, mode: "proactive" }, now: NOW });
+
+    const { primary, more } = splitSuggestions(analysis.suggestions);
+    const ids = [...primary, ...more].map((s) => s.actionId);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("accounts for every suggestion exactly once", async () => {
+    const { splitSuggestions } = await import("@core/ranker");
+    const analysis = analyse(emailWithDeadline, registry, { settings: DEFAULT_SETTINGS, now: NOW });
+
+    const { primary, more } = splitSuggestions(analysis.suggestions);
+    expect(primary.length + more.length).toBe(analysis.suggestions.length);
+  });
+
+  it("keeps a confirm-risk suggestion out of More actions when it is already a card", async () => {
+    const { splitSuggestions } = await import("@core/ranker");
+    const withConfirm = [
+      { actionId: "a", name: "A", risk: "safe" as const, rationale: "x", score: 0.9, params: {} },
+      { actionId: "b", name: "B", risk: "confirm" as const, rationale: "x", score: 0.8, params: {} },
+      { actionId: "c", name: "C", risk: "safe" as const, rationale: "x", score: 0.7, params: {} },
+      { actionId: "d", name: "D", risk: "safe" as const, rationale: "x", score: 0.6, params: {} },
+    ];
+    const { primary, more } = splitSuggestions(withConfirm);
+    expect(primary.map((s) => s.actionId)).toEqual(["a", "b", "c"]);
+    expect(more.map((s) => s.actionId)).toEqual(["d"]);
+  });
+});
+
+describe("the headline", () => {
+  it("does not say eligibility conditions 'need you'", async () => {
+    /*
+     * You cannot act on being asked for security clearance. It needs checking
+     * before an hour goes into an application you were never eligible for, which
+     * is a different sentence.
+     */
+    const { attentionHeadline } = await import("../extension/src/sidepanel/format");
+    expect(attentionHeadline(3, 2, true)).toBe("3 things to check first");
+    expect(attentionHeadline(1, 2, true)).toBe("One thing to check first");
+  });
+
+  it("still says 'need you' for things you can act on", async () => {
+    const { attentionHeadline } = await import("../extension/src/sidepanel/format");
+    expect(attentionHeadline(3, 2, false)).toBe("3 things need you");
+    expect(attentionHeadline(1, 0, false)).toBe("One thing needs you");
+  });
+
+  it("stays quiet when there is nothing", async () => {
+    const { attentionHeadline } = await import("../extension/src/sidepanel/format");
+    expect(attentionHeadline(0, 0)).toBe("Nothing needs you here");
+    expect(attentionHeadline(0, 2)).toBe("Nothing urgent — but I can help");
+  });
+});
