@@ -155,8 +155,15 @@ function explain(actionId: string, ctx: RankingContext): { rationale: string; bo
          * states a deadline, "create a reminder" leads — a deadline three weeks
          * out is still the thing most likely to be forgotten.
          */
+        /*
+         * Quote the clause, not the window around it. The evidence field holds a
+         * wide slice of surrounding text for the "why?" disclosure; using it here
+         * produced "Northwind account Hi Sayam, Can you send me the revised
+         * proposal by" as the reason a reminder was being offered.
+         */
+        const phrase = deadline.summary.replace(/^Deadline:\s*/i, "");
         return {
-          rationale: `We found a deadline: “${clip(deadline.evidence)}” — ${formatDue(deadline.dueAt, ctx.now)}.`,
+          rationale: `We found a deadline — “${clip(phrase)}”, ${formatDue(deadline.dueAt, ctx.now)}.`,
           bonus: 0.25 + URGENCY_BONUS[deadline.urgency],
         };
       }

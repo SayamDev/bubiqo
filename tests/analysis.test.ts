@@ -342,3 +342,37 @@ describe("the headline", () => {
     expect(attentionHeadline(0, 2)).toBe("Nothing urgent — but I can help");
   });
 });
+
+describe("saying what was found, not that something was", () => {
+  it("names the kind of event rather than 'something is scheduled'", () => {
+    const page = { ...emailWithDeadline, text: "Are you free for a call on Tuesday at 14:30?" };
+    const event = run(page).problems.find((p) => p.kind === "upcoming_event");
+    expect(event?.summary).toMatch(/there is a call/i);
+    expect(event?.summary).not.toMatch(/something is scheduled/i);
+  });
+
+  it("quotes the clause in a reminder's reason, not the window around it", () => {
+    /*
+     * The evidence field holds a wide slice of surrounding text for the "why?"
+     * disclosure. Using it as the reason produced "Northwind account Hi Sayam,
+     * Can you send me the revised proposal by" as the justification for offering
+     * a reminder.
+     */
+    const reminder = run(emailWithDeadline).suggestions.find((s) => s.actionId === "create_reminder");
+    expect(reminder?.rationale).toMatch(/“by Friday”/);
+    expect(reminder?.rationale).not.toMatch(/Hi Sayam|Subject:/);
+  });
+
+  it("takes the title and the employer from the top of a selection", () => {
+    // A selection carries no headings, so an Indeed advert lost both.
+    const selection = `Graduate Associate Consultant - Executive Search
+Lowen Talent
+Leeds
+Lowen Talent is seeking a Graduate Associate Consultant to join our Executive Search team in Leeds.
+You will work alongside experienced consultants across the full search lifecycle.`;
+    const analysis = run({ ...emailWithDeadline, text: selection, selection, headings: [] });
+
+    expect(analysis.entities.some((e) => e.type === "job_title" && /Graduate Associate Consultant/.test(e.value))).toBe(true);
+    expect(analysis.entities.some((e) => e.type === "organisation" && e.value === "Lowen Talent")).toBe(true);
+  });
+});

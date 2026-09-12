@@ -57,7 +57,20 @@ export function analyse(
 
   // Page text is untrusted input. It is cleaned before anything reasons about it.
   const cleaned = sanitise(content);
-  const safePage: PageContext = { ...page, text: cleaned.text };
+
+  /*
+   * A selection carries no headings, so the rules that anchor to a page's title
+   * had nothing to work with — an Indeed advert lost both its role and its
+   * employer that way. When someone selects an advert they start at the top of
+   * it, so the first line is the title.
+   */
+  const firstLine = fromSelection ? (cleaned.text.split("\n")[0] ?? "").trim() : "";
+  const headings =
+    fromSelection && firstLine.length > 2 && firstLine.length < 120
+      ? [firstLine, ...page.headings]
+      : page.headings;
+
+  const safePage: PageContext = { ...page, text: cleaned.text, headings };
 
   const classification = classify(safePage);
   const entities = extractEntities(safePage, options.now);

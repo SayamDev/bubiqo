@@ -112,7 +112,16 @@ export function scanForProblems(
       if (e.type !== "time" || e.resolvedAt === undefined) continue;
       if (e.resolvedAt < now) continue;
       found.push(
-        problem("upcoming_event", "Something is scheduled on this page.", describeUrgency(e.resolvedAt, now), 0.75, e.source, e.resolvedAt),
+        // Name it. "Something is scheduled" tells the reader nothing they cannot
+        // already see — they are the one who opened the page.
+        problem(
+          "upcoming_event",
+          `There is a ${(MEETING_WORDS.exec(e.source)?.[0] ?? MEETING_WORDS.exec(text)?.[0] ?? "meeting").toLowerCase()} on this page.`,
+          describeUrgency(e.resolvedAt, now),
+          0.75,
+          e.source,
+          e.resolvedAt,
+        ),
       );
     }
   }
