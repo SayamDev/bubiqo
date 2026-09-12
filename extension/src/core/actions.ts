@@ -220,16 +220,29 @@ export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {
         input.problems.some((p) => p.kind === "unanswered_question" || p.kind === "pending_response"),
       execute: async (input) => {
         const person = first(input.entities, "person")?.value;
-        const ask = input.problems.find((p) => p.kind === "unanswered_question");
         const deadline = input.entities.find((e) => e.type === "deadline");
 
+        /*
+         * Deliberately does NOT splice the detected request into the reply.
+         *
+         * A request is phrased from the SENDER's side — "can you send me the
+         * proposal" — so pasting it into a reply produces "Thanks for the note, on
+         * send me the proposal", which is both ungrammatical and backwards. Writing
+         * the other half of that sentence correctly means understanding the
+         * request, not pattern-matching it, and getting it wrong in something the
+         * user might send is worse than leaving a blank line for them to fill.
+         *
+         * So: a correct, short opening that commits to the detected deadline, and
+         * nothing invented.
+         */
         const body = [
           person ? `Hi ${person},` : "Hi,",
           "",
-          ask ? `Thanks for the note — ${ask.summary.replace(/^Someone asked you to /, "on ")}` : "Thanks for the note.",
+          "Thanks for the note.",
+          "",
           deadline?.resolvedAt
-            ? `I'll have this with you by ${formatDue(deadline.resolvedAt, ports.now())}.`
-            : "I'll come back to you shortly.",
+            ? `I'll get this over to you by ${formatDue(deadline.resolvedAt, ports.now())}.`
+            : "I'll come back to you on this shortly.",
           "",
           "Best,",
         ].join("\n");

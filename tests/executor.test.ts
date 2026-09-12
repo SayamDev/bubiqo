@@ -5,7 +5,7 @@ import { analyse, toActionInput } from "@core/analyse";
 import { decide, sanitiseParams, assertWellFormed } from "@core/safety";
 import { DEFAULT_SETTINGS, type ActionDefinition, type Settings } from "@core/types";
 import { makePorts, type TestPorts } from "./fakes";
-import { NOW, emailWithDeadline, invoicePage, maliciousPage } from "./fixtures";
+import { NOW, emailWithDeadline, longEmailThread, invoicePage, maliciousPage } from "./fixtures";
 
 let ports: TestPorts;
 let registry: ReadonlyMap<string, ActionDefinition>;
@@ -362,5 +362,31 @@ describe("nothing is produced that the user cannot reach", () => {
       if (outcome.status !== "done") continue;
       expect(Boolean(outcome.undoHandle), `${action.id} undo wiring disagrees with canUndo`).toBe(action.canUndo);
     }
+  });
+});
+
+describe("the draft it writes", () => {
+  it("reads as English and never splices the request back in", async () => {
+    const { input } = inputFor(emailWithDeadline);
+    const outcome = await executor.run("draft_reply", input);
+    const draft = [...ports.drafts.store.values()][0]!;
+
+    expect(outcome.status).toBe("done");
+    // The request is phrased from the sender's side ("send ME the proposal"), so
+    // pasting it into a reply produces nonsense. It must not appear.
+    expect(draft.body).not.toMatch(/send me/i);
+    expect(draft.body).not.toMatch(/someone asked you/i);
+    expect(draft.body).not.toMatch(/ — on /);
+
+    expect(draft.body).toMatch(/^Hi /);
+    expect(draft.body).toMatch(/Best,$/);
+    expect(draft.body).toMatch(/I'll get this over to you by/);
+  });
+
+  it("does not promise a date when none was found", async () => {
+    const { input } = inputFor(longEmailThread);
+    await executor.run("draft_reply", { ...input, entities: input.entities.filter((e) => e.type !== "deadline") });
+    const draft = [...ports.drafts.store.values()][0]!;
+    expect(draft.body).toMatch(/come back to you on this shortly/);
   });
 });
