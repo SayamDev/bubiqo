@@ -18,6 +18,7 @@ import type { StepOutcome, CompleteItReport } from "@core/executor";
 import type { Briefing, PanelState, Response } from "@shared/messages";
 import { send } from "@shared/messages";
 import { formatDue } from "@core/dates";
+import { shortenUrl } from "@core/storage-hygiene";
 import { riskLabel } from "@core/safety";
 import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime } from "./format";
 import { BubbleMark, ShieldIcon, QuietMark, ActionIcon, HeaderArt } from "./icons";
@@ -1011,8 +1012,9 @@ function MemoryTab({
                       {item.entities.slice(0, 6).map((e, i) => (
                         <li key={`${e.type}-${i}`}>
                           <span className="detail-list__type">{e.type.replace(/_/g, " ")}</span>
-                          <span className="detail-list__value">
-                            {e.resolvedAt ? formatDue(e.resolvedAt, now) : e.value}
+                          <span className="detail-list__value" title={e.value}>
+                            {/* A tracking link is 700 characters of payload; show where it goes. */}
+                            {e.resolvedAt ? formatDue(e.resolvedAt, now) : e.type === "url" ? shortenUrl(e.value) : e.value}
                           </span>
                         </li>
                       ))}

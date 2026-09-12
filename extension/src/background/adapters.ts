@@ -12,6 +12,7 @@ import type {
 } from "@core/ports";
 import type { ActivityEvent, MemoryItem, Reminder } from "@core/types";
 import { buildIcs, icsFilename } from "@core/ics";
+import { memoryFingerprint, reminderFingerprint, trimForStorage } from "@core/storage-hygiene";
 
 const KEYS = {
   reminders: "bubiqo.reminders",
@@ -25,8 +26,52 @@ const KEYS = {
   dismissed: "bubiqo.dismissed",
 } as const;
 
-/** Activity is a rolling window, not an archive: old events are dropped. */
+/*
+ * Every collection is bounded. chrome.storage.local is a single 10 MB budget for
+ * the whole extension, and nothing here was capped except the activity log — so
+ * reminders and saved items grew without limit, one record per click, until the
+ * quota stopped the extension working with no way for the user to know why.
+ *
+ * Oldest records are evicted first. A cap that silently drops the NEWEST write
+ * would be worse than no cap: the user would press a button and see nothing.
+ */
 const ACTIVITY_LIMIT = 200;
+const REMINDER_LIMIT = 300;
+const MEMORY_LIMIT = 300;
+const DRAFT_LIMIT = 100;
+const CALENDAR_LIMIT = 50;
+
+/** Drop the oldest entries until the collection is within its cap. */
+function evictOldest<T extends { id: string }>(
+  all: Record<string, T>,
+  limit: number,
+  age: (item: T) => number,
+): Record<string, T> {
+  const entries = Object.values(all);
+  if (entries.length <= limit) return all;
+
+  const keep = entries.sort((a, b) => age(b) - age(a)).slice(0, limit);
+  const next: Record<string, T> = {};
+  for (const item of keep) next[item.id] = item;
+  return next;
+}
+
+/**
+ * chrome.storage.local throws QUOTA_BYTES when full. Losing the write silently is
+ * the one outcome to avoid, so this reports it rather than swallowing it.
+ */
+async function writeGuarded(key: string, value: unknown): Promise<void> {
+  try {
+    await chrome.storage.local.set({ [key]: value });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      /quota/i.test(message)
+        ? "This device has run out of space for Bubiqo's data. Delete some saved items in Memory."
+        : message,
+    );
+  }
+}
 
 export async function readCollection<T>(key: string): Promise<Record<string, T>> {
   const stored = await chrome.storage.local.get(key);
@@ -35,7 +80,7 @@ export async function readCollection<T>(key: string): Promise<Record<string, T>>
 }
 
 async function writeCollection<T>(key: string, value: Record<string, T>): Promise<void> {
-  await chrome.storage.local.set({ [key]: value });
+  await writeGuarded(key, value);
 }
 
 function newId(prefix: string): string {
@@ -44,13 +89,26 @@ function newId(prefix: string): string {
 
 class ChromeReminders implements ReminderPort {
   async create(input: { title: string; dueAt: number; url?: string }): Promise<string> {
-    const id = newId("rem");
     const all = await readCollection<Reminder>(KEYS.reminders);
+
+    /*
+     * Pressing Do it twice on the same page means one reminder, not two. Without
+     * this, five clicks left five identical rows — which is what a real user did
+     * within a minute of trying it.
+     */
+    const fingerprint = reminderFingerprint(input);
+    const existing = Object.values(all).find((r) => reminderFingerprint(r) === fingerprint);
+    if (existing) {
+      if (existing.dueAt > Date.now()) await chrome.alarms.create(existing.id, { when: existing.dueAt });
+      return existing.id;
+    }
+
+    const id = newId("rem");
     all[id] = {
       id, title: input.title, dueAt: input.dueAt, createdAt: Date.now(), fired: false,
       ...(input.url ? { url: input.url } : {}),
     };
-    await writeCollection(KEYS.reminders, all);
+    await writeCollection(KEYS.reminders, evictOldest(all, REMINDER_LIMIT, (r) => r.createdAt));
 
     /*
      * chrome.alarms will not schedule in the past. A reminder whose moment has
@@ -81,10 +139,24 @@ class ChromeReminders implements ReminderPort {
 
 class ChromeMemory implements MemoryPort {
   async save(item: Omit<MemoryItem, "id" | "savedAt">): Promise<string> {
-    const id = newId("mem");
     const all = await readCollection<MemoryItem>(KEYS.memory);
-    all[id] = { ...item, id, savedAt: Date.now() };
-    await writeCollection(KEYS.memory, all);
+
+    // Entities are trimmed before they land: capped values, and the explanatory
+    // source snippet dropped, since it has done its job by the time this is saved.
+    const entities = item.entities.map(trimForStorage);
+    const fingerprint = memoryFingerprint(item);
+
+    const existing = Object.values(all).find((m) => memoryFingerprint(m) === fingerprint);
+    if (existing) {
+      // Saving the same page again refreshes it rather than duplicating it.
+      all[existing.id] = { ...existing, ...item, entities, id: existing.id, savedAt: Date.now() };
+      await writeCollection(KEYS.memory, all);
+      return existing.id;
+    }
+
+    const id = newId("mem");
+    all[id] = { ...item, entities, id, savedAt: Date.now() };
+    await writeCollection(KEYS.memory, evictOldest(all, MEMORY_LIMIT, (m) => m.savedAt));
     return id;
   }
   async get(id: string) { return (await readCollection<MemoryItem>(KEYS.memory))[id]; }
@@ -103,7 +175,7 @@ class ChromeDrafts implements DraftPort {
     const id = newId("draft");
     const all = await readCollection<Draft>(KEYS.drafts);
     all[id] = { id, subject: input.subject, body: input.body, createdAt: Date.now() };
-    await writeCollection(KEYS.drafts, all);
+    await writeCollection(KEYS.drafts, evictOldest(all, DRAFT_LIMIT, (d) => d.createdAt));
     return id;
   }
   async get(id: string) { return (await readCollection<Draft>(KEYS.drafts))[id]; }
@@ -131,7 +203,8 @@ class ChromeCalendar implements CalendarPort {
     });
     const all = await readCollection<CalendarFile>(KEYS.calendar);
     all[id] = { id, filename: icsFilename(input.title), ics };
-    await writeCollection(KEYS.calendar, all);
+    // Calendar files are the largest thing stored and are disposable once saved.
+    await writeCollection(KEYS.calendar, evictOldest({ ...all }, CALENDAR_LIMIT, () => 0));
     return id;
   }
   async get(id: string) { return (await readCollection<CalendarFile>(KEYS.calendar))[id]; }
@@ -150,7 +223,7 @@ class ChromeActivity implements ActivityPort {
     const stored = await chrome.storage.local.get(KEYS.activity);
     const list: ActivityEvent[] = Array.isArray(stored[KEYS.activity]) ? stored[KEYS.activity] : [];
     list.push({ ...event, id: newId("act"), at: Date.now() });
-    await chrome.storage.local.set({ [KEYS.activity]: list.slice(-ACTIVITY_LIMIT) });
+    await writeGuarded(KEYS.activity, list.slice(-ACTIVITY_LIMIT));
   }
   async recent(limit: number): Promise<ActivityEvent[]> {
     const stored = await chrome.storage.local.get(KEYS.activity);

@@ -13,6 +13,7 @@ import type { ActionDefinition, ActionInput, ActionResult, Entity, VerificationR
 import type { Ports } from "./ports";
 import { assertWellFormed } from "./safety";
 import { formatDue } from "./dates";
+import { cleanTitle } from "./storage-hygiene";
 
 const ok = (message: string, handle: string | undefined, undoable: boolean): ActionResult =>
   handle === undefined ? { ok: true, message, undoable } : { ok: true, message, handle, undoable };
@@ -39,8 +40,15 @@ function paramString(input: ActionInput, key: string, fallback: string): string 
   return typeof value === "string" && value.trim().length > 0 ? value : fallback;
 }
 
+/**
+ * The page's title, fit to store.
+ *
+ * Never the raw document title: a webmail tab is titled
+ * "Subject - your.name@gmail.com - Gmail", so storing it verbatim wrote the
+ * user's own email address into every reminder and saved item they made.
+ */
 function pageTitle(input: ActionInput): string {
-  return input.page.title.trim().slice(0, 120) || input.page.domain;
+  return cleanTitle(input.page.title, input.page.domain);
 }
 
 export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {

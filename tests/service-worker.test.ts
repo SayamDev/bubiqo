@@ -382,3 +382,63 @@ describe("clearing the activity log", () => {
     expect(after.memory).toHaveLength(1);
   });
 });
+
+describe("pressing the same button repeatedly", () => {
+  it("does not leave a pile of identical reminders", async () => {
+    /*
+     * Reported from real use: five clicks left five identical rows, all titled
+     * with the Gmail page title, all for the same date. Unbounded growth against
+     * a 10 MB quota, and the list becomes unusable long before that.
+     */
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    for (let i = 0; i < 5; i++) {
+      await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
+    }
+
+    const panel = asState(await dispatch({ type: "GET_REMINDERS" }));
+    expect(panel.reminders).toHaveLength(1);
+  });
+
+  it("does not leave a pile of identical saved items", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    for (let i = 0; i < 4; i++) {
+      await dispatch({ type: "RUN_ACTION", actionId: "save_to_memory", approved: false });
+    }
+
+    const panel = asState(await dispatch({ type: "GET_MEMORY" }));
+    expect(panel.memory).toHaveLength(1);
+  });
+
+  it("still reports success each time, rather than looking broken", async () => {
+    // Deduping must not make the second press look like a failure.
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    const first = (await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false })) as { outcome: StepOutcome };
+    const second = (await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false })) as { outcome: StepOutcome };
+    expect(first.outcome.status).toBe("done");
+    expect(second.outcome.status).toBe("done");
+  });
+});
+
+describe("what actually gets written to storage", () => {
+  it("never writes the user's email address into a stored title", async () => {
+    state.pageResult = {
+      ...(emailPage as Record<string, unknown>),
+      title: "Barclays wants you to apply - asfcit15sayamajmal@gmail.com - Gmail",
+    };
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
+    await dispatch({ type: "RUN_ACTION", actionId: "save_to_memory", approved: false });
+
+    const written = JSON.stringify(state.store);
+    expect(written).not.toMatch(/asfcit15sayamajmal@gmail\.com/);
+    expect(written).not.toMatch(/ - Gmail/);
+  });
+
+  it("does not persist the explanatory page snippets attached to entities", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "save_to_memory", approved: false });
+
+    const memory = asState(await dispatch({ type: "GET_MEMORY" })).memory;
+    expect(memory[0]!.entities.every((e) => e.source === "")).toBe(true);
+  });
+});

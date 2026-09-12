@@ -33,13 +33,25 @@ uploaded, and never shared between profiles.
 | Activity log (rolling, last 200 events) | Cookies or session tokens |
 | Your settings | Anything from a page you didn't act on |
 
+### Titles are cleaned before they are stored
+
+A webmail tab is titled `Subject - your.name@gmail.com - Gmail`. Saving that
+verbatim would write your own email address into every reminder and saved item
+you ever made, so the address and the client name are stripped before anything
+is persisted. There is a test asserting no stored record can contain an address.
+
 ### Page content is not retained
 
 A `PageContext` exists for as long as it takes to analyse it and is then replaced by
 the next one. It is never written to storage.
 
 When you save something to Memory, what's saved is the **extracted entities** — the
-due date, the total, the reference — not the page it came from. This is enforced in
+due date, the total, the reference — not the page it came from. The short quoted
+snippet that explains a live suggestion is dropped at that point too: it has done
+its job on screen, and it does not need to live on disk.
+
+Every stored value is length-capped, and every collection is capped by count with
+the oldest evicted first, so nothing grows without bound. This is enforced in
 `core/actions.ts` rather than being a policy:
 
 ```ts

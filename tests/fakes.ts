@@ -12,6 +12,7 @@ import type {
 } from "@core/ports";
 import type { ActivityEvent, MemoryItem, Reminder } from "@core/types";
 import { buildIcs, icsFilename } from "@core/ics";
+import { memoryFingerprint, reminderFingerprint, trimForStorage } from "@core/storage-hygiene";
 
 let counter = 0;
 const nextId = (prefix: string) => `${prefix}_${++counter}`;
@@ -23,6 +24,11 @@ export function resetIds(): void {
 export class FakeReminders implements ReminderPort {
   readonly store = new Map<string, Reminder>();
   async create(input: { title: string; dueAt: number; url?: string }): Promise<string> {
+    // Mirrors the real adapter: identical reminders collapse into one.
+    const fingerprint = reminderFingerprint(input);
+    for (const existing of this.store.values()) {
+      if (reminderFingerprint(existing) === fingerprint) return existing.id;
+    }
     const id = nextId("rem");
     this.store.set(id, { id, title: input.title, dueAt: input.dueAt, createdAt: 0, fired: false, ...(input.url ? { url: input.url } : {}) });
     return id;
@@ -35,8 +41,16 @@ export class FakeReminders implements ReminderPort {
 export class FakeMemory implements MemoryPort {
   readonly store = new Map<string, MemoryItem>();
   async save(item: Omit<MemoryItem, "id" | "savedAt">): Promise<string> {
+    const entities = item.entities.map(trimForStorage);
+    const fingerprint = memoryFingerprint(item);
+    for (const existing of this.store.values()) {
+      if (memoryFingerprint(existing) === fingerprint) {
+        this.store.set(existing.id, { ...existing, ...item, entities, id: existing.id, savedAt: 0 });
+        return existing.id;
+      }
+    }
     const id = nextId("mem");
-    this.store.set(id, { ...item, id, savedAt: 0 });
+    this.store.set(id, { ...item, entities, id, savedAt: 0 });
     return id;
   }
   async get(id: string) { return this.store.get(id); }
