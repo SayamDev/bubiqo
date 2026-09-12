@@ -256,6 +256,7 @@ async function baseState(settings: Settings): Promise<PanelState> {
     settings,
     reminders: await ports.reminders.all(),
     memory: await ports.memory.all(),
+    drafts: await ports.drafts.all(),
     activity: await ports.activity.recent(40),
   };
 }
@@ -337,6 +338,18 @@ async function handle(request: Request): Promise<Response> {
         approved: request.approved ? [request.actionId] : [],
       });
       if (outcome.status === "done") await pushIdList(STORAGE_KEYS.accepted, request.actionId);
+
+      /*
+       * Navigation is the one action whose effect lives outside both the worker and
+       * the panel, so the worker performs it here rather than in core/, which must
+       * stay free of chrome.*. It only runs after decide() approved the step and the
+       * user approved the confirm-risk prompt, and the action itself has already
+       * rejected anything that is not https.
+       */
+      if (request.actionId === "open_application_link" && outcome.status === "done" && outcome.handle) {
+        await chrome.tabs.create({ url: outcome.handle, active: true });
+      }
+
       await persistUsage();
       return { type: "STEP", outcome };
     }
@@ -371,6 +384,13 @@ async function handle(request: Request): Promise<Response> {
     case "GET_MEMORY":
     case "GET_REMINDERS":
     case "GET_ACTIVITY":
+      return { type: "STATE", state: await baseState(settings) };
+
+    case "GET_DRAFTS":
+      return { type: "STATE", state: await baseState(settings) };
+
+    case "DELETE_DRAFT":
+      await ports.drafts.remove(request.id);
       return { type: "STATE", state: await baseState(settings) };
 
     case "DELETE_MEMORY":

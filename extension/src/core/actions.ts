@@ -262,24 +262,31 @@ export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {
       permissions: [],
       canUndo: false,
       applies: (input) => input.entities.length > 0,
+      /*
+       * The service worker has no document, and the Clipboard API needs one. So
+       * this action PREPARES the text and hands it back; the side panel, which does
+       * have a document and the user's gesture, performs the actual write.
+       *
+       * It previously called a port that only recorded the text in the worker and
+       * then reported "Copied to the clipboard" — a success message for something
+       * that had not happened. Reporting an unverified success is the one thing
+       * this product must never do.
+       */
       execute: async (input) => {
         const lines = input.entities
           .filter((e) => e.sensitivity !== "sensitive")
           .slice(0, 12)
           .map((e) => `${e.type.replace(/_/g, " ")}: ${e.value}`);
         if (lines.length === 0) return failed("There was nothing safe to copy from this page.");
+
         const text = lines.join("\n");
         await ports.clipboard.write(text);
-        return ok(`Copied ${lines.length} details to the clipboard.`, undefined, false);
+        return ok(`${lines.length} details ready to copy.`, text, false);
       },
-      // The clipboard cannot be read back reliably, so this reports honestly rather
-      // than asserting a success it cannot observe.
-      verify: async () => {
-        const last = await ports.clipboard.lastWritten();
-        return last
-          ? confirmed("Details were written to the clipboard.")
-          : unconfirmed("We could not confirm what reached the clipboard.");
-      },
+      verify: async (result) =>
+        result.handle && result.handle.length > 0
+          ? confirmed("The details are ready — use Copy to put them on your clipboard.")
+          : unconfirmed("There was nothing to copy."),
     },
 
     // -----------------------------------------------------------------------

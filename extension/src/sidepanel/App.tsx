@@ -155,6 +155,37 @@ export function App() {
     [apply],
   );
 
+  /*
+   * These two live in the panel because they need a document, which an MV3 service
+   * worker does not have: the Clipboard API and an <a download> both require one.
+   * The worker prepares the content; the panel delivers it.
+   */
+  const copyText = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setAnnounce("Copied to your clipboard.");
+    } catch {
+      setAnnounce("Chrome blocked the clipboard. Select the text and copy it manually.");
+    }
+  }, []);
+
+  const downloadCalendar = useCallback(async (handle: string) => {
+    const response = await send({ type: "DOWNLOAD_CALENDAR", handle });
+    if (response.type !== "CALENDAR_FILE") {
+      setAnnounce("That calendar file is no longer available.");
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([response.ics], { type: "text/calendar;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = response.filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setAnnounce(`Downloaded ${response.filename}. Open it to add the event to your calendar.`);
+  }, []);
+
   const analysis = state?.analysis;
   const safeSuggestions = useMemo(
     () => (analysis?.suggestions ?? []).filter((s) => s.risk === "safe").slice(0, 3),
@@ -217,10 +248,12 @@ export function App() {
             onCompleteIt={completeIt}
             onUndo={undo}
             onRefresh={analyse}
+            onCopy={copyText}
+            onDownload={downloadCalendar}
             now={now}
           />
         )}
-        {tab === "memory" && <MemoryTab state={state} onChange={apply} />}
+        {tab === "memory" && <MemoryTab state={state} onChange={apply} onCopy={copyText} />}
         {tab === "activity" && <ActivityTab state={state} now={now} />}
         {tab === "settings" && <SettingsTab state={state} onChange={apply} />}
       </main>
@@ -282,6 +315,8 @@ interface NowProps {
   onCompleteIt: () => void;
   onUndo: (id: string, handle: string) => void;
   onRefresh: () => void;
+  onCopy: (text: string) => void;
+  onDownload: (handle: string) => void;
   now: number;
 }
 
@@ -401,7 +436,14 @@ function NowTab(props: NowProps) {
           </>
         )}
 
-        {outcomes.length > 0 && <Results outcomes={outcomes} onUndo={props.onUndo} />}
+        {outcomes.length > 0 && (
+          <Results
+            outcomes={outcomes}
+            onUndo={props.onUndo}
+            onCopy={props.onCopy}
+            onDownload={props.onDownload}
+          />
+        )}
       </section>
 
       <BriefingBlock briefing={briefing} now={now} />
@@ -475,9 +517,13 @@ function SuggestionCard({
 function Results({
   outcomes,
   onUndo,
+  onCopy,
+  onDownload,
 }: {
   outcomes: readonly StepOutcome[];
   onUndo: (id: string, handle: string) => void;
+  onCopy: (text: string) => void;
+  onDownload: (handle: string) => void;
 }) {
   return (
     <div className="result">
@@ -492,6 +538,26 @@ function Results({
             <span className={`result__mark result__mark--${markClass}`} aria-hidden="true">{mark}</span>
             <span>
               <strong>{outcome.name}</strong> — {outcome.message}
+
+              {/* Whatever a step produced, this is where the user collects it. */}
+              {outcome.actionId === "copy_details" && outcome.handle && (
+                <>
+                  {" "}
+                  <button className="btn btn--small" onClick={() => onCopy(outcome.handle!)}>
+                    Copy
+                  </button>
+                </>
+              )}
+
+              {outcome.actionId === "export_calendar_event" && outcome.handle && (
+                <>
+                  {" "}
+                  <button className="btn btn--small" onClick={() => onDownload(outcome.handle!)}>
+                    Download .ics
+                  </button>
+                </>
+              )}
+
               {outcome.undoable && outcome.undoHandle && (
                 <>
                   {" "}
@@ -561,13 +627,61 @@ function BriefingBlock({ briefing, now }: { briefing: Briefing | undefined; now:
 
 // ---------------------------------------------------------------------------
 
-function MemoryTab({ state, onChange }: { state: PanelState | undefined; onChange: (r: Response) => void }) {
+function MemoryTab({
+  state,
+  onChange,
+  onCopy,
+}: {
+  state: PanelState | undefined;
+  onChange: (r: Response) => void;
+  onCopy: (text: string) => void;
+}) {
   const memory = state?.memory ?? [];
   const reminders = state?.reminders ?? [];
+  const drafts = state?.drafts ?? [];
   const now = Date.now();
 
   return (
     <>
+      {drafts.length > 0 && (
+        <section className="section">
+          <h2 className="section__title">Drafts</h2>
+          <ul className="list">
+            {drafts.map((draft) => (
+              <li className="row" key={draft.id} style={{ display: "block" }}>
+                <p className="row__title">{draft.subject}</p>
+                <p className="row__meta">Written {relativeTime(draft.createdAt, now)} · nothing has been sent</p>
+                <pre
+                  style={{
+                    margin: "8px 0 0",
+                    whiteSpace: "pre-wrap",
+                    fontFamily: "inherit",
+                    fontSize: "0.8125rem",
+                    color: "var(--ink-soft)",
+                    background: "var(--sunk)",
+                    padding: "10px 12px",
+                    borderRadius: "var(--r-card)",
+                  }}
+                >
+                  {draft.body}
+                </pre>
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button className="btn btn--small" onClick={() => onCopy(draft.body)}>
+                    Copy draft
+                  </button>
+                  <button
+                    className="btn btn--quiet btn--small"
+                    onClick={async () => onChange(await send({ type: "DELETE_DRAFT", id: draft.id }))}
+                  >
+                    Delete<span className="visually-hidden"> draft: {draft.subject}</span>
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="section">
         <h2 className="section__title">Reminders</h2>
         {reminders.length === 0 ? (

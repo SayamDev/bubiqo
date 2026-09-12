@@ -15,8 +15,8 @@
 
     <p>
       Invoice number: INV-2026-0042<br>
-      Invoice date: 2026-02-27<br>
-      Due date: 20 March 2026
+      Invoice date: <span data-in-days="-14" data-format="iso"></span><br>
+      Due date: <span data-in-days="12"></span>
     </p>
 
     <table>
@@ -29,7 +29,7 @@
       </tbody>
     </table>
 
-    <p class="meta" style="margin-top:20px">Payment terms: net 21 days. Payment due by 20 March 2026.</p>
+    <p class="meta" style="margin-top:20px">Payment terms: net 26 days. Payment due by <span data-in-days="12"></span>.</p>
 
     <div class="tip">
       Bubiqo will read the amount, the reference and the due date, and offer a reminder.
@@ -37,5 +37,6 @@
     </div>
   </main>
 </div>
+<script src="demo-dates.js"></script>
 </body>
 </html>

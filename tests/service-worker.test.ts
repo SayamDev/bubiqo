@@ -240,3 +240,32 @@ describe("calendar download", () => {
     }
   });
 });
+
+describe("results reach the user", () => {
+  it("lists a saved draft so it can actually be read", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "draft_reply", approved: false });
+
+    const panel = asState(await dispatch({ type: "GET_DRAFTS" }));
+    expect(panel.drafts).toHaveLength(1);
+    expect(panel.drafts[0]!.body.length).toBeGreaterThan(20);
+  });
+
+  it("deletes a draft on request", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "draft_reply", approved: false });
+    let panel = asState(await dispatch({ type: "GET_DRAFTS" }));
+
+    panel = asState(await dispatch({ type: "DELETE_DRAFT", id: panel.drafts[0]!.id }));
+    expect(panel.drafts).toHaveLength(0);
+  });
+
+  it("hands back a downloadable .ics for a calendar export", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    const created = (await dispatch({ type: "RUN_ACTION", actionId: "export_calendar_event", approved: false })) as { outcome: StepOutcome };
+
+    const response = await dispatch({ type: "DOWNLOAD_CALENDAR", handle: created.outcome.handle! });
+    expect(response.type).toBe("CALENDAR_FILE");
+    if (response.type === "CALENDAR_FILE") expect(response.ics).toContain("BEGIN:VEVENT");
+  });
+});

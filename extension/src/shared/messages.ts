@@ -4,6 +4,7 @@
  */
 
 import type { Analysis, MemoryItem, PageContext, Reminder, Settings, ActivityEvent } from "@core/types";
+import type { Draft } from "@core/ports";
 import type { StepOutcome, CompleteItReport } from "@core/executor";
 
 export type Request =
@@ -21,6 +22,8 @@ export type Request =
   | { type: "GET_REMINDERS" }
   | { type: "DELETE_REMINDER"; id: string }
   | { type: "GET_ACTIVITY" }
+  | { type: "GET_DRAFTS" }
+  | { type: "DELETE_DRAFT"; id: string }
   | { type: "DOWNLOAD_CALENDAR"; handle: string }
   | { type: "BRIEFING" };
 
@@ -30,6 +33,7 @@ export interface PanelState {
   readonly settings: Settings;
   readonly reminders: readonly Reminder[];
   readonly memory: readonly MemoryItem[];
+  readonly drafts: readonly Draft[];
   readonly activity: readonly ActivityEvent[];
   readonly analysedAt?: number;
   /** Set when the active tab cannot be analysed, e.g. a chrome:// page. */

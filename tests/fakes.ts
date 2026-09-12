@@ -53,6 +53,7 @@ export class FakeDrafts implements DraftPort {
   }
   async get(id: string) { return this.store.get(id); }
   async remove(id: string) { this.store.delete(id); }
+  async all() { return [...this.store.values()]; }
 }
 
 export class FakeCalendar implements CalendarPort {
@@ -73,6 +74,7 @@ export class FakeCalendar implements CalendarPort {
   }
   async get(id: string) { return this.store.get(id); }
   async remove(id: string) { this.store.delete(id); }
+  async all() { return [...this.store.values()]; }
 }
 
 export class FakeActivity implements ActivityPort {

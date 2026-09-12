@@ -21,6 +21,12 @@ export interface StepOutcome {
   /** What actually happened, in the user's language. */
   readonly message: string;
   readonly status: "done" | "unconfirmed" | "failed" | "skipped" | "needs_approval" | "refused";
+  /**
+   * Whatever the action produced: a stored id, a URL, or the text itself. The panel
+   * uses it to deliver the result — download the .ics, copy the details, open the
+   * link. Separate from `undoHandle`, which is only set when the step can be undone.
+   */
+  readonly handle?: string;
   readonly undoHandle?: string;
   readonly undoable: boolean;
 }
@@ -119,15 +125,15 @@ export class Executor {
       undoable: result.undoable && action.canUndo,
     };
 
-    if (verification.outcome === "confirmed") {
-      return result.handle === undefined
-        ? { ...base, message: result.message, status: "done" }
-        : { ...base, message: result.message, status: "done", undoHandle: result.handle };
-    }
+    const status = verification.outcome === "confirmed" ? "done" : "unconfirmed";
+    const message = verification.outcome === "confirmed" ? result.message : verification.message;
 
-    return result.handle === undefined
-      ? { ...base, message: verification.message, status: "unconfirmed" }
-      : { ...base, message: verification.message, status: "unconfirmed", undoHandle: result.handle };
+    if (result.handle === undefined) return { ...base, message, status };
+
+    // undoHandle is set only when the step is genuinely reversible; handle always is.
+    return base.undoable
+      ? { ...base, message, status, handle: result.handle, undoHandle: result.handle }
+      : { ...base, message, status, handle: result.handle };
   }
 
   /**

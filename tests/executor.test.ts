@@ -314,3 +314,53 @@ describe("registry integrity", () => {
     expect(verdict.allowed).toBe(false);
   });
 });
+
+describe("nothing is produced that the user cannot reach", () => {
+  /*
+   * The bug this guards against: an action that creates something real — an .ics
+   * file, a draft, clipboard text — and reports success, while the panel has no way
+   * to hand it over. Four of these shipped before anyone tried to collect the
+   * output. A step that produces an artefact must expose a handle for it.
+   */
+  const PRODUCES_SOMETHING = ["create_reminder", "export_calendar_event", "save_to_memory", "create_task", "draft_reply", "copy_details"];
+
+  it("every completed step that produces an artefact exposes a handle for it", async () => {
+    const { input } = inputFor(emailWithDeadline);
+    for (const actionId of PRODUCES_SOMETHING) {
+      const action = registry.get(actionId)!;
+      if (!action.applies(input)) continue;
+      const outcome = await executor.run(actionId, input);
+      if (outcome.status !== "done") continue;
+      expect(outcome.handle, `${actionId} completed but handed back nothing to collect`).toBeTruthy();
+    }
+  });
+
+  it("copy_details hands back the text itself, because the worker cannot reach a clipboard", async () => {
+    const { input } = inputFor(emailWithDeadline);
+    const outcome = await executor.run("copy_details", input);
+
+    expect(outcome.status).toBe("done");
+    expect(outcome.handle).toContain("deadline");
+    // The old version said "Copied ... to the clipboard" from a service worker,
+    // which has no document and therefore no clipboard. It never happened.
+    expect(outcome.message).not.toMatch(/copied/i);
+    expect(outcome.message).toMatch(/ready to copy/i);
+  });
+
+  it("a calendar export hands back a file that can actually be downloaded", async () => {
+    const { input } = inputFor(emailWithDeadline);
+    const outcome = await executor.run("export_calendar_event", input);
+    const file = await ports.calendar.get(outcome.handle!);
+    expect(file?.ics).toContain("BEGIN:VEVENT");
+  });
+
+  it("marks a step undoable only when it really can be undone", async () => {
+    const { input } = inputFor(emailWithDeadline);
+    for (const action of registry.values()) {
+      if (action.risk === "blocked" || !action.applies(input)) continue;
+      const outcome = await executor.run(action.id, input, { approved: [action.id] });
+      if (outcome.status !== "done") continue;
+      expect(Boolean(outcome.undoHandle), `${action.id} undo wiring disagrees with canUndo`).toBe(action.canUndo);
+    }
+  });
+});

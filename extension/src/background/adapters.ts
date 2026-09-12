@@ -112,6 +112,9 @@ class ChromeDrafts implements DraftPort {
     delete all[id];
     await writeCollection(KEYS.drafts, all);
   }
+  async all() {
+    return Object.values(await readCollection<Draft>(KEYS.drafts)).sort((a, b) => b.createdAt - a.createdAt);
+  }
 }
 
 class ChromeCalendar implements CalendarPort {
@@ -136,6 +139,9 @@ class ChromeCalendar implements CalendarPort {
     const all = await readCollection<CalendarFile>(KEYS.calendar);
     delete all[id];
     await writeCollection(KEYS.calendar, all);
+  }
+  async all() {
+    return Object.values(await readCollection<CalendarFile>(KEYS.calendar));
   }
 }
 

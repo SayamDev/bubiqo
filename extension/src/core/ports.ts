@@ -34,6 +34,7 @@ export interface DraftPort {
   save(input: { subject: string; body: string }): Promise<string>;
   get(id: string): Promise<Draft | undefined>;
   remove(id: string): Promise<void>;
+  all(): Promise<Draft[]>;
 }
 
 export interface CalendarFile {
@@ -51,6 +52,7 @@ export interface CalendarPort {
   prepare(input: { title: string; startAt: number; durationMinutes: number; url?: string; notes?: string }): Promise<string>;
   get(id: string): Promise<CalendarFile | undefined>;
   remove(id: string): Promise<void>;
+  all(): Promise<CalendarFile[]>;
 }
 
 export interface ActivityPort {
