@@ -309,18 +309,13 @@ describe("a real LinkedIn page, furniture and all", () => {
     expect(amounts).not.toContain("GBP 55");
   });
 
-  it("finds the stack the advert names", () => {
-    const skills = analysis.entities.filter((e) => e.type === "skill").map((e) => e.value);
-    for (const expected of ["React", "TypeScript", "Node.js", "JavaScript"]) {
-      expect(skills, `${expected} was missed`).toContain(expected);
-    }
+  it("briefs the salary the advert states", () => {
+    expect(analysis.brief?.salary?.value).toBe("GBP 45000–60000");
   });
 
-  it("invents no skill the advert never mentions", () => {
-    const skills = analysis.entities.filter((e) => e.type === "skill").map((e) => e.value);
-    expect(skills).not.toContain("Python");
-    for (const skill of skills) {
-      expect(page.text.toLowerCase(), `${skill} is not on the page`).toContain(skill.toLowerCase());
+  it("quotes every blocker it reports from the page itself", () => {
+    for (const blocker of analysis.brief?.blockers ?? []) {
+      expect(page.text, `${blocker.rule} was not quoted from the page`).toContain(blocker.evidence);
     }
   });
 
@@ -392,8 +387,8 @@ describe("a real Indeed page, sidebar and all", () => {
   });
 
   it("finds the right-to-work condition", () => {
-    const requirements = analysis.entities.filter((e) => e.type === "requirement").map((e) => e.value);
-    expect(requirements.some((r) => /right to work/i.test(r))).toBe(true);
+    expect(analysis.brief?.blockers.some((b) => b.rule === "right_to_work")).toBe(true);
+    expect(analysis.brief?.verdict).toBe("ruled_out");
   });
 
   it("is recognised as a job advert", () => {

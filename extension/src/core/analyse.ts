@@ -17,6 +17,7 @@ import { extractEntities } from "./entity-engine";
 import { detectIntents } from "./intent-engine";
 import { scanForProblems } from "./problem-radar";
 import { rankSuggestions } from "./ranker";
+import { buildJobBrief } from "./job-brief";
 
 /**
  * Below this a selection is a stray click or a highlighted word, not an
@@ -75,7 +76,14 @@ export function analyse(
   const classification = classify(safePage);
   const entities = extractEntities(safePage, options.now);
   const intents = detectIntents(safePage, classification.surface, entities);
-  const allProblems = scanForProblems(safePage, classification.surface, entities, options.now);
+  /*
+   * The brief is built before problems are scanned, because the eligibility
+   * Problems come out of it. Only for job adverts: on an invoice there is nothing
+   * for it to say.
+   */
+  const brief = classification.surface === "job" ? buildJobBrief(safePage, options.now) : undefined;
+
+  const allProblems = scanForProblems(safePage, classification.surface, entities, options.now, brief);
 
   /*
    * Quiet answers when asked; it does not tap you on the shoulder. Only things
@@ -107,6 +115,7 @@ export function analyse(
     suggestions,
     injectionAttempted: cleaned.injectionAttempted,
     fromSelection,
+    ...(brief ? { brief } : {}),
   };
 }
 

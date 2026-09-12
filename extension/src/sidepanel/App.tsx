@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Problem, Suggestion } from "@core/types";
+import type { BriefField, BriefSource, JobBrief, Problem, Suggestion } from "@core/types";
 import type { StepOutcome, CompleteItReport } from "@core/executor";
 import type { Briefing, PanelState, Request, Response } from "@shared/messages";
 import { send } from "@shared/messages";
@@ -540,7 +540,6 @@ function NowTab(props: NowProps) {
     );
   }
 
-  const skills = analysis?.entities.filter((e) => e.type === "skill") ?? [];
 
   if (!analysis) {
     return (
@@ -707,26 +706,8 @@ function NowTab(props: NowProps) {
         )}
       </section>
 
-      {skills.length > 0 && (
-        <section className="section" aria-labelledby="skills-title">
-          <h2 className="section__title" id="skills-title">
-            What this job wants
-            <span className="section__count">{skills.length}</span>
-          </h2>
-          <ul className="chips">
-            {skills.map((skill) => (
-              <li key={skill.value} className="chips__item">
-                {skill.value}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <JobBriefBlock brief={analysis?.brief} now={now} />
 
-      {/*
-        * What the advert is built on. Ordered by how often each is mentioned, so
-        * what the job is actually about sits ahead of what it merely touches.
-        */}
             <BriefingBlock briefing={briefing} now={now} />
 
       {state?.siteOrigin && !state.siteAccessGranted && (
@@ -1012,6 +993,94 @@ function Results({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * The job brief: whether this advert is worth an hour.
+ *
+ * Blockers first, each with the advert's own sentence under it, because a
+ * condition the reader cannot meet makes everything below it irrelevant. Then the
+ * facts they would otherwise scroll for, then the advert's eligibility wording
+ * quoted behind a disclosure.
+ *
+ * Every fact says where it came from. "Stated by the site" means the page
+ * published it as structured data; "read from the advert" means we matched it out
+ * of prose and could be wrong about it. Collapsing that distinction would be the
+ * dishonest kind of confidence.
+ */
+function JobBriefBlock({ brief, now }: { brief: JobBrief | undefined; now: number }) {
+  if (!brief) return null;
+
+  const facts: { label: string; field: BriefField<string> | undefined }[] = [
+    { label: "Salary", field: brief.salary },
+    { label: "Working pattern", field: brief.workingPattern },
+    { label: "Location", field: brief.location },
+    { label: "Employment type", field: brief.employmentType },
+  ];
+  const shown = facts.filter((f) => f.field !== undefined);
+
+  const nothing =
+    brief.blockers.length === 0 && shown.length === 0 && !brief.closingDate && brief.eligibility.length === 0;
+  if (nothing) return null;
+
+  const provenance = (source: BriefSource) =>
+    source === "structured" ? "Stated by the site" : "Read from the advert";
+
+  return (
+    <section className="section" aria-labelledby="job-brief-title">
+      <h2 className="section__title" id="job-brief-title">
+        {brief.title?.value ?? "This job"}
+        {brief.organisation ? <span className="section__count">{brief.organisation.value}</span> : null}
+      </h2>
+
+      {brief.blockers.length > 0 && (
+        <ul className="list" aria-label="Conditions that would rule you out">
+          {brief.blockers.map((blocker) => (
+            <li className="row problem--blocking" key={blocker.rule}>
+              <div>
+                <p className="row__title">{blocker.summary}</p>
+                <p className="row__meta">“{blocker.evidence}”</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <ul className="list">
+        {shown.map(({ label, field }) => (
+          <li className="row" key={label}>
+            <div>
+              <p className="row__title">
+                {label}: {field!.value}
+              </p>
+              <p className="row__meta">{provenance(field!.source)}</p>
+            </div>
+          </li>
+        ))}
+        {brief.closingDate && (
+          <li className="row" key="closing">
+            <div>
+              <p className="row__title">Closes {formatDue(brief.closingDate.value, now)}</p>
+              <p className="row__meta">{provenance(brief.closingDate.source)}</p>
+            </div>
+          </li>
+        )}
+      </ul>
+
+      {brief.eligibility.length > 0 && (
+        <details className="why">
+          <summary>What the advert says it needs</summary>
+          <ul className="list">
+            {brief.eligibility.map((line) => (
+              <li className="row" key={line}>
+                <p className="row__title">{line}</p>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </section>
   );
 }
 

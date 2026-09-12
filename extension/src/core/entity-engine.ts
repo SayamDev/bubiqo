@@ -10,7 +10,6 @@
 
 import type { Entity, EntityType, PageContext, Sensitivity } from "./types";
 import { resolveDates } from "./dates";
-import { findRequirements, findSkills } from "./job-details";
 import { isFurnitureHeading } from "./readability";
 import { preferredTitle } from "./storage-hygiene";
 import { CURRENCY_CODES, NUMBER_PATTERN, SYMBOL_TO_CODE, formatAmount, formatRange, looksLikeSalary, readNumber } from "./money";
@@ -50,7 +49,6 @@ export function extractEntities(page: PageContext, now: number): Entity[] {
   found.push(...extractOrganisations(page));
   found.push(...extractJobTitle(page));
   found.push(...extractActionableLinks(page));
-  found.push(...extractSkillsAndRequirements(page));
 
   return preferTitleAnchoredOrganisation(preferLabelledAmounts(dedupe(found), page.text));
 }
@@ -484,32 +482,6 @@ function extractActionableLinks(page: PageContext): Entity[] {
     if (!WORTH_OFFERING.test(link.text)) continue;
     out.push(entity("url", link.href, 0.85, link.text, "public"));
     if (out.length >= 3) break;
-  }
-  return out;
-}
-
-/**
- * What the job is built on, and what rules the reader in or out.
- *
- * Capped: an advert naming twenty technologies is listing its stack, and the
- * eight it mentions most are what the job is actually about.
- */
-function extractSkillsAndRequirements(page: PageContext): Entity[] {
-  const out: Entity[] = [];
-
-  for (const skill of findSkills(page.text).slice(0, 8)) {
-    out.push(entity("skill", skill.name, skill.mentions > 1 ? 0.9 : 0.75, `mentioned ${skill.mentions}×`));
-  }
-
-  for (const requirement of findRequirements(page.text)) {
-    out.push(
-      entity(
-        "requirement",
-        requirement.blocking ? `${requirement.summary} (blocking)` : requirement.summary,
-        requirement.blocking ? 0.9 : 0.75,
-        requirement.evidence,
-      ),
-    );
   }
   return out;
 }

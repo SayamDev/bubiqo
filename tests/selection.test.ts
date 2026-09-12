@@ -54,7 +54,7 @@ Full UK right to work is required`;
   it("still finds everything it should inside the selection", () => {
     const analysis = run({ ...page, selection: theAdvert });
     expect(analysis.classification.surface).toBe("job");
-    expect(analysis.entities.some((e) => e.type === "requirement" && /right to work/i.test(e.value))).toBe(true);
+    expect(analysis.brief?.blockers.some((b) => b.rule === "right_to_work")).toBe(true);
   });
 
   it("ignores a stray selection and reads the page instead", () => {

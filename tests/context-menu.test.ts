@@ -93,8 +93,8 @@ describe("right-click, read this", () => {
     await vi.advanceTimersByTimeAsync(10);
 
     const analysis = asState(await dispatch({ type: "GET_STATE" })).analysis!;
-    expect(analysis.entities.some((e) => e.type === "skill" && e.value === "React")).toBe(true);
-    expect(analysis.entities.some((e) => e.type === "requirement" && /right to work/i.test(e.value))).toBe(true);
+    expect(analysis.brief?.blockers.some((b) => b.rule === "right_to_work")).toBe(true);
+    expect(analysis.brief?.verdict).toBe("ruled_out");
   });
 
   it("opens the panel, which a context-menu click is allowed to do", async () => {

@@ -9,7 +9,7 @@
  * twenty noisy ones get ignored, and then the accurate one is ignored too.
  */
 
-import type { Entity, PageContext, Problem, ProblemKind, Surface, Urgency } from "./types";
+import type { Entity, JobBrief, PageContext, Problem, ProblemKind, Surface, Urgency } from "./types";
 import { describeUrgency } from "./dates";
 
 /** First person future promises: "I'll send the deck", "I will get back to you". */
@@ -86,6 +86,7 @@ export function scanForProblems(
   surface: Surface,
   entities: readonly Entity[],
   now: number,
+  brief?: JobBrief,
 ): Problem[] {
   const text = page.text;
   const found: Problem[] = [];
@@ -165,11 +166,8 @@ export function scanForProblems(
    * the way down has effectively hidden it, and an hour spent on an application
    * you were never eligible for is the worst outcome this product can allow.
    */
-  for (const e of entities) {
-    if (e.type !== "requirement" || !e.value.includes("(blocking)")) continue;
-    found.push(
-      problem("eligibility", e.value.replace(" (blocking)", ""), "today", e.confidence, e.source),
-    );
+  for (const blocker of brief?.blockers ?? []) {
+    found.push(problem("eligibility", blocker.summary, "today", 0.9, blocker.evidence));
   }
 
   // --- Unfinished forms ----------------------------------------------------
