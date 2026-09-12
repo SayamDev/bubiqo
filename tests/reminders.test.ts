@@ -43,6 +43,8 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  // Printing the trace is the point of this file — see npm run prove:reminders.
+  // eslint-disable-next-line no-console
   if (trace.length > 0) console.log(`\n${trace.join("\n")}\n`);
   vi.useRealTimers();
 });
