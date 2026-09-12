@@ -391,7 +391,7 @@ export function App() {
         )}
         {tab === "memory" && <MemoryTab state={state} onChange={apply} onCopy={copyText} />}
         {tab === "activity" && <ActivityTab state={state} now={now} onChange={apply} />}
-        {tab === "settings" && <SettingsTab state={state} onChange={apply} />}
+        {tab === "settings" && <SettingsTab state={state} onChange={apply} onCopyDiagnostics={copyText} />}
       </main>
 
       <footer className="footer">
@@ -1224,7 +1224,89 @@ function ActivityTab({
   );
 }
 
-function SettingsTab({ state, onChange }: { state: PanelState | undefined; onChange: (r: Response) => void }) {
+/**
+ * What Bubiqo read, and what it made of it.
+ *
+ * This exists because two rounds of fixes were aimed at the wrong layer: the only
+ * evidence available was a screenshot of the wrong answer, which cannot tell you
+ * whether the parsing is wrong or the extractor read the wrong part of the page.
+ * One Copy button turns a report of "it didn't work" into something diagnosable.
+ */
+function Diagnostics({
+  state,
+  onCopy,
+}: {
+  state: PanelState | undefined;
+  onCopy: (text: string) => void;
+}) {
+  const page = state?.page;
+  const analysis = state?.analysis;
+  const extraction = page?.extraction;
+
+  if (!page || !analysis) return null;
+
+  const report = [
+    `URL:        ${page.url}`,
+    `TAB TITLE:  ${page.title}`,
+    `SURFACE:    ${analysis.classification.surface} (${Math.round(analysis.classification.confidence * 100)}%)`,
+    extraction
+      ? `READ:       ${extraction.chosenChars} of ${extraction.regionChars} chars, ` +
+        `${extraction.candidates} candidates, link density ${extraction.linkDensity}` +
+        `${extraction.usedWholeRegion ? " — FELL BACK TO WHOLE REGION" : ""}`
+      : "READ:       (no extraction data)",
+    `HEADINGS:   ${page.headings.slice(0, 6).join(" | ") || "(none)"}`,
+    "",
+    "ENTITIES:",
+    ...(analysis.entities.length === 0
+      ? ["  (none)"]
+      : analysis.entities.map((e) => `  ${e.type.padEnd(14)} ${e.value.slice(0, 90)}`)),
+    "",
+    "FIRST 600 CHARACTERS READ:",
+    page.text.slice(0, 600),
+  ].join("\n");
+
+  return (
+    <div className="field">
+      <span className="field__label">What Bubiqo read</span>
+      <p className="field__help">
+        If it got this page wrong, this says why — whether it read the wrong part of the page, or
+        read the right part and misunderstood it. Copy it into a bug report.
+      </p>
+
+      <dl className="diag">
+        <dt>Read</dt>
+        <dd>
+          {extraction
+            ? `${extraction.chosenChars.toLocaleString()} of ${extraction.regionChars.toLocaleString()} characters` +
+              (extraction.usedWholeRegion ? " — whole page, no content block found" : "")
+            : "unknown"}
+        </dd>
+        <dt>Link density</dt>
+        <dd>{extraction ? `${Math.round(extraction.linkDensity * 100)}%` : "unknown"}</dd>
+        <dt>Understood as</dt>
+        <dd>
+          {analysis.classification.surface} ({Math.round(analysis.classification.confidence * 100)}%)
+        </dd>
+        <dt>Details found</dt>
+        <dd>{analysis.entities.length}</dd>
+      </dl>
+
+      <button className="btn btn--small" style={{ marginTop: 10 }} onClick={() => onCopy(report)}>
+        Copy diagnostics
+      </button>
+    </div>
+  );
+}
+
+function SettingsTab({
+  state,
+  onChange,
+  onCopyDiagnostics,
+}: {
+  state: PanelState | undefined;
+  onChange: (r: Response) => void;
+  onCopyDiagnostics: (text: string) => void;
+}) {
   const [confirmingWipe, setConfirmingWipe] = useState(false);
   const settings = state?.settings;
   if (!settings) return <p className="empty">Loading…</p>;
@@ -1304,6 +1386,8 @@ function SettingsTab({ state, onChange }: { state: PanelState | undefined; onCha
           onChange={(e) => void update({ homeCurrency: e.target.value.toUpperCase() })}
         />
       </label>
+
+      <Diagnostics state={state} onCopy={onCopyDiagnostics} />
 
       <div className="field">
         <span className="field__label">Your data</span>

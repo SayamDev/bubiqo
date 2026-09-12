@@ -107,6 +107,34 @@ function extractAmounts(text: string): Entity[] {
     out.push(entity("currency", code, 0.95, context));
   }
 
+  /*
+   * Pay written without a currency symbol at all.
+   *
+   * "Competitive salary of up to 85,000", "£85k", "up to 85k per annum", "paying
+   * 60-70k". Job adverts very often print the number bare, and requiring a symbol
+   * or an ISO code meant the salary — the single most important number on the page
+   * — was invisible. The words around it are what make it safe to read: a bare
+   * "85,000" anywhere is meaningless, "salary of up to 85,000" is not.
+   */
+  const PAY_CONTEXT = /\b(?:salary|salaries|paying|pay|package|earn|up to|circa|c\.|from|between|OTE|per annum|p\.?a\.?|annum)\b/i;
+
+  for (const m of text.matchAll(
+    /\b(?:salary|paying|pay|package|earn(?:ing)?|OTE)\b[^.\n]{0,40}?(\d{2,3}(?:,\d{3})?)\s*(k\b)?|(?:up to|circa|c\.|from)\s*[£$€]?\s?(\d{2,3}(?:,\d{3})?)\s*(k\b)?/gi,
+  )) {
+    const raw = m[1] ?? m[3];
+    const isK = Boolean(m[2] ?? m[4]);
+    if (!raw) continue;
+
+    const context = windowAround(text, m.index ?? 0, m[0].length);
+    if (!PAY_CONTEXT.test(context)) continue;
+
+    const numeric = Number(raw.replace(/,/g, "")) * (isK ? 1000 : 1);
+    // A salary is a salary; 55 is an hour count or a percentage, not pay.
+    if (!Number.isFinite(numeric) || numeric < 10_000 || numeric > 5_000_000) continue;
+
+    out.push(entity("amount", `GBP ${numeric}`, 0.75, context));
+  }
+
   // Code first or last: EUR 2400 / 2400 EUR
   const codeAlt = CURRENCY_CODES.join("|");
   for (const m of text.matchAll(new RegExp(`\\b(${codeAlt})\\s?(\\d{1,3}(?:,\\d{3})*(?:\\.\\d{2})?)\\b`, "g"))) {

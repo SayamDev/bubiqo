@@ -39,6 +39,18 @@ export interface PageContext {
   readonly structuredData: readonly Record<string, unknown>[];
   /** Visible links, so an "apply" or "pay" destination can be recognised. */
   readonly links: readonly { readonly text: string; readonly href: string }[];
+  /**
+   * What the extractor decided, so a bad reading can be diagnosed instead of
+   * guessed at. Two rounds of fixes were aimed at the wrong layer because the only
+   * evidence available was a screenshot of the result.
+   */
+  readonly extraction?: {
+    readonly candidates: number;
+    readonly chosenChars: number;
+    readonly regionChars: number;
+    readonly linkDensity: number;
+    readonly usedWholeRegion: boolean;
+  };
   /** Text the user had selected when analysis ran, if any. */
   readonly selection?: string;
   readonly capturedAt: number;

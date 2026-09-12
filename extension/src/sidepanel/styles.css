@@ -1310,3 +1310,15 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 }
 
 .btn--link-quiet:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+/* What Bubiqo read — a compact key/value block for diagnosis. */
+.diag {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: var(--step-0);
+}
+
+.diag dt { color: var(--ink-faint); font-weight: 700; }
+.diag dd { margin: 0; color: var(--ink-soft); overflow-wrap: anywhere; }

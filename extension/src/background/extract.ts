@@ -27,6 +27,10 @@ export function extractPageContext(): {
   fields: { label: string; type: string; filled: boolean; required: boolean }[];
   structuredData: Record<string, unknown>[];
   links: { text: string; href: string }[];
+  extraction: {
+    candidates: number; chosenChars: number; regionChars: number;
+    linkDensity: number; usedWholeRegion: boolean;
+  };
   selection?: string;
   capturedAt: number;
 } {
@@ -124,6 +128,14 @@ export function extractPageContext(): {
 
   const best = pickBestBlock(stats);
   const root = best ? (candidates[best.index] ?? region) : region;
+
+  const extraction = {
+    candidates: stats.length,
+    chosenChars: best?.textLength ?? (region.textContent ?? "").trim().length,
+    regionChars: (region.textContent ?? "").trim().length,
+    linkDensity: best && best.textLength > 0 ? Math.round((best.linkTextLength / best.textLength) * 100) / 100 : 1,
+    usedWholeRegion: !best || candidates[best.index] === region,
+  };
 
   const isHidden = (el: Element): boolean => {
     const style = window.getComputedStyle(el);
@@ -234,6 +246,7 @@ export function extractPageContext(): {
     fields,
     structuredData: structuredData.slice(0, 10),
     links,
+    extraction,
     capturedAt: Date.now(),
     ...(selection ? { selection } : {}),
   };
