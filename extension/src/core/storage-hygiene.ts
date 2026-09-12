@@ -15,6 +15,7 @@
  */
 
 import type { Entity, MemoryItem } from "./types";
+import { isFurnitureHeading } from "./readability";
 
 /** Longest single stored string. Generous for a title, mean for a tracking URL. */
 export const MAX_VALUE_LENGTH = 320;
@@ -62,10 +63,16 @@ export function preferredTitle(page: {
   domain: string;
   headings: readonly string[];
 }): string {
-  const heading = page.headings[0]?.trim();
+  /*
+   * The first heading is not automatically the title. On LinkedIn it was "Are
+   * these results helpful?" — a feedback widget — and saved jobs were being filed
+   * under it. Skip anything that is page furniture and take the first heading
+   * that actually names something.
+   */
+  const heading = page.headings.map((h) => h.trim()).find((h) => !isFurnitureHeading(h));
   const templated = SITE_SUFFIX.test(page.title);
 
-  if (heading && heading.length > 2 && (templated || heading.length > page.title.length)) {
+  if (heading && (templated || heading.length > page.title.length)) {
     return cleanTitle(heading, page.domain);
   }
   return cleanTitle(page.title, page.domain);

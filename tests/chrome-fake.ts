@@ -19,7 +19,11 @@ export interface FakeChrome {
   };
   alarms: { create(name: string, info: { when: number }): Promise<void>; clear(name: string): Promise<boolean>; clearAll(): Promise<boolean>; onAlarm: Listener };
   runtime: { onMessage: MessageListener; onInstalled: Listener; onStartup: Listener };
-  tabs: { query(q: unknown): Promise<{ id?: number; url?: string; active?: boolean }[]> };
+  tabs: {
+    query(q: unknown): Promise<{ id?: number; url?: string; active?: boolean }[]>;
+    onUpdated: Listener;
+    onActivated: Listener;
+  };
   scripting: { executeScript(opts: unknown): Promise<{ result: unknown }[]> };
   action: { setBadgeText(o: { text: string }): Promise<void>; setBadgeBackgroundColor(o: unknown): Promise<void> };
   permissions: { contains(o: { origins: string[] }): Promise<boolean>; request(o: { origins: string[] }): Promise<boolean> };
@@ -102,6 +106,8 @@ export function installFakeChrome(state: FakeState): FakeChrome {
       async query() {
         return [{ ...state.activeTab, active: true }];
       },
+      onUpdated: { addListener() {} },
+      onActivated: { addListener() {} },
     },
     scripting: {
       async executeScript() {

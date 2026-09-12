@@ -75,3 +75,30 @@ describe("shortenUrl", () => {
     expect(shortenUrl("not a url")).toBe("not a url");
   });
 });
+
+describe("preferredTitle on a single-page app", () => {
+  const page = (title: string, headings: string[]) => ({ title, domain: "www.linkedin.com", headings });
+
+  it("skips a feedback widget that was naming saved jobs", async () => {
+    const { preferredTitle } = await import("@core/storage-hygiene");
+    const chosen = preferredTitle(
+      page("Senior Software Engineer | Cathcart Technology | LinkedIn", [
+        "Are these results helpful?",
+        "Javascript Developer",
+        "About the job",
+      ]),
+    );
+    expect(chosen).toBe("Javascript Developer");
+  });
+
+  it("falls back to the tab title when every heading is furniture", async () => {
+    const { preferredTitle } = await import("@core/storage-hygiene");
+    expect(preferredTitle(page("Senior Software Engineer | Cathcart Technology | LinkedIn", ["Save", "Easy Apply"])))
+      .toBe("Senior Software Engineer | Cathcart Technology");
+  });
+
+  it("still strips the site name from the fallback", async () => {
+    const { preferredTitle } = await import("@core/storage-hygiene");
+    expect(preferredTitle(page("Javascript Developer | LinkedIn", []))).not.toMatch(/LinkedIn/);
+  });
+});

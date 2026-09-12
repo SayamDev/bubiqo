@@ -11,7 +11,13 @@
  * Chrome serialises it and runs it in the page's own world.
  */
 
-/** Kept in step with core/types.ts PageContext; duplicated because of serialisation. */
+/**
+ * Kept in step with core/types.ts PageContext; duplicated because of serialisation.
+ *
+ * The block-scoring helpers are inlined below for the same reason: Chrome
+ * serialises this function, so it cannot import. They are a copy of
+ * core/readability.ts, which is where the tested versions live.
+ */
 export function extractPageContext(): {
   url: string;
   domain: string;
@@ -26,12 +32,98 @@ export function extractPageContext(): {
 } {
   const MAX_TEXT = 24_000;
 
-  // Prefer the semantic content region; fall back to body only if there isn't one.
-  const root =
+  // --- inlined from core/readability.ts (an injected function cannot import) ---
+  const MIN_CONTENT_LENGTH = 280;
+  const NAVIGATION_LINK_DENSITY = 0.45;
+
+  const scoreBlock = (b: { textLength: number; linkTextLength: number; linkCount: number; depth: number }): number => {
+    if (b.textLength < MIN_CONTENT_LENGTH) return 0;
+    const density = b.textLength === 0 ? 1 : Math.min(1, b.linkTextLength / b.textLength);
+    if (density > NAVIGATION_LINK_DENSITY) return 0;
+    const readable = 1 - density;
+    let score = b.textLength * readable * readable;
+    const linksPerThousand = (b.linkCount / Math.max(b.textLength, 1)) * 1000;
+    if (linksPerThousand > 12) score *= 0.45;
+    return score * (1 / (1 + b.depth * 0.08));
+  };
+
+  const pickBestBlock = <T extends { textLength: number; linkTextLength: number; linkCount: number; depth: number }>(
+    blocks: T[],
+  ): T | undefined => {
+    let best: T | undefined;
+    let bestScore = 0;
+    for (const b of blocks) {
+      const score = scoreBlock(b);
+      if (score > bestScore) {
+        bestScore = score;
+        best = b;
+      }
+    }
+    return best;
+  };
+  // --- end inlined ---
+
+  /*
+   * Find the region, then find the CONTENT inside it.
+   *
+   * Taking <main> wholesale is what broke this on LinkedIn: <main> there holds the
+   * search filters, a list of twenty-five other jobs, a feedback survey and the
+   * advert being read, and all of it was analysed together. That is where "Easy
+   * Apply GBV Ltd", a £55 salary and dates from other people's job cards came
+   * from.
+   *
+   * Link density separates them. A results list is almost entirely link text;
+   * prose is almost none. The scoring lives in core/readability.ts, tested with
+   * numbers; everything here just measures the DOM and hands them over.
+   */
+  const region =
     document.querySelector("main") ??
     document.querySelector("[role='main']") ??
     document.querySelector("article") ??
     document.body;
+
+  const MIN_CANDIDATE_TEXT = 280;
+  const candidates: HTMLElement[] = [];
+  const stats: {
+    index: number; textLength: number; linkTextLength: number; linkCount: number; depth: number;
+  }[] = [];
+
+  const measure = (el: HTMLElement, depth: number) => {
+    const text = (el.textContent ?? "").trim();
+    if (text.length < MIN_CANDIDATE_TEXT) return;
+
+    const anchors = el.querySelectorAll("a");
+    let linkTextLength = 0;
+    anchors.forEach((a) => {
+      linkTextLength += (a.textContent ?? "").trim().length;
+    });
+
+    stats.push({
+      index: candidates.length,
+      textLength: text.length,
+      linkTextLength,
+      linkCount: anchors.length,
+      depth,
+    });
+    candidates.push(el);
+  };
+
+  measure(region as HTMLElement, 0);
+  // Two levels of children is enough to separate a pane from its page without
+  // walking into individual paragraphs.
+  const walk = (el: Element, depth: number) => {
+    if (depth > 3) return;
+    for (const child of Array.from(el.children)) {
+      if (!(child instanceof HTMLElement)) continue;
+      if (/^(SCRIPT|STYLE|NAV|HEADER|FOOTER|ASIDE|FORM)$/.test(child.tagName)) continue;
+      measure(child, depth);
+      walk(child, depth + 1);
+    }
+  };
+  walk(region, 1);
+
+  const best = pickBestBlock(stats);
+  const root = best ? (candidates[best.index] ?? region) : region;
 
   const isHidden = (el: Element): boolean => {
     const style = window.getComputedStyle(el);

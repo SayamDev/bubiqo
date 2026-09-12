@@ -769,16 +769,8 @@ function SuggestionCard({
             * explanation look like padding. It now only carries what the card does
             * not already say.
             */}
-          <button
-            className="btn btn--quiet btn--small"
-            onClick={() => onDismiss(suggestion.actionId)}
-            title="Stop suggesting this"
-          >
-            Not useful
-          </button>
-
           <details className="why">
-            <summary>Details</summary>
+            <summary>Why?</summary>
             <dl>
               <dt>Risk</dt>
               <dd>
@@ -798,6 +790,21 @@ function SuggestionCard({
             </dl>
           </details>
         </div>
+
+        {/*
+          * Secondary controls sit below, in quiet text, so the card has exactly one
+          * obvious thing to press. Three same-weight buttons meant none of them
+          * read as the action.
+          */}
+        {!outcome && !running && (
+          <button
+            className="btn--link btn--link-quiet"
+            onClick={() => onDismiss(suggestion.actionId)}
+            title="Stop suggesting this"
+          >
+            Not useful
+          </button>
+        )}
 
         {/*
           * The answer to the click, on the card that was clicked. Carries whatever

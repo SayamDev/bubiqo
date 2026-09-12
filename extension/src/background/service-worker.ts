@@ -506,6 +506,61 @@ async function buildBriefing(): Promise<Briefing> {
 }
 
 // ---------------------------------------------------------------------------
+// Noticing a page without being asked
+// ---------------------------------------------------------------------------
+
+/*
+ * Chrome does not allow an extension to open its own side panel: sidePanel.open()
+ * requires a user gesture, and there is no navigation hook that counts. So the
+ * honest answer to "I forget it is installed" is a count on the toolbar icon,
+ * not a panel that appears over what you were reading.
+ *
+ * This is OPT-IN, and deliberately so. The default promise is that Bubiqo reads a
+ * page only while the panel is open on it, and background scanning would make
+ * that untrue. Choosing Proactive in Settings is the user changing that promise
+ * knowingly. Nothing scanned this way is stored — the count is derived and thrown
+ * away.
+ */
+let scanTimer: number | undefined;
+
+async function glanceAtTab(tabId: number): Promise<void> {
+  const settings = await getSettings();
+  if (settings.mode !== "proactive") return;
+  if (!(await hasPageAccess())) return;
+
+  try {
+    const [injection] = await chrome.scripting.executeScript({ target: { tabId }, func: extractPageContext });
+    const page = injection?.result as PageContext | undefined;
+    if (!page || blockedUrl(page.url)) return;
+    if (settings.disabledDomains.some((d) => page.domain.includes(d))) return;
+
+    const analysis = analyse(page, registry, { settings, now: Date.now() });
+    const worthSaying = analysis.problems.filter((p) => p.confidence >= 0.7).length;
+
+    await chrome.action.setBadgeText({ text: worthSaying === 0 ? "" : String(Math.min(worthSaying, 9)) });
+    if (worthSaying > 0) await chrome.action.setBadgeBackgroundColor({ color: "#B45309" });
+  } catch {
+    // No access to this tab, or a privileged page. Nothing to say.
+  }
+}
+
+/** Debounced, because a single navigation fires several updates. */
+function scheduleGlance(tabId: number): void {
+  if (scanTimer !== undefined) clearTimeout(scanTimer);
+  scanTimer = setTimeout(() => {
+    void glanceAtTab(tabId);
+  }, 900) as unknown as number;
+}
+
+chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
+  if (change.status === "complete" && tab.active) scheduleGlance(tabId);
+});
+
+chrome.tabs.onActivated.addListener((info) => {
+  scheduleGlance(info.tabId);
+});
+
+// ---------------------------------------------------------------------------
 // Message routing
 // ---------------------------------------------------------------------------
 

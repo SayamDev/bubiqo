@@ -1272,3 +1272,41 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 }
 
 .welcome__cta { margin-top: 4px; }
+
+/* ==========================================================================
+   One obvious action per card
+   ==========================================================================
+
+   Every card carried three buttons of equal weight — Do it, Not useful, Details
+   — so none of them read as the action. "Do it" is now the only button; the rest
+   are quiet text beneath it.
+   ========================================================================== */
+
+.suggestion__row { align-items: center; }
+
+.suggestion__row .btn--action { flex: none; }
+
+/* The explanation is a quiet text toggle, not a second button. */
+.suggestion__row .why summary {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--ink-faint);
+  font-size: var(--step-0);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.suggestion__row .why summary:hover { background: none; color: var(--accent); }
+
+.btn--link-quiet {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: var(--step-0);
+  font-weight: 600;
+  color: var(--ink-faint);
+  text-decoration: none;
+}
+
+.btn--link-quiet:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
