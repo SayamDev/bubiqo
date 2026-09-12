@@ -19,7 +19,8 @@ import type { Briefing, PanelState, Response } from "@shared/messages";
 import { send } from "@shared/messages";
 import { formatDue } from "@core/dates";
 import { riskLabel } from "@core/safety";
-import { surfaceHeadline, urgencyWord, relativeTime, clockTime } from "./format";
+import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime } from "./format";
+import { BubbleMark, ShieldIcon, QuietMark } from "./icons";
 
 type Tab = "now" | "memory" | "activity" | "settings";
 
@@ -225,7 +226,8 @@ export function App() {
       </main>
 
       <footer className="footer">
-        Everything stays on this device. Bubiqo never sends the page anywhere.
+        <ShieldIcon />
+        <span>Everything stays on this device. Bubiqo never sends the page anywhere.</span>
       </footer>
     </div>
   );
@@ -235,18 +237,30 @@ export function App() {
 
 function Header({ state }: { state: PanelState | undefined }) {
   const analysis = state?.analysis;
-  const headline = state?.unavailableReason
+  const blocked = Boolean(state?.unavailableReason);
+
+  const headline = blocked
     ? "Nothing to read here"
     : analysis
-      ? surfaceHeadline(analysis.classification.surface)
-      : "Looking at this page…";
+      ? attentionHeadline(analysis.problems.length, analysis.suggestions.length)
+      : "Reading this page…";
 
   return (
     <header className="header">
       <div className="brand">
-        <img className="brand__mark" src="icons/icon-32.png" alt="" width={18} height={18} />
+        <img className="brand__mark" src="icons/icon-32.png" alt="" width={20} height={20} />
         <span className="brand__name">bubiqo</span>
       </div>
+
+      {analysis && !blocked ? (
+        <span className="chip">
+          <span className="chip__dot" aria-hidden="true" />
+          {surfaceChip(analysis.classification.surface)}
+        </span>
+      ) : (
+        !blocked && state === undefined && <span className="skeleton skeleton--chip" aria-hidden="true" />
+      )}
+
       <h1 className="context__what">{headline}</h1>
       <p className="context__where">
         {state?.unavailableReason ?? state?.page?.title ?? state?.page?.domain ?? ""}
@@ -286,7 +300,13 @@ function NowTab(props: NowProps) {
   }
 
   if (!analysis) {
-    return <p className="empty">Reading the page…</p>;
+    return (
+      <div aria-busy="true" aria-label="Reading this page">
+        <span className="skeleton skeleton--line" style={{ display: "block", marginBottom: 14 }} />
+        <span className="skeleton skeleton--card" style={{ display: "block" }} />
+        <span className="skeleton skeleton--card" style={{ display: "block" }} />
+      </div>
+    );
   }
 
   const more = analysis.suggestions.filter((s) => !safeSuggestions.includes(s));
@@ -336,8 +356,9 @@ function NowTab(props: NowProps) {
 
         {analysis.suggestions.length === 0 ? (
           <div className="empty">
-            <p>Nothing worth suggesting on this page.</p>
-            <p>That is deliberate — Bubiqo stays quiet unless it has something useful.</p>
+            <QuietMark className="empty__mark" />
+            <p className="empty__title">All quiet here</p>
+            <p>Bubiqo stays out of the way unless it has something genuinely useful.</p>
           </div>
         ) : (
           <>
@@ -351,7 +372,7 @@ function NowTab(props: NowProps) {
             ))}
 
             {more.length > 0 && (
-              <details className="why" style={{ marginTop: 10 }}>
+              <details className="why disclosure" style={{ marginTop: 12 }}>
                 <summary>More actions ({more.length})</summary>
                 <div style={{ marginTop: 8 }}>
                   {more.map((suggestion) => (
@@ -399,6 +420,7 @@ function ProblemRow({ problem, now }: { problem: Problem; now: number }) {
     problem.urgency === "overdue" ? "problem--overdue" : problem.urgency === "today" ? "problem--today" : "";
   return (
     <div className={`problem ${modifier}`}>
+      <span className="problem__dot" aria-hidden="true" />
       <div className="problem__body">
         <p className="problem__summary">{problem.summary}</p>
         <p className="problem__meta">
@@ -549,7 +571,7 @@ function MemoryTab({ state, onChange }: { state: PanelState | undefined; onChang
       <section className="section">
         <h2 className="section__title">Reminders</h2>
         {reminders.length === 0 ? (
-          <p className="empty">No reminders yet.</p>
+          <p className="empty">No reminders yet. Create one from a page with a date on it.</p>
         ) : (
           <ul className="list">
             {reminders.map((reminder) => (
@@ -574,8 +596,10 @@ function MemoryTab({ state, onChange }: { state: PanelState | undefined; onChang
         <h2 className="section__title">Saved</h2>
         {memory.length === 0 ? (
           <div className="empty">
-            <p>Nothing saved yet.</p>
-            <p>Bubiqo only remembers what you explicitly save. There is no hidden profile.</p>
+            <BubbleMark className="empty__mark" />
+            <p className="empty__title">Nothing saved yet</p>
+            <p>Save details from a page and they land here. Bubiqo only ever remembers
+            what you explicitly keep — there is no hidden profile.</p>
           </div>
         ) : (
           <ul className="list">
@@ -608,7 +632,11 @@ function ActivityTab({ state, now }: { state: PanelState | undefined; now: numbe
     <section className="section">
       <h2 className="section__title">Everything Bubiqo has done</h2>
       {activity.length === 0 ? (
-        <p className="empty">Nothing yet.</p>
+        <div className="empty">
+          <p className="empty__title">Nothing yet</p>
+          <p>Every detection, suggestion and action will be listed here, with whether it
+          was verified.</p>
+        </div>
       ) : (
         <ul className="list">
           {activity.map((event) => (

@@ -1,13 +1,25 @@
 import type { Surface, Urgency } from "@core/types";
 
-/** Headline for the detected Surface. Plain words, never jargon. */
-export function surfaceHeadline(surface: Surface): string {
+/** The small chip above the headline: what kind of page this is. */
+export function surfaceChip(surface: Surface): string {
   switch (surface) {
-    case "email": return "Email detected";
-    case "invoice": return "Invoice detected";
-    case "job": return "Job advert detected";
-    case "generic": return "Nothing urgent here";
+    case "email": return "Email";
+    case "invoice": return "Invoice";
+    case "job": return "Job advert";
+    case "generic": return "Page";
   }
+}
+
+/**
+ * The headline answers the question the user actually has, which is "is there
+ * anything here for me?" — not "what did you classify this as". The chip above it
+ * already says that.
+ */
+export function attentionHeadline(problemCount: number, suggestionCount: number): string {
+  if (problemCount === 1) return "One thing needs you";
+  if (problemCount > 1) return `${problemCount} things need you`;
+  if (suggestionCount > 0) return "Nothing urgent — but I can help";
+  return "Nothing needs you here";
 }
 
 export function urgencyWord(urgency: Urgency): string {
