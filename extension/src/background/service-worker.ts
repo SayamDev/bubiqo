@@ -12,6 +12,7 @@
 
 import { analyse, toActionInput } from "@core/analyse";
 import { amountToConvert } from "@core/currency";
+import { cleanTitle, memoryFingerprint } from "@core/storage-hygiene";
 import { buildRegistry } from "@core/actions";
 import { Executor } from "@core/executor";
 import { CostGuard, emptyUsage, type ProviderBudget, type ProviderUsage } from "@core/cost-guard";
@@ -379,11 +380,26 @@ async function analyseActiveTab(): Promise<PanelState> {
     siteOrigin = undefined;
   }
 
+  /*
+   * Have we already got this page? Derived live from Memory, never from a record
+   * of what was deleted. Telling someone "you saved this before" about something
+   * they removed would mean keeping a tombstone of every deletion, which is the
+   * opposite of what deleting should do.
+   */
+  const savedAlready = (await ports.memory.all()).find(
+    (item) =>
+      memoryFingerprint(item) ===
+      memoryFingerprint({ kind: item.kind, title: cleanTitle(page.title, page.domain), url: page.url }),
+  );
+
   const state: PanelState = {
     ...(await baseState(settings)),
     page,
     analysis,
     analysedAt: Date.now(),
+    ...(savedAlready
+      ? { alreadySaved: { id: savedAlready.id, title: savedAlready.title, savedAt: savedAlready.savedAt } }
+      : {}),
     ...(siteOrigin ? { siteOrigin, siteAccessGranted } : {}),
   };
 
@@ -602,6 +618,22 @@ async function handle(request: Request): Promise<Response> {
       await setCurrent(undefined);
       return { type: "STATE", state: await baseState(settings) };
     }
+
+    case "CLEAR_REMINDERS": {
+      // Cancel the alarms as well, or they outlive the records they referred to.
+      for (const reminder of await ports.reminders.all()) await chrome.alarms.clear(reminder.id);
+      await chrome.storage.local.set({ [STORAGE_KEYS.reminders]: {} });
+      await chrome.action.setBadgeText({ text: "" });
+      return { type: "STATE", state: await baseState(settings) };
+    }
+
+    case "CLEAR_MEMORY":
+      await chrome.storage.local.set({ [STORAGE_KEYS.memory]: {} });
+      return { type: "STATE", state: await baseState(settings) };
+
+    case "CLEAR_DRAFTS":
+      await chrome.storage.local.set({ [STORAGE_KEYS.drafts]: {} });
+      return { type: "STATE", state: await baseState(settings) };
 
     case "CLEAR_ACTIVITY":
       await ports.activity.clear();

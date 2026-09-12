@@ -1147,3 +1147,33 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 }
 
 .detail-list__value { color: var(--ink-soft); overflow-wrap: anywhere; }
+
+/* Already in Memory: information, not a barrier. */
+.already {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 9px 0 0;
+  padding: 7px 10px;
+  border-radius: var(--r-card);
+  background: var(--ok-bg);
+  font-size: var(--step-0);
+  color: var(--ink);
+}
+
+.already__tick { color: var(--ok); font-weight: 800; }
+
+.btn--link {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.btn--link:hover { color: var(--accent); }

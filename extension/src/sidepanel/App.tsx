@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Problem, Suggestion } from "@core/types";
 import type { StepOutcome, CompleteItReport } from "@core/executor";
-import type { Briefing, PanelState, Response } from "@shared/messages";
+import type { Briefing, PanelState, Request, Response } from "@shared/messages";
 import { send } from "@shared/messages";
 import { formatDue } from "@core/dates";
 import { shortenUrl } from "@core/storage-hygiene";
@@ -359,6 +359,7 @@ export function App() {
             onGrantSite={grantSiteAccess}
             onTurnOn={turnOn}
             onDismiss={dismiss}
+            onShowMemory={() => setTab("memory")}
             cardState={cardState}
             now={now}
           />
@@ -438,6 +439,7 @@ interface NowProps {
   onGrantSite: (origin: string) => void;
   onTurnOn: () => void;
   onDismiss: (id: string) => void;
+  onShowMemory: () => void;
   cardState: Record<string, "running" | StepOutcome>;
   now: number;
 }
@@ -554,11 +556,13 @@ function NowTab(props: NowProps) {
                 suggestion={suggestion}
                 busy={busy}
                 state={props.cardState[suggestion.actionId]}
+                alreadySaved={suggestion.actionId === "save_to_memory" ? state?.alreadySaved : undefined}
                 onRun={props.onRun}
                 onUndo={props.onUndo}
                 onCopy={props.onCopy}
                 onDownload={props.onDownload}
                 onDismiss={props.onDismiss}
+                onShowMemory={props.onShowMemory}
               />
             ))}
 
@@ -572,11 +576,13 @@ function NowTab(props: NowProps) {
                       suggestion={suggestion}
                       busy={busy}
                       state={props.cardState[suggestion.actionId]}
+                      alreadySaved={suggestion.actionId === "save_to_memory" ? state?.alreadySaved : undefined}
                       onRun={props.onRun}
                       onUndo={props.onUndo}
                       onCopy={props.onCopy}
                       onDownload={props.onDownload}
                       onDismiss={props.onDismiss}
+                      onShowMemory={props.onShowMemory}
                     />
                   ))}
                 </div>
@@ -654,20 +660,24 @@ function SuggestionCard({
   suggestion,
   busy,
   state,
+  alreadySaved,
   onRun,
   onUndo,
   onCopy,
   onDownload,
   onDismiss,
+  onShowMemory,
 }: {
   suggestion: Suggestion;
   busy: boolean;
   state?: "running" | StepOutcome;
+  alreadySaved?: { id: string; title: string; savedAt: number };
   onRun: (id: string, approved?: boolean) => void;
   onUndo: (id: string, handle: string) => void;
   onCopy: (text: string) => void;
   onDownload: (handle: string) => void;
   onDismiss: (id: string) => void;
+  onShowMemory: () => void;
 }) {
   const needsApproval = suggestion.risk === "confirm";
   const undoable = suggestion.actionId !== "copy_details" && suggestion.actionId !== "open_application_link";
@@ -698,6 +708,21 @@ function SuggestionCard({
 
         <p className="suggestion__rationale">{suggestion.rationale}</p>
 
+        {/*
+          * Knowing you already have something is useful WHILE you have it. Saving
+          * again is harmless — it refreshes the existing record rather than
+          * duplicating — so this is information, not a barrier.
+          */}
+        {alreadySaved && !outcome && (
+          <p className="already">
+            <span className="already__tick" aria-hidden="true">✓</span>
+            Already in Memory, saved {relativeTime(alreadySaved.savedAt, Date.now())}.{" "}
+            <button className="btn--link" onClick={onShowMemory}>
+              Show it
+            </button>
+          </p>
+        )}
+
         <div className="suggestion__row">
           <button
             className="btn btn--action"
@@ -712,6 +737,8 @@ function SuggestionCard({
               </>
             ) : finished ? (
               "Done"
+            ) : alreadySaved ? (
+              "Save again"
             ) : needsApproval ? (
               "Approve and do it"
             ) : (
@@ -909,6 +936,57 @@ function BriefingBlock({ briefing, now }: { briefing: Briefing | undefined; now:
 
 // ---------------------------------------------------------------------------
 
+/**
+ * "Clear all" for one collection.
+ *
+ * Two steps and inline, matching the activity log. A modal for something this
+ * recoverable-by-re-saving would be heavier than the action deserves, but a
+ * single unguarded click would not be.
+ */
+function ClearAll({
+  count,
+  noun,
+  request,
+  onChange,
+}: {
+  count: number;
+  noun: string;
+  request: Request;
+  onChange: (r: Response) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  if (count === 0) return null;
+
+  return (
+    <div className="clear-row">
+      {confirming ? (
+        <>
+          <span className="clear-row__ask">
+            Delete all {count} {noun}
+            {count === 1 ? "" : "s"}?
+          </span>
+          <button
+            className="btn btn--small btn--danger"
+            onClick={async () => {
+              setConfirming(false);
+              onChange(await send(request));
+            }}
+          >
+            Delete all
+          </button>
+          <button className="btn btn--quiet btn--small" onClick={() => setConfirming(false)}>
+            Keep them
+          </button>
+        </>
+      ) : (
+        <button className="btn btn--quiet btn--small" onClick={() => setConfirming(true)}>
+          Clear all {noun}s
+        </button>
+      )}
+    </div>
+  );
+}
+
 function MemoryTab({
   state,
   onChange,
@@ -927,7 +1005,11 @@ function MemoryTab({
     <>
       {drafts.length > 0 && (
         <section className="section">
-          <h2 className="section__title">Drafts</h2>
+          <h2 className="section__title">
+            Drafts
+            <span className="section__count">{drafts.length}</span>
+          </h2>
+          <ClearAll count={drafts.length} noun="draft" request={{ type: "CLEAR_DRAFTS" }} onChange={onChange} />
           <ul className="list">
             {drafts.map((draft) => (
               <li className="row" key={draft.id} style={{ display: "block" }}>
@@ -965,7 +1047,11 @@ function MemoryTab({
       )}
 
       <section className="section">
-        <h2 className="section__title">Reminders</h2>
+        <h2 className="section__title">
+          Reminders
+          {reminders.length > 0 && <span className="section__count">{reminders.length}</span>}
+        </h2>
+        <ClearAll count={reminders.length} noun="reminder" request={{ type: "CLEAR_REMINDERS" }} onChange={onChange} />
         {reminders.length === 0 ? (
           <p className="empty">No reminders yet. Create one from a page with a date on it.</p>
         ) : (
@@ -989,7 +1075,11 @@ function MemoryTab({
       </section>
 
       <section className="section">
-        <h2 className="section__title">Saved</h2>
+        <h2 className="section__title">
+          Saved
+          {memory.length > 0 && <span className="section__count">{memory.length}</span>}
+        </h2>
+        <ClearAll count={memory.length} noun="saved item" request={{ type: "CLEAR_MEMORY" }} onChange={onChange} />
         {memory.length === 0 ? (
           <div className="empty">
             <BubbleMark className="empty__mark" />

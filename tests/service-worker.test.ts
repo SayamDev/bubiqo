@@ -501,3 +501,71 @@ describe("deleting everything", () => {
     expect(state.store["bubiqo.dismissed"]).toBeUndefined();
   });
 });
+
+describe("clearing one collection at a time", () => {
+  it("clears reminders and cancels their alarms, leaving memory alone", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
+    await dispatch({ type: "RUN_ACTION", actionId: "save_to_memory", approved: false });
+    expect(state.alarms.size).toBe(1);
+
+    const after = asState(await dispatch({ type: "CLEAR_REMINDERS" }));
+    expect(after.reminders).toHaveLength(0);
+    expect(after.memory).toHaveLength(1);
+    expect(state.alarms.size).toBe(0);
+    expect(state.badge).toBe("");
+  });
+
+  it("clears memory, leaving reminders alone", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
+    await dispatch({ type: "RUN_ACTION", actionId: "save_to_memory", approved: false });
+
+    const after = asState(await dispatch({ type: "CLEAR_MEMORY" }));
+    expect(after.memory).toHaveLength(0);
+    expect(after.reminders).toHaveLength(1);
+  });
+
+  it("clears drafts", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "draft_reply", approved: false });
+    expect(asState(await dispatch({ type: "CLEAR_DRAFTS" })).drafts).toHaveLength(0);
+  });
+});
+
+describe("knowing a page is already saved", () => {
+  it("reports it while the item exists", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    expect(asState(await dispatch({ type: "GET_STATE" })).alreadySaved).toBeUndefined();
+
+    await dispatch({ type: "RUN_ACTION", actionId: "save_to_memory", approved: false });
+    const panel = asState(await dispatch({ type: "ANALYSE_ACTIVE_TAB" }));
+    expect(panel.alreadySaved).toBeDefined();
+    expect(panel.alreadySaved!.title).toBeTruthy();
+  });
+
+  it("forgets immediately once the item is deleted, keeping no tombstone", async () => {
+    /*
+     * Deliberate product decision. Telling someone "you saved this before" about
+     * something they deleted would mean retaining a record of every deletion —
+     * exactly the shadow data that "delete" is supposed to remove. Knowing you
+     * already have something is useful WHILE you have it, and not after.
+     */
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "save_to_memory", approved: false });
+    const saved = asState(await dispatch({ type: "GET_MEMORY" })).memory[0]!;
+
+    await dispatch({ type: "DELETE_MEMORY", id: saved.id });
+    const panel = asState(await dispatch({ type: "ANALYSE_ACTIVE_TAB" }));
+
+    expect(panel.alreadySaved).toBeUndefined();
+    expect(JSON.stringify(state.store)).not.toContain(saved.id);
+  });
+
+  it("saving again refreshes the one record rather than adding another", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "save_to_memory", approved: false });
+    await dispatch({ type: "RUN_ACTION", actionId: "save_to_memory", approved: false });
+    expect(asState(await dispatch({ type: "GET_MEMORY" })).memory).toHaveLength(1);
+  });
+});

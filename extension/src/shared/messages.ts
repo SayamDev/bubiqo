@@ -24,6 +24,9 @@ export type Request =
   | { type: "GET_ACTIVITY" }
   | { type: "CLEAR_ACTIVITY" }
   | { type: "DELETE_ALL_DATA" }
+  | { type: "CLEAR_REMINDERS" }
+  | { type: "CLEAR_MEMORY" }
+  | { type: "CLEAR_DRAFTS" }
   | { type: "GET_DRAFTS" }
   | { type: "DELETE_DRAFT"; id: string }
   | { type: "DOWNLOAD_CALENDAR"; handle: string }
@@ -48,6 +51,14 @@ export interface PanelState {
   readonly siteOrigin?: string;
   /** Whether standing access to that origin has already been granted. */
   readonly siteAccessGranted?: boolean;
+  /**
+   * The saved item matching the page in front of you, if there is one.
+   *
+   * Live state, derived each analysis from what is actually in Memory. It is
+   * deliberately NOT a record of what was deleted: knowing you already have
+   * something is useful while you have it, and "deleted" should mean gone.
+   */
+  readonly alreadySaved?: { readonly id: string; readonly title: string; readonly savedAt: number };
   /** Present only on an invoice, only when the user switched conversion on. */
   readonly conversion?: {
     readonly from: string;
