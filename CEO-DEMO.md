@@ -175,7 +175,7 @@ for a local model to add nuance — it cannot reach past the action registry.
 **"Is it finished?"**
 No, and README.md says so in a section called Limitations. No Gmail adapter, the
 local-model adapter is a seam rather than a feature, Chrome only, and no human
-accessibility audit yet. What's there works and is tested: 139 tests, typecheck,
+accessibility audit yet. What's there works and is tested: 157 tests, typecheck,
 lint and production build all green.
 
 ---

@@ -165,7 +165,7 @@ that tries to hijack the assistant.
 
 ```bash
 npm run dev        # rebuild on change (reload the extension in chrome://extensions)
-npm run test       # 139 tests
+npm run test       # 157 tests
 npm run typecheck  # tsc --noEmit, strict
 npm run lint
 npm run verify     # all four, in order — run this before any commit
@@ -196,7 +196,12 @@ minutes before reading the source.
 
 ## Testing
 
-139 tests, no browser required.
+157 tests, no browser required.
+
+`tests/service-worker.test.ts` drives the worker the way the panel does — by
+dispatching messages over a fake `chrome.*` surface — so message routing, the
+Chrome-backed storage, alarm scheduling and survival across a worker restart are
+covered, not assumed.
 
 The ones worth knowing about are in `tests/captured.test.ts`. That JSON isn't
 hand-written: it's the exact output of the page extractor running in real Chrome

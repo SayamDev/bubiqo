@@ -32,7 +32,7 @@ deterministic layer or reach past the Action Registry.
 **Good:**
 
 - A regex that finds `£2,400.00` is more reliable than a small model asked the same
-  question, and it can be tested exhaustively. 139 tests run in under a second.
+  question, and it can be tested exhaustively. 157 tests run in under a second.
 - Analysis is instant. The panel has no spinner because there is nothing to wait for.
 - It works offline, costs nothing, and no page content leaves the device.
 - Every suggestion traces to the exact sentence that produced it, which is what makes
