@@ -80,11 +80,17 @@
     --ink-soft: #c3b8a8;
     --ink-faint: #93897a;
 
-    --paper: #16130f;
-    --surface: #201c16;
-    --sunk: #2a251d;
-    --line: #332c23;
-    --line-strong: #453c30;
+    /*
+     * Dark mode was one flat brown: card, ground and border sat within a few
+     * percent of each other, so nothing had an edge and the whole panel read as a
+     * single slab. The ground is now genuinely dark, the surface genuinely lifts
+     * off it, and the border is visible rather than theoretical.
+     */
+    --paper: #100d0a;
+    --surface: #1f1a15;
+    --sunk: #2b241c;
+    --line: #3a3128;
+    --line-strong: #52463a;
 
     --accent: #f0a93f;
     --accent-hover: #ffc167;
@@ -677,4 +683,158 @@ body::before {
   .tabs { padding: 8px; gap: 2px; }
   .tab { padding: 6px 9px; }
   .context__what { font-size: 1.1875rem; }
+}
+
+
+/* ==========================================================================
+   Suggestion cards
+   ========================================================================== */
+
+/*
+ * Each card is an icon and a body. Without the icon every card is an identical
+ * rectangle of prose and the list cannot be scanned at all — which is exactly how
+ * it looked before: three paragraphs stacked, nothing to aim at.
+ */
+.suggestion {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.suggestion__body { min-width: 0; flex: 1; }
+
+.suggestion__icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
+  transition: transform 220ms var(--spring);
+}
+
+.suggestion:hover .suggestion__icon { transform: rotate(-6deg) scale(1.06); }
+
+.suggestion__rationale {
+  /* Long rationales pushed the button off screen. Three lines, then ellipsis. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Secondary action inside a card: filled enough to be obviously the button. */
+.btn--action {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+  font-weight: 650;
+}
+.btn--action:hover:not(:disabled) {
+  background: var(--ink);
+  border-color: var(--ink);
+  opacity: 0.88;
+}
+
+/* ==========================================================================
+   Section headings with a count
+   ========================================================================== */
+
+.section__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Primary action
+   ========================================================================== */
+
+/*
+ * The one place a gradient earns its keep: a single warm sweep across the primary
+ * action, so the thing the whole panel builds towards does not look like every
+ * other button. Everything else stays flat.
+ */
+.btn--primary {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 78%, #d98a2b) 100%);
+  letter-spacing: -0.005em;
+}
+
+.btn--primary::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -60%;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  transform: skewX(-18deg);
+  transition: left 620ms var(--spring);
+}
+
+.btn--primary:hover:not(:disabled)::after { left: 115%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn--primary::after { display: none; }
+}
+
+/* ==========================================================================
+   The brand mark sweeps while a page is being read
+   ========================================================================== */
+
+.brand__mark--reading {
+  animation: sweep 1.1s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+@keyframes sweep {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand__mark--reading { animation: none; opacity: 0.6; }
+}
+
+/* ==========================================================================
+   The "why" disclosure, now a quiet inline row
+   ========================================================================== */
+
+.suggestion__row .why { margin-top: 0; }
+
+.suggestion__row .why summary {
+  padding: 7px 12px;
+  background: transparent;
+  border: 1px solid var(--line);
+}
+
+.suggestion__row .why summary::before { content: ""; }
+
+.suggestion__row .why summary:hover {
+  background: var(--sunk);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.suggestion__row .why[open] {
+  flex-basis: 100%;
+  margin-top: 4px;
 }

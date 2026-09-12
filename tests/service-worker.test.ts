@@ -177,9 +177,16 @@ describe("running an action end to end", () => {
     expect((response as { outcome: StepOutcome }).outcome.status).toBe("refused");
   });
 
-  it("will not act before anything has been analysed", async () => {
+  it("reads the page itself rather than refusing, if nothing has been analysed yet", async () => {
+    /*
+     * Refusing here was technically correct and practically useless: the user
+     * pressed a button next to a suggestion that was on their screen. If the
+     * analysis is missing — usually because the worker restarted — the right
+     * answer is to go and get it, not to explain why we cannot.
+     */
     const response = await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
-    expect(response.type).toBe("ERROR");
+    expect(response.type).toBe("STEP");
+    if (response.type === "STEP") expect(response.outcome.status).toBe("done");
   });
 });
 
@@ -317,5 +324,38 @@ describe("results reach the user", () => {
     const response = await dispatch({ type: "DOWNLOAD_CALENDAR", handle: created.outcome.handle! });
     expect(response.type).toBe("CALENDAR_FILE");
     if (response.type === "CALENDAR_FILE") expect(response.ics).toContain("BEGIN:VEVENT");
+  });
+});
+
+describe("surviving a service-worker restart", () => {
+  it("Complete It still works after the worker has been terminated", async () => {
+    /*
+     * MV3 terminates a service worker after roughly thirty seconds idle. Reading a
+     * page, pausing to actually read it, then pressing "Complete it" takes longer
+     * than that — so the in-memory analysis was gone and the button did nothing.
+     */
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+
+    // Restart the worker, keeping storage — exactly what Chrome does.
+    const chrome = installFakeChrome({ ...state, store: state.store });
+    vi.resetModules();
+    await import("../extension/src/background/service-worker");
+    const afterRestart = (r: unknown) => chrome.runtime.onMessage.dispatch(r) as Promise<Response>;
+
+    const response = await afterRestart({ type: "COMPLETE_IT" });
+    expect(response.type).toBe("REPORT");
+    if (response.type === "REPORT") expect(response.report.done).toBeGreaterThan(0);
+  });
+
+  it("never answers a button press with a bare 'nothing has been analysed'", async () => {
+    const chrome = installFakeChrome(freshState(emailPage));
+    vi.resetModules();
+    await import("../extension/src/background/service-worker");
+    const fresh = (r: unknown) => chrome.runtime.onMessage.dispatch(r) as Promise<Response>;
+
+    const response = await fresh({ type: "COMPLETE_IT" });
+    // It re-reads rather than refusing; and if it truly cannot, it says what to do.
+    if (response.type === "ERROR") expect(response.message).toMatch(/Re-read this page/i);
+    else expect(response.type).toBe("REPORT");
   });
 });

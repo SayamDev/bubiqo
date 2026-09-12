@@ -20,7 +20,7 @@ import { send } from "@shared/messages";
 import { formatDue } from "@core/dates";
 import { riskLabel } from "@core/safety";
 import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime } from "./format";
-import { BubbleMark, ShieldIcon, QuietMark } from "./icons";
+import { BubbleMark, ShieldIcon, QuietMark, ActionIcon } from "./icons";
 
 type Tab = "now" | "memory" | "activity" | "settings";
 
@@ -39,6 +39,12 @@ export function App() {
   const [report, setReport] = useState<CompleteItReport | undefined>();
   const [steps, setSteps] = useState<StepOutcome[]>([]);
   const [announcement, setAnnounce] = useState("");
+  /*
+   * Errors need to be SEEN, not only announced. Routing them to the visually
+   * hidden live region meant a screen reader heard "Nothing has been analysed
+   * yet" while a sighted user saw a button that simply did nothing.
+   */
+  const [error, setError] = useState<string | undefined>();
   const now = Date.now();
 
   /*
@@ -65,7 +71,12 @@ export function App() {
   const apply = useCallback((response: Response) => {
     if (response.type === "STATE") setState(response.state);
     if (response.type === "BRIEFING") setBriefing(response.briefing);
-    if (response.type === "ERROR") setAnnounce(response.message);
+    if (response.type === "ERROR") {
+      setAnnounce(response.message);
+      setError(response.message);
+    } else {
+      setError(undefined);
+    }
   }, []);
 
   const analyse = useCallback(async () => {
@@ -276,6 +287,14 @@ export function App() {
 
       <p aria-live="polite" className="visually-hidden">{announcement}</p>
 
+      {error && (
+        <div className="main" style={{ paddingBottom: 0 }}>
+          <p className="notice notice--warn" role="alert">
+            <strong>That didn't work.</strong> {error}
+          </p>
+        </div>
+      )}
+
       <main className="main" id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
         {tab === "now" && (
           <NowTab
@@ -324,7 +343,13 @@ function Header({ state }: { state: PanelState | undefined }) {
   return (
     <header className="header">
       <div className="brand">
-        <img className="brand__mark" src="icons/icon-32.png" alt="" width={20} height={20} />
+        <img
+          className={`brand__mark${analysis || blocked ? "" : " brand__mark--reading"}`}
+          src="icons/icon-32.png"
+          alt=""
+          width={20}
+          height={20}
+        />
         <span className="brand__name">bubiqo</span>
       </div>
 
@@ -444,7 +469,10 @@ function NowTab(props: NowProps) {
 
       {analysis.problems.length > 0 && (
         <section className="section" aria-labelledby="problems-title">
-          <h2 className="section__title" id="problems-title">Needs attention</h2>
+          <h2 className="section__title" id="problems-title">
+            Needs attention
+            <span className="section__count">{analysis.problems.length}</span>
+          </h2>
           {analysis.problems.slice(0, 4).map((problem, i) => (
             <ProblemRow key={`${problem.kind}-${i}`} problem={problem} now={now} />
           ))}
@@ -452,7 +480,12 @@ function NowTab(props: NowProps) {
       )}
 
       <section className="section" aria-labelledby="suggested-title">
-        <h2 className="section__title" id="suggested-title">Suggested</h2>
+        <h2 className="section__title" id="suggested-title">
+          Suggested
+          {analysis.suggestions.length > 0 && (
+            <span className="section__count">{Math.min(3, analysis.suggestions.length)}</span>
+          )}
+        </h2>
 
         {analysis.suggestions.length === 0 ? (
           <div className="empty">
@@ -490,7 +523,7 @@ function NowTab(props: NowProps) {
             {safeSuggestions.length > 1 && (
               <div style={{ marginTop: 14 }}>
                 <button className="btn btn--primary" onClick={props.onCompleteIt} disabled={busy}>
-                  {busy ? "Working…" : "Complete it"}
+                  {busy ? "Working…" : `Complete all ${safeSuggestions.length}`}
                 </button>
                 <p className="why" style={{ marginTop: 6 }}>
                   Runs the {safeSuggestions.length} safe steps above, checks each one worked, and tells you
@@ -564,32 +597,59 @@ function SuggestionCard({
   onRun: (id: string, approved?: boolean) => void;
 }) {
   const needsApproval = suggestion.risk === "confirm";
+  const undoable = suggestion.actionId !== "copy_details" && suggestion.actionId !== "open_application_link";
+
   return (
     <article className="suggestion">
-      <div className="suggestion__head">
-        <h3 className="suggestion__name">{suggestion.name}</h3>
-        {needsApproval && <span className="badge badge--confirm">{riskLabel(suggestion.risk)}</span>}
+      <span className="suggestion__icon" aria-hidden="true">
+        <ActionIcon actionId={suggestion.actionId} />
+      </span>
+
+      <div className="suggestion__body">
+        <div className="suggestion__head">
+          <h3 className="suggestion__name">{suggestion.name}</h3>
+          {needsApproval && <span className="badge badge--confirm">{riskLabel(suggestion.risk)}</span>}
+        </div>
+
+        <p className="suggestion__rationale">{suggestion.rationale}</p>
+
+        <div className="suggestion__row">
+          <button
+            className="btn btn--action"
+            onClick={() => onRun(suggestion.actionId, needsApproval)}
+            disabled={busy}
+          >
+            {needsApproval ? "Approve and do it" : "Do it"}
+          </button>
+
+          {/*
+            * The disclosure used to repeat the rationale word for word under the
+            * heading "What Bubiqo found" — the same sentence twice, which makes the
+            * explanation look like padding. It now only carries what the card does
+            * not already say.
+            */}
+          <details className="why">
+            <summary>Details</summary>
+            <dl>
+              <dt>Risk</dt>
+              <dd>
+                {riskLabel(suggestion.risk)}
+                {suggestion.risk === "safe" && " — reads the page or saves something on this device."}
+              </dd>
+              <dt>Can it be undone?</dt>
+              <dd>
+                {undoable
+                  ? "Yes — an Undo appears next to the result."
+                  : suggestion.actionId === "copy_details"
+                    ? "No. The clipboard cannot be put back."
+                    : "No. It opens a page in a new tab."}
+              </dd>
+              <dt>Leaves this device?</dt>
+              <dd>No.</dd>
+            </dl>
+          </details>
+        </div>
       </div>
-
-      <p className="suggestion__rationale">{suggestion.rationale}</p>
-
-      <div className="suggestion__row">
-        <button className="btn" onClick={() => onRun(suggestion.actionId, needsApproval)} disabled={busy}>
-          {needsApproval ? "Approve and do it" : "Do it"}
-        </button>
-      </div>
-
-      <details className="why">
-        <summary>Why am I seeing this?</summary>
-        <dl>
-          <dt>What Bubiqo found</dt>
-          <dd className="why__quote">{suggestion.rationale}</dd>
-          <dt>Risk</dt>
-          <dd>{riskLabel(suggestion.risk)}</dd>
-          <dt>Can it be undone?</dt>
-          <dd>{suggestion.actionId === "copy_details" ? "No — the clipboard can't be put back." : "Yes."}</dd>
-        </dl>
-      </details>
     </article>
   );
 }

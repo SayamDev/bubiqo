@@ -96,10 +96,13 @@ export function scanForProblems(
     if (e.type !== "deadline" || e.resolvedAt === undefined) continue;
     const urgency = describeUrgency(e.resolvedAt, now);
     const kind: ProblemKind = surface === "invoice" ? "payment_due" : "deadline";
-    const summary =
-      kind === "payment_due"
-        ? "An invoice on this page has a payment date."
-        : "This page sets a deadline.";
+
+    /*
+     * Quote the clause rather than announcing that a deadline exists. "This page
+     * sets a deadline" tells the user nothing they cannot already see; the words
+     * that created it are the whole value.
+     */
+    const summary = kind === "payment_due" ? "This invoice has a payment date." : `Deadline: ${clause(e.source)}`;
     found.push(problem(kind, summary, urgency, e.confidence, e.source, e.resolvedAt));
   }
 
@@ -161,6 +164,24 @@ export function scanForProblems(
   }
 
   return rank(dedupe(found));
+}
+
+/**
+ * The clause around a date, trimmed to something readable in one line.
+ *
+ * Deliberately short and stopped at the first sentence break. A longer window ran
+ * past the obligation into whatever followed it, which both read badly and put a
+ * chunk of page prose into a stored reminder title — the opposite of the
+ * data-minimisation this product claims.
+ */
+function clause(source: string): string {
+  const clean = source.replace(/\s+/g, " ").trim();
+  const cue =
+    /\b(?:by|before|due|deadline|closes?|closing|expires?|no later than|respond by|reply by|apply by|submit by)\b[^.!?;\n]{0,40}/i.exec(
+      clean,
+    );
+  const phrase = (cue?.[0] ?? clean.slice(0, 40)).trim().replace(/[.,;:]+$/, "");
+  return phrase.length > 46 ? `${phrase.slice(0, 46).trimEnd()}…` : phrase;
 }
 
 function dedupe(problems: readonly Problem[]): Problem[] {

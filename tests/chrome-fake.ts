@@ -9,7 +9,10 @@
  */
 
 export interface FakeChrome {
-  storage: { local: { get(key?: string): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> }; session?: unknown };
+  storage: {
+    local: { get(key?: string): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
+    session: { get(key?: string): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void>; remove(key: string): Promise<void> };
+  };
   alarms: { create(name: string, info: { when: number }): Promise<void>; clear(name: string): Promise<boolean>; onAlarm: Listener };
   runtime: { onMessage: MessageListener; onInstalled: Listener; onStartup: Listener };
   tabs: { query(q: unknown): Promise<{ id?: number; url?: string; active?: boolean }[]> };
@@ -24,6 +27,8 @@ interface MessageListener extends Listener { dispatch(request: unknown): Promise
 
 export interface FakeState {
   store: Record<string, unknown>;
+  /** chrome.storage.session — survives a worker restart, cleared on browser close. */
+  session: Record<string, unknown>;
   alarms: Map<string, number>;
   badge: string;
   activeTab: { id?: number; url?: string };
@@ -49,7 +54,14 @@ export function installFakeChrome(state: FakeState): FakeChrome {
           Object.assign(state.store, items);
         },
       },
-      session: { set: async () => undefined },
+      session: {
+        async get(key?: string) {
+          if (key === undefined) return { ...state.session };
+          return key in state.session ? { [key]: state.session[key] } : {};
+        },
+        async set(items: Record<string, unknown>) { Object.assign(state.session, items); },
+        async remove(key: string) { delete state.session[key]; },
+      },
     },
     alarms: {
       async create(name, info) {
@@ -128,5 +140,5 @@ export function installFakeChrome(state: FakeState): FakeChrome {
 }
 
 export function freshState(page: unknown, url = "https://mail.example.com/f001"): FakeState {
-  return { store: {}, alarms: new Map(), badge: "", activeTab: { id: 1, url }, pageResult: page, grantedOrigins: [] };
+  return { store: {}, session: {}, alarms: new Map(), badge: "", activeTab: { id: 1, url }, pageResult: page, grantedOrigins: [] };
 }

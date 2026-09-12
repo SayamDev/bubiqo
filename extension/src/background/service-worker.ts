@@ -67,8 +67,45 @@ const currency = new FrankfurterProvider(
   () => currencySettingEnabled,
 );
 
-/** The most recent analysis, kept only until the next one replaces it. */
+/**
+ * The most recent analysis.
+ *
+ * Held in memory AND mirrored to chrome.storage.session, because an MV3 service
+ * worker is terminated after roughly thirty seconds idle. Reading a page, pausing
+ * to actually read it, then pressing "Complete it" is a completely ordinary thing
+ * to do — and it took longer than the worker's lifetime, so `current` was gone and
+ * the button did nothing.
+ *
+ * storage.session is the right home: it survives worker restarts, is cleared when
+ * the browser closes, and never touches disk — so a page analysis does not outlive
+ * the browsing session that produced it.
+ */
 let current: { page: PageContext; analysis: Analysis } | undefined;
+
+const CURRENT_KEY = "bubiqo.current";
+
+async function setCurrent(value: { page: PageContext; analysis: Analysis } | undefined): Promise<void> {
+  current = value;
+  try {
+    if (value) await chrome.storage.session.set({ [CURRENT_KEY]: value });
+    else await chrome.storage.session.remove(CURRENT_KEY);
+  } catch {
+    // storage.session can be unavailable; the in-memory copy still works.
+  }
+}
+
+/** Re-read the analysis after a worker restart. */
+async function loadCurrent(): Promise<{ page: PageContext; analysis: Analysis } | undefined> {
+  if (current) return current;
+  try {
+    const stored = await chrome.storage.session.get(CURRENT_KEY);
+    const value = stored[CURRENT_KEY] as { page: PageContext; analysis: Analysis } | undefined;
+    if (value?.page && value.analysis) current = value;
+    return current;
+  } catch {
+    return undefined;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -195,7 +232,7 @@ async function analyseActiveTab(): Promise<PanelState> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   if (!tab?.id) {
-    current = undefined;
+    await setCurrent(undefined);
     return { ...(await baseState(settings)), unavailableReason: "No active tab." };
   }
 
@@ -257,12 +294,12 @@ async function analyseActiveTab(): Promise<PanelState> {
 
   const unavailable = blockedUrl(page.url);
   if (unavailable) {
-    current = undefined;
+    await setCurrent(undefined);
     return { ...(await baseState(settings)), unavailableReason: unavailable };
   }
 
   if (settings.disabledDomains.some((d) => page.domain.includes(d))) {
-    current = undefined;
+    await setCurrent(undefined);
     return { ...(await baseState(settings)), unavailableReason: "You've switched Bubiqo off for this site." };
   }
 
@@ -272,7 +309,7 @@ async function analyseActiveTab(): Promise<PanelState> {
     previouslyAccepted: await readIdList(STORAGE_KEYS.accepted),
     previouslyDismissed: await readIdList(STORAGE_KEYS.dismissed),
   });
-  current = { page, analysis };
+  await setCurrent({ page, analysis });
 
   if (analysis.injectionAttempted) {
     await ports.activity.record({
@@ -419,17 +456,15 @@ async function handle(request: Request): Promise<Response> {
     case "ANALYSE_ACTIVE_TAB":
       return { type: "STATE", state: await analyseActiveTab() };
 
-    case "GET_STATE":
-      return {
-        type: "STATE",
-        state: current
-          ? { ...(await baseState(settings)), page: current.page, analysis: current.analysis }
-          : await baseState(settings),
-      };
+    case "GET_STATE": {
+      await loadCurrent();
+      return { type: "STATE", state: await baseState(settings) };
+    }
 
     case "RUN_ACTION": {
-      if (!current) return { type: "ERROR", message: "Nothing has been analysed yet." };
-      const outcome = await executor.run(request.actionId, toActionInput(current.page, current.analysis), {
+      const ctx = (await loadCurrent()) ?? (await analyseActiveTab(), await loadCurrent());
+      if (!ctx) return { type: "ERROR", message: "Bubiqo lost track of this page. Press “Re-read this page” and try again." };
+      const outcome = await executor.run(request.actionId, toActionInput(ctx.page, ctx.analysis), {
         approved: request.approved ? [request.actionId] : [],
       });
       if (outcome.status === "done") await pushIdList(STORAGE_KEYS.accepted, request.actionId);
@@ -450,10 +485,18 @@ async function handle(request: Request): Promise<Response> {
     }
 
     case "COMPLETE_IT": {
-      if (!current) return { type: "ERROR", message: "Nothing has been analysed yet." };
+      /*
+       * Re-read the page if the worker restarted since the panel last analysed it.
+       * Erroring here is useless to the user: they pressed a button on suggestions
+       * that are still on screen, so the right answer is to make it work.
+       */
+      const ctx = (await loadCurrent()) ?? (await analyseActiveTab(), await loadCurrent());
+      if (!ctx) {
+        return { type: "ERROR", message: "Bubiqo lost track of this page. Press “Re-read this page” and try again." };
+      }
       const report = await executor.completeIt(
-        current.analysis.suggestions.filter((s) => s.risk === "safe").slice(0, 3),
-        toActionInput(current.page, current.analysis),
+        ctx.analysis.suggestions.filter((s) => s.risk === "safe").slice(0, 3),
+        toActionInput(ctx.page, ctx.analysis),
       );
       for (const step of report.steps) {
         if (step.status === "done") await pushIdList(STORAGE_KEYS.accepted, step.actionId);

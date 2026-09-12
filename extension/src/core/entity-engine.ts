@@ -126,6 +126,18 @@ function extractDates(text: string, now: number): Entity[] {
   const DEADLINE_CUES =
     /\b(?:by|before|due|deadline|closes?|closing|expires?|no later than|submit(?:ted)? by|respond by|reply by|needs? to be|must be)\b/i;
 
+  /*
+   * A date can sit behind a deadline cue and still not be a deadline.
+   *
+   * "your degree completed before June 2027" is an ELIGIBILITY criterion — a fact
+   * about whether you qualify — not something you have to do by then. Offering to
+   * remind someone about it is noise, and noise is what makes people stop reading
+   * the panel. When the surrounding sentence is about meeting a requirement, the
+   * date stays an ordinary date.
+   */
+  const REQUIREMENT_CUES =
+    /\b(?:you meet|essential requirement|minimum requirement|eligib\w*|qualif\w*|criteria|provided (?:that|you)|as long as|degree (?:completed|awarded)|graduat\w+ (?:before|by|in)|must have (?:completed|graduated)|requirement with)\b/i;
+
   for (const resolved of resolveDates(text, now)) {
     const at = text.indexOf(resolved.source);
     const context = at >= 0 ? windowAround(text, at, resolved.source.length, 70) : resolved.source;
@@ -137,7 +149,12 @@ function extractDates(text: string, now: number): Entity[] {
      * tests/analysis.test.ts.
      */
     const before = at >= 0 ? text.slice(Math.max(0, at - 28), at) : "";
-    const isDeadline = DEADLINE_CUES.test(before);
+
+    // The sentence the date sits in, for the eligibility check.
+    const sentenceStart = at >= 0 ? Math.max(0, text.lastIndexOf(".", at - 1) + 1) : 0;
+    const sentence = at >= 0 ? text.slice(sentenceStart, at + resolved.source.length + 20) : "";
+
+    const isDeadline = DEADLINE_CUES.test(before) && !REQUIREMENT_CUES.test(sentence);
 
     out.push(
       entity(
