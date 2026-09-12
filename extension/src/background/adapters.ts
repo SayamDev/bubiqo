@@ -157,6 +157,9 @@ class ChromeActivity implements ActivityPort {
     const list: ActivityEvent[] = Array.isArray(stored[KEYS.activity]) ? stored[KEYS.activity] : [];
     return list.slice(-limit).reverse();
   }
+  async clear(): Promise<void> {
+    await chrome.storage.local.set({ [KEYS.activity]: [] });
+  }
 }
 
 /**

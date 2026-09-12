@@ -359,3 +359,26 @@ describe("surviving a service-worker restart", () => {
     else expect(response.type).toBe("REPORT");
   });
 });
+
+describe("clearing the activity log", () => {
+  it("erases it on request", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
+    expect(asState(await dispatch({ type: "GET_ACTIVITY" })).activity.length).toBeGreaterThan(0);
+
+    const cleared = asState(await dispatch({ type: "CLEAR_ACTIVITY" }));
+    expect(cleared.activity).toHaveLength(0);
+  });
+
+  it("clears the log without touching reminders or memory", async () => {
+    // The audit trail is the user's to delete; what it describes is not.
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
+    await dispatch({ type: "RUN_ACTION", actionId: "save_to_memory", approved: false });
+
+    const after = asState(await dispatch({ type: "CLEAR_ACTIVITY" }));
+    expect(after.activity).toHaveLength(0);
+    expect(after.reminders).toHaveLength(1);
+    expect(after.memory).toHaveLength(1);
+  });
+});

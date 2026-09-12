@@ -83,6 +83,7 @@ export class FakeActivity implements ActivityPort {
     this.events.push({ ...event, id: nextId("act"), at: 0 });
   }
   async recent(limit: number) { return this.events.slice(-limit); }
+  async clear() { this.events.length = 0; }
   kinds(): string[] { return this.events.map((e) => e.kind); }
 }
 

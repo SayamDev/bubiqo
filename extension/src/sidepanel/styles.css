@@ -224,17 +224,17 @@ body::before {
 }
 
 .brand__mark {
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
   flex: none;
-  border-radius: 9px;
-  box-shadow: var(--lift-sm);
+  border-radius: 11px;
+  box-shadow: var(--lift-md);
 }
 
 .brand__name {
-  font-size: 1.0625rem;
+  font-size: 1.5rem;
   font-weight: 800;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.045em;
   color: var(--ink);
   line-height: 1;
 }
@@ -243,9 +243,9 @@ body::before {
 .brand__name::after {
   content: "";
   display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-left: 3px;
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
   border-radius: var(--r-pill);
   background: var(--accent);
   vertical-align: baseline;
@@ -746,7 +746,8 @@ body::before {
 @media (max-width: 340px) {
   .main { padding: 14px 13px 24px; }
   .header { padding: 16px 13px 14px; }
-  .brand__name { font-size: 1rem; }
+  .brand__name { font-size: 1.3125rem; }
+  .brand__mark { width: 30px; height: 30px; }
   .header__art { width: 220px; opacity: 0.6; }
   .tabs { padding: 8px; gap: 2px; }
   .tab { padding: 6px 9px; }
@@ -1028,3 +1029,98 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 
 /* Bigger, calmer empty-state artwork. */
 .empty__mark { width: 54px; height: 54px; color: var(--accent); opacity: 0.75; }
+
+/* ==========================================================================
+   The card answers the click
+   ========================================================================== */
+
+/*
+ * A click on "Do it" produced no visible change on the card — the result went to
+ * a list below the fold, so from where the user was looking, nothing happened.
+ * These three states are the whole fix: working, and then the answer, on the card
+ * that was clicked.
+ */
+.suggestion--running { border-color: var(--accent-line); }
+
+.suggestion--done { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.suggestion--fail { border-color: color-mix(in srgb, var(--alert) 45%, var(--line)); }
+
+.spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 7px;
+  vertical-align: -1px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--r-pill);
+  animation: spin 620ms linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; border-right-color: currentColor; opacity: 0.5; }
+}
+
+.outcome {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-card);
+  background: var(--sunk);
+  animation: pop-in 300ms var(--spring) both;
+}
+
+.outcome--done { background: var(--ok-bg); }
+.outcome--fail { background: var(--alert-bg); }
+
+.outcome__body { min-width: 0; flex: 1; }
+
+.outcome__message {
+  margin: 0;
+  font-size: var(--step-0);
+  font-weight: 550;
+  color: var(--ink);
+}
+
+.outcome__actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.outcome__actions:empty { display: none; }
+
+/* Clearing the activity log: two steps, inline, no modal. */
+.clear-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: -2px 0 12px;
+}
+
+.clear-row__ask { font-size: var(--step-0); color: var(--ink-soft); font-weight: 600; }
+
+.btn--danger {
+  background: var(--alert-bg);
+  border-color: color-mix(in srgb, var(--alert) 40%, transparent);
+  color: var(--alert);
+  font-weight: 700;
+}
+.btn--danger:hover:not(:disabled) {
+  background: var(--alert-bg);
+  border-color: var(--alert);
+}
+
+/*
+ * Quiet buttons inside an outcome strip sit on a tinted background, where the
+ * faint ink drops to 4.04:1. Undo is the one control a user reaches for in a
+ * hurry, so it gets the stronger ink.
+ */
+.outcome .btn--quiet { color: var(--ink-soft); font-weight: 650; }
+.outcome .btn--quiet:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }

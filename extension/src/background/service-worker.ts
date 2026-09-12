@@ -574,6 +574,10 @@ async function handle(request: Request): Promise<Response> {
       await ports.drafts.remove(request.id);
       return { type: "STATE", state: await baseState(settings) };
 
+    case "CLEAR_ACTIVITY":
+      await ports.activity.clear();
+      return { type: "STATE", state: await baseState(settings) };
+
     case "DELETE_MEMORY":
       await ports.memory.remove(request.id);
       return { type: "STATE", state: await baseState(settings) };

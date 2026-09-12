@@ -22,6 +22,7 @@ export type Request =
   | { type: "GET_REMINDERS" }
   | { type: "DELETE_REMINDER"; id: string }
   | { type: "GET_ACTIVITY" }
+  | { type: "CLEAR_ACTIVITY" }
   | { type: "GET_DRAFTS" }
   | { type: "DELETE_DRAFT"; id: string }
   | { type: "DOWNLOAD_CALENDAR"; handle: string }

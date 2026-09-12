@@ -38,6 +38,14 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<CompleteItReport | undefined>();
   const [steps, setSteps] = useState<StepOutcome[]>([]);
+  /*
+   * What each individual card is doing right now.
+   *
+   * Clicking "Do it" used to change nothing on the card: the result appeared in a
+   * "What happened" list below the fold, so from where the user was looking, the
+   * button did nothing at all. A click has to be answered where it was made.
+   */
+  const [cardState, setCardState] = useState<Record<string, "running" | StepOutcome>>({});
   const [announcement, setAnnounce] = useState("");
   /*
    * Errors need to be SEEN, not only announced. Routing them to the visually
@@ -123,18 +131,28 @@ export function App() {
 
   const runAction = useCallback(
     async (actionId: string, approved = false) => {
-      setBusy(true);
+      setCardState((previous) => ({ ...previous, [actionId]: "running" }));
       try {
         const response = await send({ type: "RUN_ACTION", actionId, approved });
         if (response.type === "STEP") {
-          setSteps((previous) => [...previous, response.outcome]);
-          setAnnounce(response.outcome.message);
+          setCardState((previous) => ({ ...previous, [actionId]: response.outcome }));
+          setAnnounce(`${response.outcome.name}: ${response.outcome.message}`);
           if (response.outcome.status === "done") apply(await send({ type: "GET_STATE" }));
         } else {
+          setCardState((previous) => {
+            const next = { ...previous };
+            delete next[actionId];
+            return next;
+          });
           apply(response);
         }
-      } finally {
-        setBusy(false);
+      } catch {
+        setCardState((previous) => {
+          const next = { ...previous };
+          delete next[actionId];
+          return next;
+        });
+        setError("Something went wrong. Try again.");
       }
     },
     [apply],
@@ -143,6 +161,7 @@ export function App() {
   const completeIt = useCallback(async () => {
     setBusy(true);
     setSteps([]);
+    setCardState({});
     try {
       const response = await send({ type: "COMPLETE_IT" });
       if (response.type === "REPORT") {
@@ -167,6 +186,11 @@ export function App() {
       const response = await send({ type: "UNDO", actionId, handle });
       if (response.type === "STEP") {
         setAnnounce(response.outcome.message);
+        setCardState((previous) => {
+          const next = { ...previous };
+          delete next[actionId];
+          return next;
+        });
         setSteps((previous) => previous.filter((s) => s.undoHandle !== handle));
         setReport((previous) =>
           previous ? { ...previous, steps: previous.steps.filter((s) => s.undoHandle !== handle) } : previous,
@@ -325,11 +349,12 @@ export function App() {
             onDownload={downloadCalendar}
             onGrantSite={grantSiteAccess}
             onTurnOn={turnOn}
+            cardState={cardState}
             now={now}
           />
         )}
         {tab === "memory" && <MemoryTab state={state} onChange={apply} onCopy={copyText} />}
-        {tab === "activity" && <ActivityTab state={state} now={now} />}
+        {tab === "activity" && <ActivityTab state={state} now={now} onChange={apply} />}
         {tab === "settings" && <SettingsTab state={state} onChange={apply} />}
       </main>
 
@@ -403,6 +428,7 @@ interface NowProps {
   onDownload: (handle: string) => void;
   onGrantSite: (origin: string) => void;
   onTurnOn: () => void;
+  cardState: Record<string, "running" | StepOutcome>;
   now: number;
 }
 
@@ -516,7 +542,11 @@ function NowTab(props: NowProps) {
                 key={suggestion.actionId}
                 suggestion={suggestion}
                 busy={busy}
+                state={props.cardState[suggestion.actionId]}
                 onRun={props.onRun}
+                onUndo={props.onUndo}
+                onCopy={props.onCopy}
+                onDownload={props.onDownload}
               />
             ))}
 
@@ -529,7 +559,11 @@ function NowTab(props: NowProps) {
                       key={suggestion.actionId}
                       suggestion={suggestion}
                       busy={busy}
+                      state={props.cardState[suggestion.actionId]}
                       onRun={props.onRun}
+                      onUndo={props.onUndo}
+                      onCopy={props.onCopy}
+                      onDownload={props.onDownload}
                     />
                   ))}
                 </div>
@@ -606,17 +640,37 @@ function ProblemRow({ problem, now }: { problem: Problem; now: number }) {
 function SuggestionCard({
   suggestion,
   busy,
+  state,
   onRun,
+  onUndo,
+  onCopy,
+  onDownload,
 }: {
   suggestion: Suggestion;
   busy: boolean;
+  state?: "running" | StepOutcome;
   onRun: (id: string, approved?: boolean) => void;
+  onUndo: (id: string, handle: string) => void;
+  onCopy: (text: string) => void;
+  onDownload: (handle: string) => void;
 }) {
   const needsApproval = suggestion.risk === "confirm";
   const undoable = suggestion.actionId !== "copy_details" && suggestion.actionId !== "open_application_link";
+  const running = state === "running";
+  const outcome = typeof state === "object" ? state : undefined;
+  const finished = outcome?.status === "done" || outcome?.status === "unconfirmed";
+
+  const tone =
+    outcome?.status === "done"
+      ? "done"
+      : outcome?.status === "failed" || outcome?.status === "refused"
+        ? "fail"
+        : outcome
+          ? "warn"
+          : undefined;
 
   return (
-    <article className="suggestion">
+    <article className={`suggestion${outcome ? ` suggestion--${tone}` : ""}${running ? " suggestion--running" : ""}`}>
       <span className="suggestion__icon" aria-hidden="true">
         <ActionIcon actionId={suggestion.actionId} />
       </span>
@@ -633,9 +687,21 @@ function SuggestionCard({
           <button
             className="btn btn--action"
             onClick={() => onRun(suggestion.actionId, needsApproval)}
-            disabled={busy}
+            disabled={busy || running || finished}
+            aria-describedby={outcome ? `${suggestion.actionId}-result` : undefined}
           >
-            {needsApproval ? "Approve and do it" : "Do it"}
+            {running ? (
+              <>
+                <span className="spinner" aria-hidden="true" />
+                Working…
+              </>
+            ) : finished ? (
+              "Done"
+            ) : needsApproval ? (
+              "Approve and do it"
+            ) : (
+              "Do it"
+            )}
           </button>
 
           {/*
@@ -665,6 +731,43 @@ function SuggestionCard({
             </dl>
           </details>
         </div>
+
+        {/*
+          * The answer to the click, on the card that was clicked. Carries whatever
+          * the step produced — the file to download, the text to copy — and the
+          * Undo, so the user never has to go looking for the consequence of their
+          * own action.
+          */}
+        {outcome && (
+          <div className={`outcome outcome--${tone}`} id={`${suggestion.actionId}-result`} role="status">
+            <span className={`result__mark result__mark--${tone}`} aria-hidden="true">
+              {tone === "done" ? "✓" : tone === "fail" ? "×" : "!"}
+            </span>
+            <div className="outcome__body">
+              <p className="outcome__message">{outcome.message}</p>
+              <div className="outcome__actions">
+                {suggestion.actionId === "copy_details" && outcome.handle && (
+                  <button className="btn btn--small" onClick={() => onCopy(outcome.handle!)}>
+                    Copy
+                  </button>
+                )}
+                {suggestion.actionId === "export_calendar_event" && outcome.handle && (
+                  <button className="btn btn--small" onClick={() => onDownload(outcome.handle!)}>
+                    Download .ics
+                  </button>
+                )}
+                {undoable && outcome.undoHandle && (
+                  <button
+                    className="btn btn--quiet btn--small"
+                    onClick={() => onUndo(outcome.actionId, outcome.undoHandle!)}
+                  >
+                    Undo
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -896,11 +999,55 @@ function MemoryTab({
   );
 }
 
-function ActivityTab({ state, now }: { state: PanelState | undefined; now: number }) {
+function ActivityTab({
+  state,
+  now,
+  onChange,
+}: {
+  state: PanelState | undefined;
+  now: number;
+  onChange: (r: Response) => void;
+}) {
   const activity = state?.activity ?? [];
+  /*
+   * Two steps, not a dialog. The log is the user's own audit trail, so deleting it
+   * should be easy — but not so easy that a mis-click erases the record of what
+   * Bubiqo did on their behalf.
+   */
+  const [confirming, setConfirming] = useState(false);
+
   return (
     <section className="section">
-      <h2 className="section__title">Everything Bubiqo has done</h2>
+      <h2 className="section__title">
+        Everything Bubiqo has done
+        {activity.length > 0 && <span className="section__count">{activity.length}</span>}
+      </h2>
+
+      {activity.length > 0 && (
+        <div className="clear-row">
+          {confirming ? (
+            <>
+              <span className="clear-row__ask">Delete all {activity.length} entries?</span>
+              <button
+                className="btn btn--small btn--danger"
+                onClick={async () => {
+                  setConfirming(false);
+                  onChange(await send({ type: "CLEAR_ACTIVITY" }));
+                }}
+              >
+                Delete everything
+              </button>
+              <button className="btn btn--quiet btn--small" onClick={() => setConfirming(false)}>
+                Keep it
+              </button>
+            </>
+          ) : (
+            <button className="btn btn--quiet btn--small" onClick={() => setConfirming(true)}>
+              Clear activity
+            </button>
+          )}
+        </div>
+      )}
       {activity.length === 0 ? (
         <div className="empty">
           <p className="empty__title">Nothing yet</p>

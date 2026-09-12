@@ -58,6 +58,8 @@ export interface CalendarPort {
 export interface ActivityPort {
   record(event: Omit<ActivityEvent, "id" | "at">): Promise<void>;
   recent(limit: number): Promise<ActivityEvent[]>;
+  /** Erase the log. The user's own audit trail is theirs to delete. */
+  clear(): Promise<void>;
 }
 
 export interface ClipboardPort {
