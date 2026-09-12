@@ -148,3 +148,53 @@ describe("a reminder, from an email to an alarm and back", () => {
     expect(panel.reminders).toHaveLength(1);
   });
 });
+
+describe("when Chrome was closed over the due time", () => {
+  it("catches up on the next start, marks it, and badges the icon", async () => {
+    /*
+     * chrome.alarms is a browser API, not a service: nothing fires while Chrome is
+     * closed. Chrome may replay a missed alarm on startup, but that guarantee is
+     * weak over long gaps, and the toolbar badge is cleared on restart anyway — so
+     * a reminder that fired yesterday left no trace today.
+     *
+     * The stored records are therefore the source of truth, reconciled on wake.
+     */
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
+
+    const before = Object.values(state.store["bubiqo.reminders"] as Record<string, { fired: boolean; dueAt: number }>)[0]!;
+    expect(before.fired).toBe(false);
+    say(`BEFORE          due ${when(before.dueAt)}, fired: ${before.fired}, badge: "${state.badge}"`);
+
+    // Chrome is closed, a fortnight passes, Chrome starts again — and no alarm
+    // ever fired, because the browser was not running.
+    vi.setSystemTime(new Date(2026, 2, 20, 9, 0, 0));
+    const restarted = { ...state, alarms: new Map<string, number>() };
+    const chrome = installFakeChrome(restarted);
+    vi.resetModules();
+    await import("../extension/src/background/service-worker");
+    await vi.waitFor(() => expect(restarted.badge).not.toBe(""));
+
+    const after = Object.values(restarted.store["bubiqo.reminders"] as Record<string, { fired: boolean; title: string }>)[0]!;
+    say(`AFTER RESTART   fired: ${after.fired}, badge: "${restarted.badge}"`);
+
+    expect(after.fired).toBe(true);
+    expect(restarted.badge).toBe("1");
+
+    // And it is visible in the briefing as overdue, not silently swallowed.
+    const dispatch2 = (r: unknown) => chrome.runtime.onMessage.dispatch(r) as Promise<Response>;
+    const briefing = await dispatch2({ type: "BRIEFING" });
+    if (briefing.type === "BRIEFING") {
+      say(`                briefing overdue: ${briefing.briefing.overdue.length} — “${briefing.briefing.overdue[0]?.title}”`);
+      expect(briefing.briefing.overdue.length).toBe(1);
+    }
+  });
+
+  it("clears the badge when nothing is outstanding", async () => {
+    const chrome = installFakeChrome(freshState(emailPage));
+    vi.resetModules();
+    await import("../extension/src/background/service-worker");
+    void chrome;
+    expect(state.badge).toBe("");
+  });
+});

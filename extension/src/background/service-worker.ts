@@ -15,7 +15,7 @@ import { amountToConvert } from "@core/currency";
 import { buildRegistry } from "@core/actions";
 import { Executor } from "@core/executor";
 import { CostGuard, emptyUsage, type ProviderBudget, type ProviderUsage } from "@core/cost-guard";
-import { DEFAULT_SETTINGS, type Analysis, type PageContext, type Settings } from "@core/types";
+import { DEFAULT_SETTINGS, type Analysis, type PageContext, type Reminder, type Settings } from "@core/types";
 import type { Briefing, PanelState, Request, Response } from "@shared/messages";
 import { createPorts, readCollection, STORAGE_KEYS } from "./adapters";
 import { extractPageContext } from "./extract";
@@ -117,6 +117,8 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.runtime.onStartup.addListener(() => {
   void restoreUsage();
+void catchUpOnReminders();
+  void catchUpOnReminders();
 });
 
 async function restoreUsage(): Promise<void> {
@@ -140,6 +142,47 @@ async function persistUsage(): Promise<void> {
 chrome.alarms.onAlarm.addListener((alarm) => {
   void fireReminder(alarm.name);
 });
+
+/**
+ * Reconcile reminders whose moment passed while Chrome was not running.
+ *
+ * chrome.alarms is a browser API, not a service: nothing fires while Chrome is
+ * closed. Relying on Chrome to replay a missed alarm on startup is not enough
+ * either — the guarantee is weak for long gaps, and the toolbar badge is cleared
+ * when the browser restarts regardless, so a reminder that DID fire yesterday
+ * left no trace today.
+ *
+ * So the stored records are the source of truth and this walks them on every
+ * wake: anything due and not yet marked is marked, logged, and counted into the
+ * badge. Nothing is missed; at worst it is late, and it says so by showing as
+ * overdue.
+ */
+async function catchUpOnReminders(): Promise<void> {
+  const now = Date.now();
+  const all = await readCollection<Reminder>(STORAGE_KEYS.reminders);
+
+  let changed = false;
+  let outstanding = 0;
+
+  for (const reminder of Object.values(all)) {
+    if (reminder.dueAt > now) continue;
+    outstanding += 1;
+
+    if (!reminder.fired) {
+      (all[reminder.id] as Reminder & { fired: boolean }).fired = true;
+      changed = true;
+      await ports.activity.record({
+        kind: "detected",
+        summary: `Reminder due: ${reminder.title}`,
+      });
+    }
+  }
+
+  if (changed) await chrome.storage.local.set({ [STORAGE_KEYS.reminders]: all });
+
+  await chrome.action.setBadgeText({ text: outstanding === 0 ? "" : outstanding > 9 ? "9+" : String(outstanding) });
+  if (outstanding > 0) await chrome.action.setBadgeBackgroundColor({ color: "#B45309" });
+}
 
 async function fireReminder(id: string): Promise<void> {
   const reminder = await ports.reminders.get(id);
@@ -555,3 +598,4 @@ async function handle(request: Request): Promise<Response> {
 }
 
 void restoreUsage();
+void catchUpOnReminders();

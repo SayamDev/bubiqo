@@ -69,14 +69,38 @@ briefing at the bottom of the **Now** tab.
 
 Delete it from the Memory tab when you are done.
 
+## Does a reminder still reach you after you close things?
+
+| You close | Does it still fire? |
+|---|---|
+| The side panel | **Yes.** Alarms are handled by the extension's background worker, which has nothing to do with the panel being open. You get an amber badge on the toolbar icon. |
+| The tab, or every tab | **Yes.** Same reason — reminders are not attached to a page. |
+| Chrome itself | **Not while it is closed**, and no extension can. `chrome.alarms` is a browser API, not a server. But nothing is lost: the moment Chrome next opens, Bubiqo reconciles every stored reminder against the clock, marks anything whose time passed, badges the icon, and shows it in the briefing as overdue. |
+
+That last row is reconciled from the **stored records**, not from trusting Chrome
+to replay a missed alarm. Chrome's replay guarantee is weak over long gaps, and the
+toolbar badge is cleared on restart anyway — so a reminder that fired yesterday
+would otherwise have left no trace today. `npm run prove:reminders` covers this
+case directly:
+
+```
+BEFORE          due Thursday 12 March at 09:00, fired: false, badge: ""
+AFTER RESTART   fired: true, badge: "1"
+                briefing overdue: 1 — "Deadline: by Friday"
+```
+
+Bubiqo is therefore **late, never silent**. If your machine was off for a week,
+you find out the moment you open Chrome.
+
 ## What reminders cannot do
 
 Stated plainly, because a tool that overstates itself is worse than one that does
 less:
 
-- **Chrome has to be running.** `chrome.alarms` is a browser API, not a service.
-  An alarm whose moment passed while Chrome was closed fires when Chrome next
-  starts, and anything still outstanding shows in the briefing as overdue.
+- **Nothing fires while Chrome is closed.** No extension can do otherwise. What
+  Bubiqo guarantees instead is that it catches up on the next start — see the
+  table above. If you need to be interrupted while the browser is shut, you need
+  a phone alarm, not a browser extension, and this will not pretend otherwise.
 - **Chrome's minimum alarm interval is about a minute.** Nothing can be scheduled
   more precisely than that.
 - **There is no notification, by design.** A badge on the toolbar icon says the

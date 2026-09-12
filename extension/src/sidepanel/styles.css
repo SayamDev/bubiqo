@@ -201,7 +201,7 @@ body::before {
 /* ---------------------------------------------------------------- header */
 
 .header {
-  padding: 16px 18px 14px;
+  padding: 20px 18px 18px;
   position: sticky;
   top: 0;
   z-index: 3;
@@ -210,25 +210,45 @@ body::before {
   border-bottom: 1px solid var(--line);
 }
 
+/*
+ * The wordmark is the one place the product says its own name, so it is set like
+ * a logo rather than like a label: full ink, tight tracking, and a weight that
+ * holds its own against the headline below it. It read as grey small print
+ * before, which is not what a name is for.
+ */
 .brand {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin-bottom: 12px;
+  gap: 9px;
+  margin-bottom: 14px;
 }
 
 .brand__mark {
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   flex: none;
-  border-radius: var(--r-pill);
+  border-radius: 9px;
+  box-shadow: var(--lift-sm);
 }
 
 .brand__name {
-  font-size: var(--step-0);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--ink-soft);
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+  line-height: 1;
+}
+
+/* A full stop in the accent: the same dot the radar mark finds. */
+.brand__name::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 3px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  vertical-align: baseline;
 }
 
 /* The detected-surface chip: small, warm, and the one place a pill is a label. */
@@ -257,10 +277,11 @@ body::before {
 
 .context__what {
   margin: 0;
-  font-size: var(--step-3);
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.2;
+  font-size: 1.4375rem;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  text-wrap: balance;
 }
 
 .context__where {
@@ -724,7 +745,9 @@ body::before {
 /* Narrow panels: Chrome lets the user drag this down to about 280px. */
 @media (max-width: 340px) {
   .main { padding: 14px 13px 24px; }
-  .header { padding: 14px 13px 12px; }
+  .header { padding: 16px 13px 14px; }
+  .brand__name { font-size: 1rem; }
+  .header__art { width: 220px; opacity: 0.6; }
   .tabs { padding: 8px; gap: 2px; }
   .tab { padding: 6px 9px; }
   .context__what { font-size: 1.1875rem; }
@@ -937,11 +960,11 @@ body::before {
 
 .header__art {
   position: absolute;
-  inset: -18px -30px auto auto;
-  width: 240px;
-  height: 130px;
+  inset: -26px -34px auto auto;
+  width: 290px;
+  height: 165px;
   color: var(--accent);
-  opacity: 0.5;
+  opacity: 0.72;
   pointer-events: none;
 }
 
