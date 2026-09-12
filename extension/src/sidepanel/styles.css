@@ -1124,3 +1124,26 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
  */
 .outcome .btn--quiet { color: var(--ink-soft); font-weight: 650; }
 .outcome .btn--quiet:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+
+/* What a saved item actually contains. */
+.detail-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+  font-size: var(--step-0);
+}
+
+.detail-list li { display: flex; gap: 8px; align-items: baseline; }
+
+.detail-list__type {
+  flex: none;
+  min-width: 82px;
+  color: var(--ink-faint);
+  font-variant: all-small-caps;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.detail-list__value { color: var(--ink-soft); overflow-wrap: anywhere; }

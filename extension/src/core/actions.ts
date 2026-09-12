@@ -314,9 +314,9 @@ export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {
       canUndo: false,
       applies: (input) => input.entities.some((e) => e.type === "url"),
       execute: async (input) => {
-        const url = paramString(input, "url", "");
+        const url = paramString(input, "url", first(input.entities, "url")?.value ?? "");
         if (!/^https:\/\//.test(url)) return failed("Refused: only https links are opened.");
-        return ok(`Ready to open ${url}.`, url, false);
+        return ok(`Opening ${new URL(url).hostname}.`, url, false);
       },
       verify: async (result) => (result.ok ? confirmed("Link prepared.") : unconfirmed("Link was not prepared.")),
     },

@@ -14,6 +14,7 @@ import type {
   Entity,
   Intent,
   Problem,
+  ProactivityMode,
   Settings,
   Suggestion,
   Surface,
@@ -23,8 +24,25 @@ import { formatDue } from "./dates";
 
 export const MAX_PRIMARY_SUGGESTIONS = 3;
 
-/** Below this score a Suggestion is not worth the user's attention. */
-const RELEVANCE_FLOOR = 0.35;
+/**
+ * How much has to be worth saying before Bubiqo says it.
+ *
+ * This is what the Quiet / Helpful / Proactive setting actually controls. It was
+ * stored and never read, which made it a control that lied — the worst kind,
+ * because the user changes it, sees no difference, and concludes the whole panel
+ * is decorative.
+ */
+const FLOOR_BY_MODE: Readonly<Record<ProactivityMode, number>> = {
+  quiet: 0.62,     // only what it is confident about, and little of it
+  helpful: 0.35,   // the default
+  proactive: 0.22, // anything plausibly useful
+};
+
+const LIMIT_BY_MODE: Readonly<Record<ProactivityMode, number>> = {
+  quiet: 1,
+  helpful: 5,
+  proactive: 8,
+};
 
 const URGENCY_BONUS: Readonly<Record<Urgency, number>> = { overdue: 0.4, today: 0.3, soon: 0.15, later: 0 };
 
@@ -87,7 +105,7 @@ export function rankSuggestions(
     // Anything needing approval must clearly beat a safe alternative to be offered.
     if (action.risk === "confirm") score -= 0.2;
 
-    if (score < RELEVANCE_FLOOR) continue;
+    if (score < FLOOR_BY_MODE[ctx.settings.mode]) continue;
 
     suggestions.push({
       actionId: action.id,
@@ -99,7 +117,7 @@ export function rankSuggestions(
     });
   }
 
-  return suggestions.sort((a, b) => b.score - a.score);
+  return suggestions.sort((a, b) => b.score - a.score).slice(0, LIMIT_BY_MODE[ctx.settings.mode]);
 }
 
 /** The primary three, and the rest behind "More actions". */

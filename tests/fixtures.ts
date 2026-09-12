@@ -21,6 +21,7 @@ function page(partial: Partial<PageContext> & { text: string; title: string; url
     headings: partial.headings ?? [],
     fields: partial.fields ?? [],
     structuredData: partial.structuredData ?? [],
+    links: partial.links ?? [],
     capturedAt: NOW,
     ...(partial.selection ? { selection: partial.selection } : {}),
   };

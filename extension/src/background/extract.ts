@@ -20,6 +20,7 @@ export function extractPageContext(): {
   headings: string[];
   fields: { label: string; type: string; filled: boolean; required: boolean }[];
   structuredData: Record<string, unknown>[];
+  links: { text: string; href: string }[];
   selection?: string;
   capturedAt: number;
 } {
@@ -118,6 +119,18 @@ export function extractPageContext(): {
     }
   });
 
+  /*
+   * Visible links. An email that says "Apply to Barclays" carries its destination
+   * in the href and nowhere in the text, so without this the application link is
+   * invisible — and the whole confirm-risk tier had nothing that could ever use it.
+   * https only, and the anchor text is what the user actually saw.
+   */
+  const links = Array.from(root.querySelectorAll<HTMLAnchorElement>("a[href]"))
+    .filter((a) => /^https:\/\//i.test(a.href))
+    .map((a) => ({ text: (a.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80), href: a.href }))
+    .filter((l) => l.text.length > 0)
+    .slice(0, 25);
+
   const selection = window.getSelection()?.toString().trim().slice(0, 2000);
 
   return {
@@ -128,6 +141,7 @@ export function extractPageContext(): {
     headings,
     fields,
     structuredData: structuredData.slice(0, 10),
+    links,
     capturedAt: Date.now(),
     ...(selection ? { selection } : {}),
   };

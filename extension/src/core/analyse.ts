@@ -36,7 +36,16 @@ export function analyse(
   const classification = classify(safePage);
   const entities = extractEntities(safePage, options.now);
   const intents = detectIntents(safePage, classification.surface, entities);
-  const problems = scanForProblems(safePage, classification.surface, entities, options.now);
+  const allProblems = scanForProblems(safePage, classification.surface, entities, options.now);
+
+  /*
+   * Quiet answers when asked; it does not tap you on the shoulder. Only things
+   * that are actually pressing survive. Proactive shows everything found.
+   */
+  const problems =
+    options.settings.mode === "quiet"
+      ? allProblems.filter((p) => p.urgency === "overdue" || p.urgency === "today")
+      : allProblems;
 
   const input: ActionInput = { page: safePage, entities, problems, params: {} };
 

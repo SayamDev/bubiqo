@@ -50,6 +50,7 @@ export function extractEntities(page: PageContext, now: number): Entity[] {
   found.push(...extractPeople(text));
   found.push(...extractOrganisations(page));
   found.push(...extractJobTitle(page));
+  found.push(...extractActionableLinks(page));
 
   return dedupe(found);
 }
@@ -243,6 +244,28 @@ function extractJobTitle(page: PageContext): Entity[] {
     ) {
       out.push(entity("job_title", heading.trim(), 0.7, heading));
     }
+  }
+  return out;
+}
+
+/**
+ * Links that look like somewhere the user is meant to go next.
+ *
+ * Narrow on purpose: an email has twenty links and nineteen of them are
+ * unsubscribe, preferences and social icons. Only a destination that says it is
+ * an application or a payment is worth offering, and offering it is still a
+ * confirm-risk action because it leaves the machine.
+ */
+function extractActionableLinks(page: PageContext): Entity[] {
+  const WORTH_OFFERING = /\b(?:apply|application|register|submit|complete|view (?:the )?(?:job|role|invoice)|pay (?:now|invoice)|book)\b/i;
+  const NEVER = /\b(?:unsubscribe|preferences|privacy|terms|snooze|refer a friend|chat with)\b/i;
+
+  const out: Entity[] = [];
+  for (const link of page.links) {
+    if (NEVER.test(link.text)) continue;
+    if (!WORTH_OFFERING.test(link.text)) continue;
+    out.push(entity("url", link.href, 0.85, link.text, "public"));
+    if (out.length >= 3) break;
   }
   return out;
 }

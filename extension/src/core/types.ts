@@ -37,6 +37,8 @@ export interface PageContext {
   readonly fields: readonly ObservedField[];
   /** JSON-LD / microdata found on the page, if any. */
   readonly structuredData: readonly Record<string, unknown>[];
+  /** Visible links, so an "apply" or "pay" destination can be recognised. */
+  readonly links: readonly { readonly text: string; readonly href: string }[];
   /** Text the user had selected when analysis ran, if any. */
   readonly selection?: string;
   readonly capturedAt: number;

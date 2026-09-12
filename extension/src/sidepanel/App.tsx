@@ -37,7 +37,6 @@ export function App() {
   const [tab, setTab] = useState<Tab>("now");
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<CompleteItReport | undefined>();
-  const [steps, setSteps] = useState<StepOutcome[]>([]);
   /*
    * What each individual card is doing right now.
    *
@@ -90,7 +89,6 @@ export function App() {
   const analyse = useCallback(async () => {
     setBusy(true);
     setReport(undefined);
-    setSteps([]);
     try {
       apply(await send({ type: "ANALYSE_ACTIVE_TAB" }));
       apply(await send({ type: "BRIEFING" }));
@@ -160,7 +158,6 @@ export function App() {
 
   const completeIt = useCallback(async () => {
     setBusy(true);
-    setSteps([]);
     setCardState({});
     try {
       const response = await send({ type: "COMPLETE_IT" });
@@ -191,7 +188,6 @@ export function App() {
           delete next[actionId];
           return next;
         });
-        setSteps((previous) => previous.filter((s) => s.undoHandle !== handle));
         setReport((previous) =>
           previous ? { ...previous, steps: previous.steps.filter((s) => s.undoHandle !== handle) } : previous,
         );
@@ -273,6 +269,19 @@ export function App() {
     }
   }, [analyse]);
 
+  const dismiss = useCallback(
+    async (actionId: string) => {
+      /*
+       * Respecting "no" is what earns the right to keep suggesting. Recorded
+       * locally, used only to push that action down the ranking on future pages.
+       */
+      await send({ type: "DISMISS_SUGGESTION", actionId });
+      setAnnounce("Noted — Bubiqo will stop leading with that.");
+      apply(await send({ type: "ANALYSE_ACTIVE_TAB" }));
+    },
+    [apply],
+  );
+
   const analysis = state?.analysis;
   const safeSuggestions = useMemo(
     () => (analysis?.suggestions ?? []).filter((s) => s.risk === "safe").slice(0, 3),
@@ -338,7 +347,6 @@ export function App() {
             state={state}
             briefing={briefing}
             busy={busy}
-            steps={steps}
             report={report}
             safeSuggestions={safeSuggestions}
             onRun={runAction}
@@ -349,6 +357,7 @@ export function App() {
             onDownload={downloadCalendar}
             onGrantSite={grantSiteAccess}
             onTurnOn={turnOn}
+            onDismiss={dismiss}
             cardState={cardState}
             now={now}
           />
@@ -417,7 +426,6 @@ interface NowProps {
   state: PanelState | undefined;
   briefing: Briefing | undefined;
   busy: boolean;
-  steps: StepOutcome[];
   report: CompleteItReport | undefined;
   safeSuggestions: Suggestion[];
   onRun: (id: string, approved?: boolean) => void;
@@ -428,14 +436,16 @@ interface NowProps {
   onDownload: (handle: string) => void;
   onGrantSite: (origin: string) => void;
   onTurnOn: () => void;
+  onDismiss: (id: string) => void;
   cardState: Record<string, "running" | StepOutcome>;
   now: number;
 }
 
 function NowTab(props: NowProps) {
-  const { state, briefing, busy, steps, report, safeSuggestions, now } = props;
+  const { state, briefing, busy, report, safeSuggestions, now } = props;
   const analysis = state?.analysis;
-  const outcomes = report?.steps ?? steps;
+  // Single actions report on their own card now; this list is only Complete It.
+  const outcomes = report?.steps ?? [];
 
   if (state?.unavailableReason) {
     return (
@@ -547,6 +557,7 @@ function NowTab(props: NowProps) {
                 onUndo={props.onUndo}
                 onCopy={props.onCopy}
                 onDownload={props.onDownload}
+                onDismiss={props.onDismiss}
               />
             ))}
 
@@ -564,6 +575,7 @@ function NowTab(props: NowProps) {
                       onUndo={props.onUndo}
                       onCopy={props.onCopy}
                       onDownload={props.onDownload}
+                      onDismiss={props.onDismiss}
                     />
                   ))}
                 </div>
@@ -645,6 +657,7 @@ function SuggestionCard({
   onUndo,
   onCopy,
   onDownload,
+  onDismiss,
 }: {
   suggestion: Suggestion;
   busy: boolean;
@@ -653,6 +666,7 @@ function SuggestionCard({
   onUndo: (id: string, handle: string) => void;
   onCopy: (text: string) => void;
   onDownload: (handle: string) => void;
+  onDismiss: (id: string) => void;
 }) {
   const needsApproval = suggestion.risk === "confirm";
   const undoable = suggestion.actionId !== "copy_details" && suggestion.actionId !== "open_application_link";
@@ -710,6 +724,14 @@ function SuggestionCard({
             * explanation look like padding. It now only carries what the card does
             * not already say.
             */}
+          <button
+            className="btn btn--quiet btn--small"
+            onClick={() => onDismiss(suggestion.actionId)}
+            title="Stop suggesting this"
+          >
+            Not useful
+          </button>
+
           <details className="why">
             <summary>Details</summary>
             <dl>
@@ -981,8 +1003,22 @@ function MemoryTab({
                 <div>
                   <p className="row__title">{item.title}</p>
                   <p className="row__meta">
-                    {item.kind} · {item.entities.length} details · saved {relativeTime(item.savedAt, now)}
+                    {item.kind} · saved {relativeTime(item.savedAt, now)}
                   </p>
+                  {/* "7 details" told the user nothing. Show the details. */}
+                  {item.entities.length > 0 && (
+                    <ul className="detail-list">
+                      {item.entities.slice(0, 6).map((e, i) => (
+                        <li key={`${e.type}-${i}`}>
+                          <span className="detail-list__type">{e.type.replace(/_/g, " ")}</span>
+                          <span className="detail-list__value">
+                            {e.resolvedAt ? formatDue(e.resolvedAt, now) : e.value}
+                          </span>
+                        </li>
+                      ))}
+                      {item.entities.length > 6 && <li>and {item.entities.length - 6} more</li>}
+                    </ul>
+                  )}
                 </div>
                 <button
                   className="btn btn--quiet btn--small"

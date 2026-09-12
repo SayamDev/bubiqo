@@ -222,3 +222,60 @@ describe("determinism", () => {
     expect(JSON.stringify(run(emailWithDeadline))).toBe(JSON.stringify(run(emailWithDeadline)));
   });
 });
+
+describe("the proactivity setting actually changes what is shown", () => {
+  /*
+   * It was stored and never read — a control that lies. The user changes it, sees
+   * no difference, and reasonably concludes the whole panel is decorative.
+   */
+  const withMode = (mode: "quiet" | "helpful" | "proactive") =>
+    analyse(emailWithDeadline, registry, { settings: { ...DEFAULT_SETTINGS, mode }, now: NOW });
+
+  it("offers less on Quiet than on Helpful", () => {
+    expect(withMode("quiet").suggestions.length).toBeLessThan(withMode("helpful").suggestions.length);
+  });
+
+  it("offers at least as much on Proactive as on Helpful", () => {
+    expect(withMode("proactive").suggestions.length).toBeGreaterThanOrEqual(withMode("helpful").suggestions.length);
+  });
+
+  it("keeps only pressing problems on Quiet", () => {
+    const quiet = withMode("quiet").problems;
+    expect(quiet.every((p) => p.urgency === "overdue" || p.urgency === "today")).toBe(true);
+    expect(withMode("helpful").problems.length).toBeGreaterThan(quiet.length);
+  });
+
+  it("still leads with the most useful thing on Quiet, not a random survivor", () => {
+    const quiet = withMode("quiet").suggestions;
+    if (quiet.length > 0) expect(quiet[0]!.actionId).toBe(withMode("helpful").suggestions[0]!.actionId);
+  });
+});
+
+describe("actionable links", () => {
+  const withLinks = {
+    ...jobPage,
+    links: [
+      { text: "Apply for this role", href: "https://careers.example.com/apply/123" },
+      { text: "Unsubscribe", href: "https://careers.example.com/unsubscribe" },
+      { text: "Privacy policy", href: "https://careers.example.com/privacy" },
+    ],
+  };
+
+  it("recognises an application link", () => {
+    const analysis = analyse(withLinks, registry, { settings: DEFAULT_SETTINGS, now: NOW });
+    expect(analysis.entities.some((e) => e.type === "url" && e.value.includes("/apply/"))).toBe(true);
+  });
+
+  it("ignores unsubscribe and policy links, which every email is full of", () => {
+    const analysis = analyse(withLinks, registry, { settings: DEFAULT_SETTINGS, now: NOW });
+    const urls = analysis.entities.filter((e) => e.type === "url").map((e) => e.value);
+    expect(urls.some((u) => u.includes("unsubscribe"))).toBe(false);
+    expect(urls.some((u) => u.includes("privacy"))).toBe(false);
+  });
+
+  it("offers opening it only as a confirm-risk action", () => {
+    const analysis = analyse(withLinks, registry, { settings: { ...DEFAULT_SETTINGS, mode: "proactive" }, now: NOW });
+    const open = analysis.suggestions.find((s) => s.actionId === "open_application_link");
+    if (open) expect(open.risk).toBe("confirm");
+  });
+});
