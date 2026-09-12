@@ -136,3 +136,40 @@ export function PulseDot({ className }: MarkProps) {
     </svg>
   );
 }
+
+/**
+ * The header artwork.
+ *
+ * The product mark, drawn large and faint behind the headline: concentric rings
+ * with one point found on them. It is the same idea as the favicon and the same
+ * idea as Problem Radar, so the panel looks like one thing rather than a form.
+ *
+ * It reacts to state — the rings tighten when something needs attention — which
+ * is the difference between artwork and wallpaper.
+ */
+export function HeaderArt({ attention, className }: { attention: number; className?: string }) {
+  const found = Math.min(attention, 3);
+
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 240 120"
+      preserveAspectRatio="xMaxYMid slice"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <g fill="none" stroke="currentColor" strokeWidth="1.1">
+        <circle cx="186" cy="52" r="16" opacity="0.55" />
+        <circle cx="186" cy="52" r="31" opacity="0.38" />
+        <circle cx="186" cy="52" r="47" opacity="0.24" />
+        <circle cx="186" cy="52" r="65" opacity="0.13" />
+        <circle cx="186" cy="52" r="84" opacity="0.07" />
+      </g>
+
+      {/* One dot per thing found, out on the sweep. */}
+      {found > 0 && <circle cx="217" cy="34" r="4.2" fill="currentColor" opacity="0.85" />}
+      {found > 1 && <circle cx="151" cy="79" r="3" fill="currentColor" opacity="0.5" />}
+      {found > 2 && <circle cx="199" cy="97" r="2.4" fill="currentColor" opacity="0.35" />}
+    </svg>
+  );
+}

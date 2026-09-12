@@ -20,7 +20,7 @@ import { send } from "@shared/messages";
 import { formatDue } from "@core/dates";
 import { riskLabel } from "@core/safety";
 import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime } from "./format";
-import { BubbleMark, ShieldIcon, QuietMark, ActionIcon } from "./icons";
+import { BubbleMark, ShieldIcon, QuietMark, ActionIcon, HeaderArt } from "./icons";
 
 type Tab = "now" | "memory" | "activity" | "settings";
 
@@ -94,6 +94,17 @@ export function App() {
   useEffect(() => {
     void analyse();
   }, [analyse]);
+
+  /*
+   * "system" sets no attribute, so the prefers-color-scheme media query decides.
+   * An explicit choice stamps data-theme, which the stylesheet weights above the
+   * media query in both directions.
+   */
+  useEffect(() => {
+    const theme = state?.settings.theme ?? "system";
+    if (theme === "system") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", theme);
+  }, [state?.settings.theme]);
 
   // Re-read the page when the user switches tab or navigates, so the panel is
   // never showing a stale answer for a page that is no longer in front of them.
@@ -244,8 +255,10 @@ export function App() {
     [analysis],
   );
 
+  const surface = state?.analysis?.classification.surface ?? "generic";
+
   return (
-    <div className="app">
+    <div className="app" data-surface={surface}>
       <Header state={state} />
 
       <nav className="tabs" role="tablist" aria-label="Bubiqo sections">
@@ -340,8 +353,11 @@ function Header({ state }: { state: PanelState | undefined }) {
       ? attentionHeadline(analysis.problems.length, analysis.suggestions.length)
       : "Reading this page…";
 
+  const attention = analysis?.problems.length ?? 0;
+
   return (
     <header className="header">
+      <HeaderArt className="header__art" attention={attention} />
       <div className="brand">
         <img
           className={`brand__mark${analysis || blocked ? "" : " brand__mark--reading"}`}
@@ -920,6 +936,25 @@ function SettingsTab({ state, onChange }: { state: PanelState | undefined; onCha
   return (
     <section className="section">
       <h2 className="section__title">Settings</h2>
+
+      <fieldset className="field field--group">
+        <legend className="field__label">Appearance</legend>
+        <p className="field__help">Match your system, or pick one and stay there.</p>
+        <div className="segmented" role="radiogroup" aria-label="Appearance">
+          {(["system", "light", "dark"] as const).map((choice) => (
+            <button
+              key={choice}
+              type="button"
+              role="radio"
+              aria-checked={settings.theme === choice}
+              className="segmented__option"
+              onClick={() => void update({ theme: choice })}
+            >
+              {choice === "system" ? "System" : choice === "light" ? "Light" : "Dark"}
+            </button>
+          ))}
+        </div>
+      </fieldset>
 
       <label className="field">
         <span className="field__label">How proactive should Bubiqo be?</span>

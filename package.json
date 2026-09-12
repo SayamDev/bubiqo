@@ -14,7 +14,8 @@
     "lint": "eslint . --ext .ts,.tsx",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run build",
     "demo": "python3 -m http.server 8123 --directory fixtures",
-    "icons": "python3 tools/make-icons.py"
+    "icons": "python3 tools/make-icons.py",
+    "prove:reminders": "vitest run tests/reminders.test.ts --reporter=basic"
   },
   "dependencies": {
     "react": "^18.3.1",

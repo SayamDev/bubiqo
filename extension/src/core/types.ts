@@ -260,8 +260,12 @@ export interface Reminder {
 /** How proactive the extension is allowed to be. Default is "helpful". */
 export type ProactivityMode = "quiet" | "helpful" | "proactive";
 
+/** What the panel looks like. "system" follows the OS. */
+export type ThemeChoice = "system" | "light" | "dark";
+
 export interface Settings {
   readonly mode: ProactivityMode;
+  readonly theme: ThemeChoice;
   readonly disabledDomains: readonly string[];
   readonly disabledActionIds: readonly string[];
   readonly currencyConversion: boolean;
@@ -270,6 +274,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   mode: "helpful",
+  theme: "system",
   disabledDomains: [],
   disabledActionIds: [],
   currencyConversion: false,

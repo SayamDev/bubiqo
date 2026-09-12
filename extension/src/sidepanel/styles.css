@@ -74,8 +74,14 @@
    */
 }
 
+/*
+ * Dark tokens are applied two ways: by the system preference, and by an explicit
+ * choice in Settings. The media query is guarded so that choosing Light wins over
+ * a dark OS, and the [data-theme] rule comes last so that choosing Dark wins over
+ * a light OS. "System" sets no attribute and lets the media query decide.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --ink: #f6f0e6;
     --ink-soft: #c3b8a8;
     --ink-faint: #93897a;
@@ -107,6 +113,39 @@
     --lift-md: 0 2px 4px rgba(0, 0, 0, 0.35), 0 10px 24px -12px rgba(0, 0, 0, 0.6);
     --lift-lg: 0 2px 6px rgba(0, 0, 0, 0.4), 0 16px 32px -14px rgba(0, 0, 0, 0.7);
   }
+}
+
+:root[data-theme="dark"] {
+    --ink: #f6f0e6;
+    --ink-soft: #c3b8a8;
+    --ink-faint: #93897a;
+
+    /*
+     * Dark mode was one flat brown: card, ground and border sat within a few
+     * percent of each other, so nothing had an edge and the whole panel read as a
+     * single slab. The ground is now genuinely dark, the surface genuinely lifts
+     * off it, and the border is visible rather than theoretical.
+     */
+    --paper: #100d0a;
+    --surface: #1f1a15;
+    --sunk: #2b241c;
+    --line: #3a3128;
+    --line-strong: #52463a;
+
+    --accent: #f0a93f;
+    --accent-hover: #ffc167;
+    --accent-bg: #3a2a10;
+    --accent-line: #6b4a17;
+
+    --ok: #6fd7b4;
+    --ok-bg: #113228;
+
+    --alert: #ff9db1;
+    --alert-bg: #3c1520;
+
+    --lift-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --lift-md: 0 2px 4px rgba(0, 0, 0, 0.35), 0 10px 24px -12px rgba(0, 0, 0, 0.6);
+    --lift-lg: 0 2px 6px rgba(0, 0, 0, 0.4), 0 16px 32px -14px rgba(0, 0, 0, 0.7);
 }
 
 * { box-sizing: border-box; }
@@ -450,8 +489,9 @@ body::before {
 }
 
 @media (prefers-color-scheme: dark) {
-  .btn--primary { color: #1b1408; }
+  :root:not([data-theme="light"]) .btn--primary { color: #1b1408; }
 }
+:root[data-theme="dark"] .btn--primary { color: #1b1408; }
 
 .btn--primary:hover:not(:disabled) {
   background: var(--accent-hover);
@@ -549,8 +589,13 @@ body::before {
 .result__mark--fail { background: var(--alert); color: var(--surface); }
 
 @media (prefers-color-scheme: dark) {
-  .result__mark--done, .result__mark--warn, .result__mark--fail { color: #16130f; }
+  :root:not([data-theme="light"]) .result__mark--done,
+  :root:not([data-theme="light"]) .result__mark--warn,
+  :root:not([data-theme="light"]) .result__mark--fail { color: #16130f; }
 }
+:root[data-theme="dark"] .result__mark--done,
+:root[data-theme="dark"] .result__mark--warn,
+:root[data-theme="dark"] .result__mark--fail { color: #16130f; }
 
 /* ----------------------------------------------------------------- list */
 
@@ -838,3 +883,125 @@ body::before {
   flex-basis: 100%;
   margin-top: 4px;
 }
+
+/* ==========================================================================
+   Segmented control
+   ========================================================================== */
+
+/*
+ * Three mutually exclusive choices sitting side by side read faster than a
+ * <select> the user has to open to discover what the options even are — and for
+ * appearance in particular, seeing the alternatives matters.
+ */
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  padding: 3px;
+  background: var(--sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+}
+
+.segmented__option {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--step-0);
+  font-weight: 650;
+  color: var(--ink-faint);
+  padding: 7px 4px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: background-color 160ms var(--spring), color 160ms var(--spring), transform 160ms var(--spring);
+}
+
+.segmented__option:hover { color: var(--ink); }
+.segmented__option:active { transform: scale(0.96); }
+
+.segmented__option[aria-checked="true"] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--lift-sm);
+}
+
+.field--group { border: 0; margin: 0; padding: 4px 0 16px; }
+.field--group legend { padding: 0; }
+
+/* ==========================================================================
+   Header artwork
+   ========================================================================== */
+
+.header { position: relative; overflow: hidden; }
+
+.header__art {
+  position: absolute;
+  inset: -18px -30px auto auto;
+  width: 240px;
+  height: 130px;
+  color: var(--accent);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.header > *:not(.header__art) { position: relative; }
+
+/* ==========================================================================
+   Each kind of page gets its own accent
+   ==========================================================================
+
+   Not decoration: an invoice and a job advert should not feel identical, and a
+   colour you learn once tells you what Bubiqo thinks it is looking at before you
+   have read a word. Every pair below was measured against its own background in
+   both themes, the same way the base palette was.
+   ========================================================================== */
+
+.app[data-surface="invoice"] {
+  --accent: #0a6152;
+  --accent-hover: #084c41;
+  --accent-bg: #d8f1ea;
+  --accent-line: #8fcdbf;
+}
+
+.app[data-surface="job"] {
+  --accent: #8e3560;
+  --accent-hover: #74274d;
+  --accent-bg: #fce3ee;
+  --accent-line: #eeaecb;
+}
+
+.app[data-surface="generic"] {
+  --accent: #4a5560;
+  --accent-hover: #39424b;
+  --accent-bg: #e7ecf0;
+  --accent-line: #bcc7d0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .app[data-surface="invoice"] {
+    --accent: #5fd6bd; --accent-hover: #86e6d2; --accent-bg: #0c2e28; --accent-line: #1d5347;
+  }
+  :root:not([data-theme="light"]) .app[data-surface="job"] {
+    --accent: #f49ac3; --accent-hover: #ffb5d4; --accent-bg: #38152a; --accent-line: #632a4a;
+  }
+  :root:not([data-theme="light"]) .app[data-surface="generic"] {
+    --accent: #a8b6c3; --accent-hover: #c3cfd9; --accent-bg: #222a31; --accent-line: #3a454f;
+  }
+}
+
+:root[data-theme="dark"] .app[data-surface="invoice"] {
+  --accent: #5fd6bd; --accent-hover: #86e6d2; --accent-bg: #0c2e28; --accent-line: #1d5347;
+}
+:root[data-theme="dark"] .app[data-surface="job"] {
+  --accent: #f49ac3; --accent-hover: #ffb5d4; --accent-bg: #38152a; --accent-line: #632a4a;
+}
+:root[data-theme="dark"] .app[data-surface="generic"] {
+  --accent: #a8b6c3; --accent-hover: #c3cfd9; --accent-bg: #222a31; --accent-line: #3a454f;
+}
+
+/* The warm bloom behind the header follows the accent too. */
+body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0%, transparent 72%); }
+
+/* Bigger, calmer empty-state artwork. */
+.empty__mark { width: 54px; height: 54px; color: var(--accent); opacity: 0.75; }
