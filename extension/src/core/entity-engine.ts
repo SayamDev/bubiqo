@@ -10,12 +10,8 @@
 
 import type { Entity, EntityType, PageContext, Sensitivity } from "./types";
 import { resolveDates } from "./dates";
+import { CURRENCY_CODES, NUMBER_PATTERN, SYMBOL_TO_CODE, formatAmount, formatRange, looksLikeSalary, readNumber } from "./money";
 
-const CURRENCY_SYMBOLS: Readonly<Record<string, string>> = {
-  "£": "GBP", "$": "USD", "€": "EUR", "¥": "JPY", "₹": "INR",
-};
-
-const CURRENCY_CODES = ["GBP", "USD", "EUR", "JPY", "INR", "CHF", "CAD", "AUD", "SEK", "NOK", "DKK", "PLN"];
 
 /** Words that precede an amount that is a salary rather than a bill. */
 const SALARY_HINTS = /\b(?:salary|per annum|p\.?a\.?|pro rata|per year|annum|OTE|package)\b/i;
@@ -84,22 +80,55 @@ function extractAmounts(text: string): Entity[] {
    */
   const rangeSpans: [number, number][] = [];
 
+  /*
+   * Job boards often print pay as separate labelled fields rather than a range:
+   *   Salary Min : £ 70000
+   *   Salary Max : £ 85000
+   * Read individually those are two unrelated numbers. Together they are the one
+   * fact the reader wants.
+   */
+  const labelled = (label: string) =>
+    new RegExp(String.raw`salary\s*${label}\s*[:-]?\s*[£$€]?\s?(${NUMBER_PATTERN}\s*k?)`, "i").exec(text);
+
+  const minMatch = labelled("min");
+  const maxMatch = labelled("max");
+
+  if (minMatch?.[1] && maxMatch?.[1]) {
+    const low = readNumber(minMatch[1]);
+    const high = readNumber(maxMatch[1]);
+    if (low !== undefined && high !== undefined && low > 0 && high >= low) {
+      const code = /currency\s*type\s*[:-]?\s*([A-Z]{3})/i.exec(text)?.[1]?.toUpperCase() ?? "GBP";
+      out.push(entity("amount", formatRange(code, low, high), 0.9, windowAround(text, minMatch.index, 60)));
+      out.push(entity("currency", code, 0.9, windowAround(text, minMatch.index, 60)));
+      rangeSpans.push([minMatch.index, minMatch.index + minMatch[0].length]);
+      rangeSpans.push([maxMatch.index, maxMatch.index + maxMatch[0].length]);
+    }
+  }
+
   for (const m of text.matchAll(
     /([£$€])\s?(\d{1,3}(?:,\d{3})+)\s*(?:-|–|—|to)\s*\1?\s?(\d{1,3}(?:,\d{3})+)/g,
   )) {
     rangeSpans.push([m.index ?? 0, (m.index ?? 0) + m[0].length]);
-    const code = CURRENCY_SYMBOLS[m[1] ?? ""] ?? "";
-    const low = (m[2] ?? "").replace(/,/g, "");
-    const high = (m[3] ?? "").replace(/,/g, "");
-    out.push(entity("amount", `${code} ${low}–${high}`, 0.95, windowAround(text, m.index ?? 0, m[0].length)));
+    const code = SYMBOL_TO_CODE[m[1] ?? ""] ?? "";
+    const low = readNumber(m[2] ?? "");
+    const high = readNumber(m[3] ?? "");
+    if (low === undefined || high === undefined) continue;
+    out.push(entity("amount", formatRange(code, low, high), 0.95, windowAround(text, m.index ?? 0, m[0].length)));
     out.push(entity("currency", code, 0.95, windowAround(text, m.index ?? 0, m[0].length)));
   }
 
   // Symbol first: £2,400.00 — but not the two ends of a range already read above.
-  for (const m of text.matchAll(/([£$€¥₹])\s?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\d+(?:\.\d{2})?)/g)) {
+  /*
+   * The first branch must REQUIRE its comma groups.
+   *
+   * As "\d{1,3}(?:,\d{3})*" it matched three digits and stopped, so an
+   * unpunctuated "£ 70000" came out as GBP 700 and "£2400" as GBP 240 — wrong by
+   * two orders of magnitude, on invoices as well as salaries.
+   */
+  for (const m of text.matchAll(/([£$€¥₹])\s?(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+(?:\.\d{2})?)/g)) {
     const at = m.index ?? 0;
     if (rangeSpans.some(([start, end]) => at >= start && at < end)) continue;
-    const code = CURRENCY_SYMBOLS[m[1] ?? ""] ?? "";
+    const code = SYMBOL_TO_CODE[m[1] ?? ""] ?? "";
     const numeric = (m[2] ?? "").replace(/,/g, "");
     const context = windowAround(text, m.index ?? 0, m[0].length);
     const isSalary = SALARY_HINTS.test(context);
@@ -128,11 +157,11 @@ function extractAmounts(text: string): Entity[] {
     const context = windowAround(text, m.index ?? 0, m[0].length);
     if (!PAY_CONTEXT.test(context)) continue;
 
-    const numeric = Number(raw.replace(/,/g, "")) * (isK ? 1000 : 1);
+    const numeric = readNumber(isK ? `${raw}k` : raw);
     // A salary is a salary; 55 is an hour count or a percentage, not pay.
-    if (!Number.isFinite(numeric) || numeric < 10_000 || numeric > 5_000_000) continue;
+    if (numeric === undefined || !looksLikeSalary(numeric)) continue;
 
-    out.push(entity("amount", `GBP ${numeric}`, 0.75, context));
+    out.push(entity("amount", formatAmount("GBP", numeric), 0.75, context));
   }
 
   // Code first or last: EUR 2400 / 2400 EUR

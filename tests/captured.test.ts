@@ -258,3 +258,27 @@ describe("a real LinkedIn job advert", () => {
     expect(preferredTitle(page)).not.toMatch(/LinkedIn|G\.Digital/);
   });
 });
+
+describe("the real advert that was reported as capturing nothing", () => {
+  const analysis = run(captured("linkedin-tech-lead"));
+
+  it("reads the pay range from the labelled min and max fields", () => {
+    expect(analysis.entities.some((e) => e.type === "amount" && e.value === "GBP 70000–85000")).toBe(true);
+  });
+
+  it("never truncates a figure", () => {
+    // "£ 70000" was reading as GBP 700. Wrong by two orders of magnitude.
+    for (const amount of analysis.entities.filter((e) => e.type === "amount")) {
+      const digits = Number(amount.value.split(" ")[1]!.split("–")[0]);
+      expect(digits, `${amount.value} looks truncated`).toBeGreaterThan(999);
+    }
+  });
+
+  it("finds the role from the prose, not from the stale tab title", () => {
+    expect(analysis.entities.some((e) => e.type === "job_title" && /Technical Lead/i.test(e.value))).toBe(true);
+  });
+
+  it("is recognised as a job advert", () => {
+    expect(analysis.classification.surface).toBe("job");
+  });
+});
