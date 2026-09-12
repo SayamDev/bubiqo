@@ -421,3 +421,51 @@ describe("nothing a job page teaches breaks an invoice", () => {
     expect(new Date(problem!.dueAt!).getDate()).toBe(20);
   });
 });
+
+/*
+ * A real NHS Jobs advert, captured with tools/make-capture-snippet.mjs.
+ *
+ * Public-sector adverts state their conditions in wording no software advert uses
+ * — "Disclosure and Barring Service", "Certificate of Sponsorship", a driving
+ * licence written as "full UK Valid Driving Licence" — and the blocker rules had
+ * been written against software adverts only. The named contact's email and phone
+ * are redacted: they are published on the page, but no test needs them.
+ */
+describe("a real NHS Jobs advert", () => {
+  const page = captured("nhs-job");
+  const analysis = run(page);
+
+  it("is recognised as a job advert", () => {
+    expect(analysis.classification.surface).toBe("job");
+  });
+
+  it("reads the salary the advert states", () => {
+    expect(analysis.brief?.salary?.value).toBe("GBP 28392–31157");
+  });
+
+  it("reads the closing date", () => {
+    expect(analysis.brief?.closingDate?.value).toBe(new Date(2026, 8, 17, 9, 0, 0, 0).getTime());
+  });
+
+  it("flags the DBS check, however the advert words it", () => {
+    expect(analysis.brief?.blockers.map((b) => b.rule)).toContain("dbs_check");
+  });
+
+  it("flags the driving licence, however the advert words it", () => {
+    expect(analysis.brief?.blockers.map((b) => b.rule)).toContain("driving_licence");
+  });
+
+  it("quotes every blocker from the page itself", () => {
+    for (const blocker of analysis.brief?.blockers ?? []) {
+      expect(page.text, `${blocker.rule} was not quoted from the page`).toContain(blocker.evidence);
+    }
+  });
+
+  it("does not claim the reader is ruled out by sponsorship this advert welcomes", () => {
+    // "Applications from job seekers who require sponsorship are welcome" is the
+    // opposite of a restriction, and reporting it as one would be a lie with a
+    // quote behind it.
+    const rightToWork = analysis.brief?.blockers.find((b) => b.rule === "right_to_work");
+    expect(rightToWork, rightToWork?.evidence).toBeUndefined();
+  });
+});

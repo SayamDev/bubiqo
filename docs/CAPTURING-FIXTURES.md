@@ -45,19 +45,26 @@ Every page captured to date publishes **no** `JobPosting` JSON-LD:
 | LinkedIn job, logged in (three captures) | none |
 | Indeed job | none |
 | Greenhouse-hosted posting (`job-boards.greenhouse.io`) | none |
+| NHS Jobs advert (`jobs.nhs.uk`) | none |
 
 Only the synthetic `tests/captured/job.json` carries structured data. So
 `core/job-posting.ts` is an accuracy win where a site does publish one — many
 company-hosted career pages do, because Google for Jobs requires it — and the prose path
 in `core/job-brief.ts` is what actually runs on the job boards people use.
 
-Still wanted: a Lever-hosted posting, a Workday posting, an NHS or Civil Service advert
-(they state clearance, DBS and residency conditions in the phrasings the blocker rules
-were written against), and a company career page that does publish JSON-LD, to exercise
-the structured path against something real.
+The NHS capture is committed as `tests/captured/nhs-job.json`, and it earned its place
+immediately: the advert says "Disclosure and Barring Service Check", never "DBS check",
+so the rule written against software adverts read a whole sector's standard wording as
+no condition at all. Fixed, with the advert's phrasing pinned in a test.
 
-One thing the Greenhouse capture showed that no test yet covers: the extractor took the
-whole region, so the captured text runs from the advert straight into the application
-form, including the voluntary self-identification lists. The brief reads correctly
-anyway, but a blocker rule matching inside that boilerplate would be a false positive
-with a quote to back it up, which is the worst kind.
+Still wanted: a Lever-hosted posting, a Workday posting, a Civil Service advert
+(civilservicejobs.service.gov.uk sits behind a bot check, so it needs a human), and a
+company career page that *does* publish JSON-LD, to exercise the structured path against
+something real. LinkedIn and Indeed captures have to come from a logged-in session.
+
+The Greenhouse capture showed the extractor taking the whole region, so the text runs
+from the advert straight into the application form and its voluntary self-identification
+survey. `core/job-brief.ts` now stops reading at that survey's own wording — never at the
+word "apply", because NHS Jobs prints "Apply for this job" in the fifth line of the
+advert. A blocker matched inside that boilerplate would have been a false "you are ruled
+out" with a genuine page quote behind it.

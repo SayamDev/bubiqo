@@ -76,7 +76,13 @@ export const BLOCKER_RULES: readonly BlockerRule[] = [
   },
   {
     id: "dbs_check",
-    pattern: /\b(?:DBS check|enhanced DBS|criminal record check)\b/i,
+    /*
+     * An NHS advert never says "DBS check". It says "Disclosure and Barring
+     * Service Check", and then explains the Rehabilitation of Offenders Act at
+     * length. The rule was written against software adverts and read a whole
+     * sector's standard wording as no condition at all.
+     */
+    pattern: /\b(?:DBS(?: check| clearance)?|enhanced DBS|Disclosure and Barring Service|criminal records? (?:check|certificate)s?)\b/i,
     summary: "DBS check required",
   },
 ];
@@ -94,6 +100,27 @@ const ELIGIBILITY_HEADING =
  */
 const SECTION_BREAK =
   /\b(?:what(?:'|’)?s on offer|what we offer|we offer|benefits|package|about (?:us|the company|the team)|how to apply|next steps|salary|our values|equal opportunit)\b/i;
+
+/**
+ * Where the advert stops and the application form starts.
+ *
+ * A Greenhouse-hosted posting extracts as one region: the advert, then the apply
+ * form, then the voluntary self-identification survey with its list of medical
+ * conditions and its public burden statement. A blocker rule matching inside that
+ * boilerplate would produce a false "you are ruled out" with a genuine quote from
+ * the page behind it, which is the worst failure this feature has available to it.
+ *
+ * The markers are the survey's own wording, never the word "apply". NHS Jobs
+ * prints "Apply for this job" in the fifth line of the advert, so cutting at the
+ * first mention of applying would throw the whole advert away.
+ */
+const APPLICATION_BOILERPLATE =
+  /\b(?:voluntary self[- ]identification|invitation to self[- ]identify|equal employment opportunity information|demographic questions|public burden statement)\b/i;
+
+function advertText(text: string): string {
+  const match = APPLICATION_BOILERPLATE.exec(text);
+  return match ? text.slice(0, match.index) : text;
+}
 
 const MAX_ELIGIBILITY_ITEMS = 8;
 const MAX_ELIGIBILITY_CHARS = 400;
@@ -151,8 +178,8 @@ function findBlockers(text: string): Blocker[] {
  * as its requirements surfaces those without ever asserting one, which is the
  * honest half of this feature: the rules above claim, and this only shows.
  */
-function readEligibility(page: PageContext): string[] {
-  const lines = page.text.split("\n").map((l) => l.trim());
+function readEligibility(page: PageContext, text: string): string[] {
+  const lines = text.split("\n").map((l) => l.trim());
   const headingSet = new Set(page.headings.map((h) => h.trim()));
 
   /*
@@ -303,7 +330,7 @@ function readProseTitle(page: PageContext): BriefField<string> | undefined {
  */
 export function buildJobBrief(page: PageContext, entities: readonly Entity[], now: number): JobBrief {
   const posting = readJobPosting(page.structuredData);
-  const text = page.text;
+  const text = advertText(page.text);
 
   const structuredClosing = posting?.validThrough ? readStructuredDate(posting.validThrough) : undefined;
 
@@ -343,7 +370,7 @@ export function buildJobBrief(page: PageContext, entities: readonly Entity[], no
     ...(employmentType ? { employmentType } : {}),
     ...(workingPattern ? { workingPattern } : {}),
     blockers,
-    eligibility: readEligibility(page),
+    eligibility: readEligibility(page, text),
     ...(blockers.length > 0 ? { verdict: "ruled_out" as const } : {}),
   };
 }

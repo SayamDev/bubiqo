@@ -271,3 +271,59 @@ describe("buildJobBrief — eligibility quotes", () => {
     expect(build(p)).toEqual(build(p));
   });
 });
+
+describe("buildJobBrief — wording outside software adverts", () => {
+  it("flags a DBS check written as the NHS writes it", () => {
+    const brief = build(page({ text: "Disclosure and Barring Service Check\nThis post is subject to the Rehabilitation of Offenders Act." }));
+    expect(brief.blockers.map((b) => b.rule)).toContain("dbs_check");
+  });
+
+  it("flags a criminal record certificate", () => {
+    const brief = build(page({ text: "Applicants must present a criminal record certificate from each country." }));
+    expect(brief.blockers.map((b) => b.rule)).toContain("dbs_check");
+  });
+
+  it("flags a driving licence written with a word in the middle", () => {
+    const brief = build(page({ text: "Car user with use of a car and full UK Valid Driving Licence" }));
+    expect(brief.blockers.map((b) => b.rule)).toContain("driving_licence");
+  });
+
+  it("does not read a welcome to sponsored applicants as a restriction", () => {
+    const brief = build(
+      page({
+        text: "Applications from job seekers who require current Skilled worker sponsorship to work in the UK are welcome.",
+      }),
+    );
+    expect(brief.blockers.map((b) => b.rule)).not.toContain("right_to_work");
+  });
+});
+
+describe("buildJobBrief — the application form is not the advert", () => {
+  const advert = "About the role. We build things. Salary £45,000 – £60,000 per annum.";
+  const form = [
+    "Voluntary Self-Identification",
+    "For government reporting purposes, we ask candidates to respond to the below self-identification survey.",
+    "Please note a criminal record check forms no part of this survey.",
+    "PUBLIC BURDEN STATEMENT: this survey should take about 5 minutes to complete.",
+  ].join("\n");
+
+  it("does not read a blocker out of the equal-opportunities boilerplate", () => {
+    const brief = build(page({ text: `${advert}\n${form}` }));
+    expect(brief.blockers).toHaveLength(0);
+    expect(brief.verdict).toBeUndefined();
+  });
+
+  it("still reads the advert above it", () => {
+    const brief = build(page({ text: `${advert}\n${form}` }));
+    expect(brief.salary?.value).toBe("GBP 45000–60000");
+  });
+
+  it("keeps an advert that merely mentions applying early on", () => {
+    // NHS Jobs puts "Apply for this job" in the fifth line. Cutting there would
+    // throw the entire advert away.
+    const brief = build(
+      page({ text: "Nursing Associate\nThe closing date is 17 September 2026\nApply for this job\nJob summary\nAn enhanced DBS check is required." }),
+    );
+    expect(brief.blockers.map((b) => b.rule)).toContain("dbs_check");
+  });
+});
