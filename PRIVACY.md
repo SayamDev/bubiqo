@@ -107,7 +107,14 @@ doesn't arise.
 ## Deleting your data
 
 - **One item:** Memory tab → Delete, next to any reminder or saved item.
-- **Everything:** remove the extension at `chrome://extensions`. Chrome deletes its
+- **The activity log:** Activity tab → Clear activity. Deletes the record of what
+  Bubiqo did, and nothing it describes.
+- **Everything:** Settings → Delete everything Bubiqo has saved. Removes reminders,
+  saved items, drafts, prepared calendar files, the activity log, and the record of
+  which suggestions you accepted or dismissed. It also cancels any scheduled
+  reminders, so nothing outlives the data it referred to. Your settings are kept —
+  a data reset is not a preferences reset.
+- **The extension itself:** remove it at `chrome://extensions`. Chrome deletes its
   storage with it. There is no server copy, because there is no server.
 
 You can inspect everything Bubiqo holds without trusting this document: open

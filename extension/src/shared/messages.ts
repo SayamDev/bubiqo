@@ -23,6 +23,7 @@ export type Request =
   | { type: "DELETE_REMINDER"; id: string }
   | { type: "GET_ACTIVITY" }
   | { type: "CLEAR_ACTIVITY" }
+  | { type: "DELETE_ALL_DATA" }
   | { type: "GET_DRAFTS" }
   | { type: "DELETE_DRAFT"; id: string }
   | { type: "DOWNLOAD_CALENDAR"; handle: string }

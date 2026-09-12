@@ -1111,8 +1111,12 @@ function ActivityTab({
 }
 
 function SettingsTab({ state, onChange }: { state: PanelState | undefined; onChange: (r: Response) => void }) {
+  const [confirmingWipe, setConfirmingWipe] = useState(false);
   const settings = state?.settings;
   if (!settings) return <p className="empty">Loading…</p>;
+
+  const held =
+    (state?.reminders.length ?? 0) + (state?.memory.length ?? 0) + (state?.drafts.length ?? 0);
 
   const update = async (partial: Parameters<typeof send>[0] extends never ? never : Record<string, unknown>) => {
     onChange(await send({ type: "SET_SETTINGS", settings: partial as never }));
@@ -1184,6 +1188,41 @@ function SettingsTab({ state, onChange }: { state: PanelState | undefined; onCha
           onChange={(e) => void update({ homeCurrency: e.target.value.toUpperCase() })}
         />
       </label>
+
+      <div className="field">
+        <span className="field__label">Your data</span>
+        <p className="field__help">
+          Everything Bubiqo knows lives on this device: {state?.reminders.length ?? 0} reminder
+          {(state?.reminders.length ?? 0) === 1 ? "" : "s"}, {state?.memory.length ?? 0} saved item
+          {(state?.memory.length ?? 0) === 1 ? "" : "s"}, {state?.drafts.length ?? 0} draft
+          {(state?.drafts.length ?? 0) === 1 ? "" : "s"}. Deleting it also cancels any scheduled
+          reminders. Your settings are kept.
+        </p>
+
+        <div className="clear-row">
+          {confirmingWipe ? (
+            <>
+              <span className="clear-row__ask">Delete all {held} items? This cannot be undone.</span>
+              <button
+                className="btn btn--small btn--danger"
+                onClick={async () => {
+                  setConfirmingWipe(false);
+                  onChange(await send({ type: "DELETE_ALL_DATA" }));
+                }}
+              >
+                Delete everything
+              </button>
+              <button className="btn btn--quiet btn--small" onClick={() => setConfirmingWipe(false)}>
+                Keep it
+              </button>
+            </>
+          ) : (
+            <button className="btn btn--small" onClick={() => setConfirmingWipe(true)} disabled={held === 0}>
+              {held === 0 ? "Nothing stored" : "Delete everything Bubiqo has saved"}
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="field">
         <p className="field__help" style={{ marginBottom: 0 }}>

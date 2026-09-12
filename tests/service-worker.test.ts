@@ -442,3 +442,62 @@ describe("what actually gets written to storage", () => {
     expect(memory[0]!.entities.every((e) => e.source === "")).toBe(true);
   });
 });
+
+describe("deleting everything", () => {
+  it("removes reminders, memory, drafts and activity in one go", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
+    await dispatch({ type: "RUN_ACTION", actionId: "save_to_memory", approved: false });
+    await dispatch({ type: "RUN_ACTION", actionId: "draft_reply", approved: false });
+
+    const wiped = asState(await dispatch({ type: "DELETE_ALL_DATA" }));
+    expect(wiped.reminders).toHaveLength(0);
+    expect(wiped.memory).toHaveLength(0);
+    expect(wiped.drafts).toHaveLength(0);
+    expect(wiped.activity).toHaveLength(0);
+  });
+
+  it("cancels the scheduled alarms too", async () => {
+    /*
+     * Clearing the records alone leaves orphaned alarms that outlive the data they
+     * referred to. Harmless, because the handler finds no record — but it makes
+     * "delete everything" not quite true, and untrue is the thing to avoid.
+     */
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
+    expect(state.alarms.size).toBe(1);
+
+    await dispatch({ type: "DELETE_ALL_DATA" });
+    expect(state.alarms.size).toBe(0);
+  });
+
+  it("clears the badge, so nothing claims attention that no longer exists", async () => {
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
+    state.badge = "1";
+
+    await dispatch({ type: "DELETE_ALL_DATA" });
+    expect(state.badge).toBe("");
+  });
+
+  it("keeps settings, because a data reset is not a preferences reset", async () => {
+    await dispatch({ type: "SET_SETTINGS", settings: { mode: "proactive", theme: "dark" } });
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
+
+    const wiped = asState(await dispatch({ type: "DELETE_ALL_DATA" }));
+    expect(wiped.settings.mode).toBe("proactive");
+    expect(wiped.settings.theme).toBe("dark");
+  });
+
+  it("forgets which suggestions were accepted or dismissed", async () => {
+    // Otherwise ranking still carries a shadow of data the user asked to delete.
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    await dispatch({ type: "RUN_ACTION", actionId: "create_reminder", approved: false });
+    await dispatch({ type: "DISMISS_SUGGESTION", actionId: "draft_reply" });
+
+    await dispatch({ type: "DELETE_ALL_DATA" });
+    expect(state.store["bubiqo.accepted"]).toBeUndefined();
+    expect(state.store["bubiqo.dismissed"]).toBeUndefined();
+  });
+});

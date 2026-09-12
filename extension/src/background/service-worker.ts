@@ -574,6 +574,35 @@ async function handle(request: Request): Promise<Response> {
       await ports.drafts.remove(request.id);
       return { type: "STATE", state: await baseState(settings) };
 
+    case "DELETE_ALL_DATA": {
+      /*
+       * Everything Bubiqo holds, gone, in one place — rather than the user being
+       * told to paste commands into a service-worker console, which is not a
+       * product answer.
+       *
+       * Scheduled alarms are cleared too. Clearing the records alone leaves
+       * orphaned alarms that outlive the data they referred to; they are harmless
+       * because the handler finds no record, but leaving them behind is untidy and
+       * makes "delete everything" not quite true.
+       *
+       * Settings are deliberately kept: a data reset is not a preferences reset,
+       * and silently resetting someone's theme and proactivity would be a surprise.
+       */
+      await chrome.alarms.clearAll();
+      await chrome.storage.local.remove([
+        STORAGE_KEYS.reminders,
+        STORAGE_KEYS.memory,
+        STORAGE_KEYS.drafts,
+        STORAGE_KEYS.calendar,
+        STORAGE_KEYS.activity,
+        STORAGE_KEYS.accepted,
+        STORAGE_KEYS.dismissed,
+      ]);
+      await chrome.action.setBadgeText({ text: "" });
+      await setCurrent(undefined);
+      return { type: "STATE", state: await baseState(settings) };
+    }
+
     case "CLEAR_ACTIVITY":
       await ports.activity.clear();
       return { type: "STATE", state: await baseState(settings) };

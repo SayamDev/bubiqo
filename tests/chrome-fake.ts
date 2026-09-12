@@ -10,10 +10,14 @@
 
 export interface FakeChrome {
   storage: {
-    local: { get(key?: string): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
+    local: {
+      get(key?: string): Promise<Record<string, unknown>>;
+      set(items: Record<string, unknown>): Promise<void>;
+      remove(keys: string | string[]): Promise<void>;
+    };
     session: { get(key?: string): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void>; remove(key: string): Promise<void> };
   };
-  alarms: { create(name: string, info: { when: number }): Promise<void>; clear(name: string): Promise<boolean>; onAlarm: Listener };
+  alarms: { create(name: string, info: { when: number }): Promise<void>; clear(name: string): Promise<boolean>; clearAll(): Promise<boolean>; onAlarm: Listener };
   runtime: { onMessage: MessageListener; onInstalled: Listener; onStartup: Listener };
   tabs: { query(q: unknown): Promise<{ id?: number; url?: string; active?: boolean }[]> };
   scripting: { executeScript(opts: unknown): Promise<{ result: unknown }[]> };
@@ -53,6 +57,9 @@ export function installFakeChrome(state: FakeState): FakeChrome {
         async set(items) {
           Object.assign(state.store, items);
         },
+        async remove(keys: string | string[]) {
+          for (const key of Array.isArray(keys) ? keys : [keys]) delete state.store[key];
+        },
       },
       session: {
         async get(key?: string) {
@@ -70,6 +77,10 @@ export function installFakeChrome(state: FakeState): FakeChrome {
       },
       async clear(name) {
         return state.alarms.delete(name);
+      },
+      async clearAll() {
+        state.alarms.clear();
+        return true;
       },
       onAlarm: { addListener() {} },
     },
