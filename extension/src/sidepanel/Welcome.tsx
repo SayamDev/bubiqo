@@ -44,11 +44,17 @@ export function Welcome({ onTurnOn, onSkip }: { onTurnOn: () => void; onSkip: ()
     <div className="welcome">
       <BubbleMark className="welcome__mark" />
 
-      <h2 className="welcome__title">Bubiqo reads the page you are on and finds what needs doing.</h2>
+      <h2 className="welcome__title">Select what matters. Bubiqo does the rest.</h2>
       <p className="welcome__lead">
-        Open it on an email, an invoice, a job advert — anything with a date or a request buried in
-        it — and it will tell you what needs your attention, then do the useful parts in one click.
-        No workflows to build.
+        Highlight an email, an invoice, a job advert — anything with a date or a request buried in
+        it — then <strong>right-click and choose “Read this with Bubiqo”</strong>. It finds what
+        needs your attention and does the useful parts in one click.
+      </p>
+      <p className="welcome__lead">
+        Selecting is the reliable way, because it reads exactly what you chose and nothing else.
+        Busy sites like LinkedIn and Indeed put the advert you are reading in the same box as
+        twenty-five others; selecting removes all doubt. On an ordinary page you can just open the
+        panel and it will read the page itself.
       </p>
 
       <h3 className="welcome__heading">Try it on</h3>
@@ -60,13 +66,6 @@ export function Welcome({ onTurnOn, onSkip }: { onTurnOn: () => void; onSkip: ()
           </li>
         ))}
       </ul>
-
-      <h3 className="welcome__heading">If a page is busy</h3>
-      <p className="welcome__lead" style={{ marginBottom: 20 }}>
-        Sites like LinkedIn and Indeed put the advert you are reading in the same box as
-        twenty-five others. Select the part you care about before opening Bubiqo and it will read
-        exactly that — no guessing, on any site.
-      </p>
 
       <h3 className="welcome__heading">It will never</h3>
       <ul className="welcome__never">

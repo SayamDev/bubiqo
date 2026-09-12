@@ -112,9 +112,86 @@ async function loadCurrent(): Promise<{ page: PageContext; analysis: Analysis } 
 // Lifecycle
 // ---------------------------------------------------------------------------
 
+const READ_SELECTION_MENU = "bubiqo-read-selection";
+
 chrome.runtime.onInstalled.addListener(() => {
   void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => undefined);
+
+  /*
+   * The one path that cannot fail.
+   *
+   * Everything else in this extension has to work out which part of a page the
+   * user means, and on a job board or a webmail client that inference loses: the
+   * advert sits in the same container as the sidebar and twenty-five other
+   * adverts. Chrome hands the selected text straight to a context-menu handler —
+   * no injection, no page permission, no markup to understand, nothing to break
+   * when a site is redesigned.
+   *
+   * It is also a real user gesture, so it may open the side panel, which the
+   * panel cannot do for itself.
+   */
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: READ_SELECTION_MENU,
+      title: "Read this with Bubiqo",
+      contexts: ["selection"],
+    });
+  });
 });
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId !== READ_SELECTION_MENU || !info.selectionText) return;
+  void readSelection(info.selectionText, tab);
+});
+
+/**
+ * Analyse text the user chose, with no access to the page at all.
+ *
+ * The PageContext is assembled from what Chrome gives us: the selection as the
+ * text, the tab's own title and url. There is no extraction step, so there is
+ * nothing for a site's markup to break.
+ */
+async function readSelection(selectionText: string, tab?: chrome.tabs.Tab): Promise<void> {
+  const settings = await getSettings();
+
+  let domain = "";
+  try {
+    domain = tab?.url ? new URL(tab.url).hostname : "";
+  } catch {
+    domain = "";
+  }
+
+  const page: PageContext = {
+    url: tab?.url ?? "",
+    domain,
+    title: tab?.title ?? "",
+    text: selectionText,
+    headings: [],
+    fields: [],
+    structuredData: [],
+    links: [],
+    selection: selectionText,
+    capturedAt: Date.now(),
+  };
+
+  const analysis = analyse(page, registry, {
+    settings,
+    now: Date.now(),
+    previouslyAccepted: await readIdList(STORAGE_KEYS.accepted),
+    previouslyDismissed: await readIdList(STORAGE_KEYS.dismissed),
+  });
+
+  await setCurrent({ page, analysis });
+
+  // A context-menu click is a user gesture, so the panel may be opened here.
+  if (tab?.id !== undefined) {
+    try {
+      await chrome.sidePanel.open({ tabId: tab.id });
+    } catch {
+      // Older Chrome, or the panel is already open. Nothing to do.
+    }
+  }
+}
 
 chrome.runtime.onStartup.addListener(() => {
   void restoreUsage();

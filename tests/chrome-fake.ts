@@ -27,7 +27,12 @@ export interface FakeChrome {
   scripting: { executeScript(opts: unknown): Promise<{ result: unknown }[]> };
   action: { setBadgeText(o: { text: string }): Promise<void>; setBadgeBackgroundColor(o: unknown): Promise<void> };
   permissions: { contains(o: { origins: string[] }): Promise<boolean>; request(o: { origins: string[] }): Promise<boolean> };
-  sidePanel: { setPanelBehavior(o: unknown): Promise<void> };
+  sidePanel: { setPanelBehavior(o: unknown): Promise<void>; open(o: { tabId: number }): Promise<void> };
+  contextMenus: {
+    removeAll(cb?: () => void): void;
+    create(o: unknown): void;
+    onClicked: { addListener(fn: (info: unknown, tab?: unknown) => void): void; dispatch(info: unknown, tab?: unknown): void };
+  };
 }
 
 interface Listener { addListener(fn: (...args: never[]) => unknown): void }
@@ -45,11 +50,17 @@ export interface FakeState {
   denyInjection?: boolean;
   /** Simulates the user declining the permission prompt. */
   denyPermission?: boolean;
+  /** Context menu items registered by the worker. */
+  menus: unknown[];
+  /** Whether the side panel was opened. */
+  panelOpened?: boolean;
   grantedOrigins: string[];
 }
 
 export function installFakeChrome(state: FakeState): FakeChrome {
   let messageHandler: ((req: unknown, sender: unknown, respond: (r: unknown) => void) => boolean) | undefined;
+  let menuHandler: ((info: unknown, tab?: unknown) => void) | undefined;
+  const installedHandlers: (() => void)[] = [];
 
   const chrome: FakeChrome = {
     storage: {
@@ -99,7 +110,14 @@ export function installFakeChrome(state: FakeState): FakeChrome {
           });
         },
       },
-      onInstalled: { addListener() {} },
+      onInstalled: {
+        // Chrome fires this once, on install. Firing it as the listener registers
+        // matches that: firing earlier means the worker has not subscribed yet.
+        addListener(fn) {
+          installedHandlers.push(fn as () => void);
+          queueMicrotask(() => (fn as () => void)());
+        },
+      },
       onStartup: { addListener() {} },
     },
     tabs: {
@@ -136,7 +154,18 @@ export function installFakeChrome(state: FakeState): FakeChrome {
       },
       async setBadgeBackgroundColor() {},
     },
-    sidePanel: { async setPanelBehavior() {} },
+    sidePanel: {
+      async setPanelBehavior() {},
+      async open() { state.panelOpened = true; },
+    },
+    contextMenus: {
+      removeAll(cb) { state.menus.length = 0; cb?.(); },
+      create(o) { state.menus.push(o); },
+      onClicked: {
+        addListener(fn) { menuHandler = fn; },
+        dispatch(info, tab) { menuHandler?.(info, tab); },
+      },
+    },
     permissions: {
       async contains(o) {
         return o.origins.every((origin) => state.grantedOrigins.includes(origin));
@@ -157,5 +186,5 @@ export function installFakeChrome(state: FakeState): FakeChrome {
 }
 
 export function freshState(page: unknown, url = "https://mail.example.com/f001"): FakeState {
-  return { store: {}, session: {}, alarms: new Map(), badge: "", activeTab: { id: 1, url }, pageResult: page, grantedOrigins: [] };
+  return { store: {}, session: {}, alarms: new Map(), badge: "", activeTab: { id: 1, url }, pageResult: page, grantedOrigins: [], menus: [] };
 }

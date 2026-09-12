@@ -2,9 +2,9 @@
 
 **An action layer for the web.**
 
-Bubiqo reads the page you already have open, works out what on it needs your
-attention, and completes the useful next steps in one click — without you building
-an automation first.
+Select an email, an invoice or a job advert, right-click, and choose **“Read this
+with Bubiqo”**. It works out what needs your attention and completes the useful
+next steps in one click — without you building an automation first.
 
 It runs entirely on your machine. Out of the box it makes no network requests at
 all.
@@ -36,8 +36,20 @@ You never described a workflow. There wasn't one to describe.
 ## How it works
 
 ```
-Page  →  Understand  →  Detect  →  Recommend  →  Complete  →  Verify  →  Remember
+Your selection  →  Understand  →  Detect  →  Recommend  →  Complete  →  Verify  →  Remember
 ```
+
+**Why selection.** Working out which part of a page you mean is guesswork, and on a
+single-page application it is guesswork that loses: a LinkedIn advert sits in the
+same container as the sidebar, the upsells and twenty-five other adverts, and
+reading all of it produced a salary belonging to a different job and a title taken
+from an advertisement for Premium.
+
+A selection is not a guess. Chrome passes the highlighted text straight to the
+extension, so there is no page to parse, no markup to understand, no permission
+needed, and nothing that breaks when a site is redesigned. On an ordinary page —
+an email, an invoice, a simple advert — you can still just open the panel and it
+reads the page itself.
 
 Everything in that chain is deterministic and local. A regex that finds `£2,400.00`
 is more reliable than a small language model asked the same question, runs in under

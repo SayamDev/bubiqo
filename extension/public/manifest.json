@@ -9,7 +9,8 @@
     "scripting",
     "storage",
     "alarms",
-    "sidePanel"
+    "sidePanel",
+    "contextMenus"
   ],
   "optional_host_permissions": [
     "*://*/*"
