@@ -489,7 +489,9 @@ function Header({ state }: { state: PanelState | undefined }) {
       {!firstRun && (
         <p className={`status${analysis ? "" : " status--working"}`} aria-live="polite">
           <span className="status__dot" aria-hidden="true" />
-          {analysis ? `Read this page ${relativeTime(state?.analysedAt ?? Date.now(), Date.now())}` : "Reading this page…"}
+          {analysis
+            ? `${analysis.fromSelection ? "Read your selection" : "Read this page"} ${relativeTime(state?.analysedAt ?? Date.now(), Date.now())}`
+            : "Reading this page…"}
         </p>
       )}
     </header>

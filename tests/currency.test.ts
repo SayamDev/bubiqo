@@ -15,7 +15,7 @@ function withAmounts(...values: string[]): Analysis {
     type: "amount", value, confidence: 0.9, source: value, sensitivity: "public",
   }));
   return { classification: { surface: "invoice", confidence: 1, rationale: "" },
-    entities, intents: [], problems: [], suggestions: [], injectionAttempted: false };
+    entities, intents: [], problems: [], suggestions: [], injectionAttempted: false, fromSelection: false };
 }
 
 describe("amountToConvert", () => {

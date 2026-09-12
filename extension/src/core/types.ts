@@ -224,6 +224,13 @@ export interface Analysis {
   readonly suggestions: readonly Suggestion[];
   /** True when page content tried to issue instructions. See core/sanitize.ts. */
   readonly injectionAttempted: boolean;
+  /**
+   * Whether this came from text the user selected rather than the whole page.
+   *
+   * Selecting is the one unambiguous way to say which part of a page you mean,
+   * and it cannot be broken by a site redesign.
+   */
+  readonly fromSelection: boolean;
 }
 
 // ---------------------------------------------------------------------------

@@ -235,7 +235,13 @@ export function extractPageContext(): {
     .filter((l) => l.text.length > 0)
     .slice(0, 25);
 
-  const selection = window.getSelection()?.toString().trim().slice(0, 2000);
+  /*
+   * The user's selection is the most reliable statement of what they mean.
+   *
+   * Capped generously: a job description runs to several thousand characters, and
+   * the old 2 000 limit would have truncated exactly the case this exists for.
+   */
+  const selection = window.getSelection()?.toString().trim().slice(0, 16_000);
 
   return {
     url: location.href,

@@ -61,6 +61,13 @@ export function Welcome({ onTurnOn, onSkip }: { onTurnOn: () => void; onSkip: ()
         ))}
       </ul>
 
+      <h3 className="welcome__heading">If a page is busy</h3>
+      <p className="welcome__lead" style={{ marginBottom: 20 }}>
+        Sites like LinkedIn and Indeed put the advert you are reading in the same box as
+        twenty-five others. Select the part you care about before opening Bubiqo and it will read
+        exactly that — no guessing, on any site.
+      </p>
+
       <h3 className="welcome__heading">It will never</h3>
       <ul className="welcome__never">
         {NEVER.map((line) => (

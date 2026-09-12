@@ -18,6 +18,12 @@ import { detectIntents } from "./intent-engine";
 import { scanForProblems } from "./problem-radar";
 import { rankSuggestions } from "./ranker";
 
+/**
+ * Below this a selection is a stray click or a highlighted word, not an
+ * instruction about what to read.
+ */
+const MIN_SELECTION_LENGTH = 120;
+
 export interface AnalyseOptions {
   readonly settings: Settings;
   readonly now: number;
@@ -31,12 +37,23 @@ export function analyse(
   options: AnalyseOptions,
 ): Analysis {
   /*
-   * Narrow before reasoning. Block scoring chooses a region of the DOM; this
-   * removes the site's own furniture from inside it — upsells, applicant counts,
-   * the hiring team — which is what put a Premium heading on a saved job and a
-   * skill in an advert that never mentioned it.
+   * If the user selected something, that is the answer.
+   *
+   * Everything else in this file is inference about which part of a page the user
+   * means, and on a single-page application — a job board, a webmail client —
+   * that inference is a losing game: the advert sits among sidebars, upsells and
+   * twenty-five other job cards, all in the same container. Guessing produced a
+   * salary belonging to a different job and a title taken from an advert for
+   * Premium.
+   *
+   * A selection is not a guess. It works on every site, needs no knowledge of any
+   * site's markup, and cannot be broken by a redesign. Automatic detection stays
+   * for the ordinary pages where it genuinely works.
    */
-  const content = narrowToContent(page.text);
+  const selected = (page.selection ?? "").trim();
+  const fromSelection = selected.length >= MIN_SELECTION_LENGTH;
+
+  const content = fromSelection ? selected : narrowToContent(page.text);
 
   // Page text is untrusted input. It is cleaned before anything reasons about it.
   const cleaned = sanitise(content);
@@ -76,6 +93,7 @@ export function analyse(
     problems,
     suggestions,
     injectionAttempted: cleaned.injectionAttempted,
+    fromSelection,
   };
 }
 
