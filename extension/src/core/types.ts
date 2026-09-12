@@ -80,8 +80,6 @@ export type EntityType =
   | "currency"
   | "reference"
   | "job_title"
-  | "skill"
-  | "requirement"
   | "url";
 
 /**
@@ -99,6 +97,72 @@ export interface Entity {
   readonly sensitivity: Sensitivity;
   /** Epoch ms, present only for date/time/deadline entities that resolved. */
   readonly resolvedAt?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Job Brief
+// ---------------------------------------------------------------------------
+
+/** Whether a fact was stated by the site in structured data, or read from prose. */
+export type BriefSource = "structured" | "prose";
+
+/**
+ * A single fact in a Brief, carrying where it came from.
+ *
+ * The provenance is not decoration. A salary the site published in its own
+ * JobPosting block is a different kind of claim from a salary matched out of a
+ * sentence beside a sidebar, and the user is entitled to know which they are
+ * looking at before they act on it.
+ */
+export interface BriefField<T> {
+  readonly value: T;
+  readonly source: BriefSource;
+  /** The sentence it was read from, or the JSON-LD property it came out of. */
+  readonly evidence: string;
+  readonly confidence: number;
+}
+
+/**
+ * A condition that rules the reader out of applying.
+ *
+ * Never inferred without a quote: `summary` is our words, `evidence` is the
+ * advert's, and `rule` names the rule that fired so a match can be traced in a
+ * test and explained in the panel.
+ */
+export interface Blocker {
+  readonly summary: string;
+  readonly evidence: string;
+  readonly rule: string;
+}
+
+/**
+ * The answer to the only question a job advert is read to settle: is this worth
+ * an hour of my time.
+ *
+ * Not a tracking record and not a CV match. Deal-breakers, money, closing date,
+ * working pattern — and the advert's own eligibility wording, quoted rather than
+ * classified, so a condition nobody wrote a rule for still reaches the reader.
+ */
+export interface JobBrief {
+  readonly title?: BriefField<string>;
+  readonly organisation?: BriefField<string>;
+  readonly location?: BriefField<string>;
+  readonly salary?: BriefField<string>;
+  /** Epoch ms. Absent rather than wrong when the advert's date is ambiguous. */
+  readonly closingDate?: BriefField<number>;
+  readonly employmentType?: BriefField<string>;
+  /** On-site days, hybrid, or remote. */
+  readonly workingPattern?: BriefField<string>;
+  readonly blockers: readonly Blocker[];
+  /** The advert's own eligibility lines, quoted verbatim and capped. */
+  readonly eligibility: readonly string[];
+  /**
+   * Present only when a blocking rule matched. There is deliberately no positive
+   * verdict: telling someone they are eligible when they are not is the one error
+   * that costs them a real opportunity, and these rules are not good enough to
+   * earn that claim.
+   */
+  readonly verdict?: "ruled_out";
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +295,8 @@ export interface Analysis {
    * and it cannot be broken by a site redesign.
    */
   readonly fromSelection: boolean;
+  /** Present only for the `job` Surface. See core/job-brief.ts. */
+  readonly brief?: JobBrief;
 }
 
 // ---------------------------------------------------------------------------
