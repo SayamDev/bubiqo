@@ -46,8 +46,15 @@ Every page captured to date publishes **no** `JobPosting` JSON-LD:
 | Indeed job | none |
 | Greenhouse-hosted posting (`job-boards.greenhouse.io`) | none |
 | NHS Jobs advert (`jobs.nhs.uk`) | none |
+| Ashby-hosted posting (`jobs.ashbyhq.com`) | **a full JobPosting** |
 
-Only the synthetic `tests/captured/job.json` carries structured data. So
+The Ashby posting is the exception, and it is the one that proves the structured path is
+worth having: title, employer, a `MonetaryAmount` salary range, a nested postal address
+and an employment type, all stated by the site. It is committed as
+`tests/captured/ashby-job.json`, and its test asserts the published salary wins over the
+page's own "$230K – $385K".
+
+So
 `core/job-posting.ts` is an accuracy win where a site does publish one — many
 company-hosted career pages do, because Google for Jobs requires it — and the prose path
 in `core/job-brief.ts` is what actually runs on the job boards people use.
@@ -57,10 +64,10 @@ immediately: the advert says "Disclosure and Barring Service Check", never "DBS 
 so the rule written against software adverts read a whole sector's standard wording as
 no condition at all. Fixed, with the advert's phrasing pinned in a test.
 
-Still wanted: a Lever-hosted posting, a Workday posting, a Civil Service advert
-(civilservicejobs.service.gov.uk sits behind a bot check, so it needs a human), and a
-company career page that *does* publish JSON-LD, to exercise the structured path against
-something real. LinkedIn and Indeed captures have to come from a logged-in session.
+Still wanted: a Lever-hosted posting, a Workday posting, and a Civil Service advert
+(civilservicejobs.service.gov.uk sits behind a bot check, so it needs a human). LinkedIn
+and Indeed captures have to come from a logged-in session — the fixtures in the repo for
+those two predate this work.
 
 The Greenhouse capture showed the extractor taking the whole region, so the text runs
 from the advert straight into the application form and its voluntary self-identification

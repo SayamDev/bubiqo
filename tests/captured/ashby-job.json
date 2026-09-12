@@ -1,0 +1,81 @@
+{
+  "url": "https://jobs.ashbyhq.com/openai/de06790a-7243-4e33-a6f1-e7bd34009588",
+  "domain": "jobs.ashbyhq.com",
+  "title": "AI Systems Engineer, Codex Agents @ OpenAI",
+  "text": "AI Systems Engineer, Codex Agents\nLocation\n\nSan Francisco\n\nEmployment Type\n\nFull time\n\nDepartment\n\nApplied AI\n\nCompensation\n$230K – $385K • Offers Equity\n\nThe base pay offered may vary depending on multiple individualized factors, including market location, job-related knowledge, skills, and experience. If the role is non-exempt, overtime pay will be provided consistent with applicable laws. In addition to the salary range listed above, total compensation also includes generous equity, performance-related bonus(es) for eligible employees, and the following benefits.\n\nMedical, dental, and vision insurance for you and your family, with employer contributions to Health Savings Accounts\n\nPre-tax accounts for Health FSA, Dependent Care FSA, and commuter expenses (parking and transit)\n\n401(k) retirement plan with employer match\n\nPaid parental leave (up to 24 weeks for birth parents and 20 weeks for non-birthing parents), plus paid medical and caregiver leave (up to 8 weeks)\n\nPaid time off: flexible PTO for exempt employees and up to 15 days annually for non-exempt employees\n\n13+ paid company holidays, and multiple paid coordinated company office closures throughout the year for focus and recharge, plus paid sick or safe time (1 hour per 30 hours worked, or more, as required by applicable state or local law)\n\nMental health and wellness support\n\nEmployer-paid basic life and disability coverage\n\nAnnual learning and development stipend to fuel your professional growth\n\nDaily meals in our offices, and meal delivery credits as eligible\n\nRelocation support for eligible employees\n\nAdditional taxable fringe benefits, such as charitable donation matching and wellness stipends, may also be provided.\n\nMore details about our benefits are available to candidates during the hiring process.\n\nThis role is at-will and OpenAI reserves the right to modify base pay and other compensation components at any time based on individual performance, team or company results, or market conditions.\n\nAI Systems Engineer - Codex Core Agents\n\nAbout The Team\nThe Codex Core Agents team builds the agent harness that turns model capability into real-world action. We own the systems around the model: prompting and interpreting model outputs, executing actions safely in real environments, and feeding production experience back into better models and better agent behavior.\nThis team sits close to research and works across the stack: harness, model interaction, inference, sandboxed execution, orchestration, evals, production reliability, and the performance envelope around tokens, latency, cost, capacity, and quality. The harness is open source and increasingly part of how models are trained and evaluated, making this one of the highest-leverage layers in Codex.\n\nAbout The Role\nWe’re looking for engineers to build the AI systems that make Codex agents dependable in production. The ideal candidate is an agent-systems builder: hands-on across low-level systems and ML workflows, able to debug Codex behavior end to end across the harness, model behavior, inference/runtime stack, GPU fleet, and product surface.\n\nYou’ll work with research, infrastructure, and product to design agent harness capabilities, run experiments and ablations across the model + system prompt + harness stack, build frameworks for assessing production agent performance, and turn messy failures into durable improvements.\n\nWhat You’ll Do\n\nDesign and build the core agent harness and execution loop that lets Codex agents interpret model outputs, use tools, execute code, and complete long-horizon tasks safely.\n\nBuild sandboxing, isolation, orchestration, state, and workflow infrastructure for agents operating in real development environments.\n\nDevelop evaluation, experimentation, and debugging systems that distinguish harness issues, model behavior, inference/runtime issues, and product failures.\n\nRun ablations across prompts, model-facing interfaces, context construction, tool-use strategies, and harness behavior to improve solve rate, reliability, latency, and cost.\n\nImprove observability, profiling, and diagnostics across the agent stack, from backend systems to inference, GPUs, and fleet capacity.\n\nWork closely with research to make the harness trainable, measurable, and useful for improving frontier agentic models.\n\nBuild shared primitives that make Codex faster, safer, more reliable, and easier for other teams and open-source users to build on.\n\nYou Might Be A Good Fit If You\n\nHave built or operated production systems in distributed systems, infrastructure, developer tooling, sandboxing, virtualization, cloud platforms, or ML systems.\n\nEnjoy working across layers: Rust systems code, Python configuration layers, APIs, agent orchestration, evals, logs/traces, inference behavior, runtime constraints, and user outcomes.\n\nHave hands-on experience with LLM applications, coding agents, evals, model deployment, inference, compiler/runtime performance, or developer platforms.\n\nCare deeply about reliability, safety, performance, debuggability, and clean abstractions.\n\nCan debug from evidence and move quickly from ambiguous production failures to practical, durable fixes.\n\nWant to work close to research while still shipping changes to production\n\nStill write meaningful code, show strong ownership, and can lead scoped or multi-team AI systems work.\n\nBonus Points\n\nDeep Rust, systems, sandboxing, isolation, or low-level platform experience.\n\nExperience with coding agents, agent harnesses, tool-using LLM systems, model evals, or post-training feedback loops.\n\nBackground in compilers, kernels, runtimes, inference optimization, GPU systems, benchmarking, profiling, or performance engineering.\n\nExperience building production infrastructure used by many engineers or users under demanding reliability and security constraints.\n\nOpen-source infrastructure or developer-platform work with strong taste for APIs and usability.\n\nAbout OpenAI\n\nOpenAI is an AI research and deployment company dedicated to ensuring that general-purpose artificial intelligence benefits all of humanity. We push the boundaries of the capabilities of AI systems and seek to safely deploy them to the world through our products. AI is an extremely powerful tool that must be created with safety and human needs at its core, and to achieve our mission, we must encompass and value the many different perspectives, voices, and experiences that form the full spectrum of humanity. \n\nWe are an equal opportunity employer, and we do not discriminate on the basis of race, religion, color, national origin, sex, sexual orientation, age, veteran status, disability, genetic information, or other applicable legally protected characteristic.\n\nFor additional information, please see OpenAI’s Affirmative Action and Equal Employment Opportunity Policy Statement.\n\nBackground checks for applicants will be administered in accordance with applicable law, and qualified applicants with arrest or conviction records will be considered for employment consistent with those laws, including the San Francisco Fair Chance Ordinance, the Los Angeles County Fair Chance Ordinance for Employers, and the California Fair Chance Act, for US-based candidates. For unincorporated Los Angeles County workers: we reasonably believe that criminal history may have a direct, adverse and negative relationship with the following job duties, potentially resulting in the withdrawal of a conditional offer of employment: protect computer hardware entrusted to you from theft, loss or damage; return all computer hardware in your possession (including the data contained therein) upon termination of employment or end of assignment; and maintain the confidentiality of proprietary, confidential, and non-public information. In addition, job duties require access to secure and protected information technology systems and related data security obligations.\n\nTo notify OpenAI that you believe this job posting is non-compliant, please submit a report through this form. No response will be provided to inquiries unrelated to job posting compliance.\n\nWe are committed to providing reasonable accommodations to applicants with disabilities, and requests can be made via this link.\n\nOpenAI Global Applicant Privacy Policy\n\nAt OpenAI, we believe artificial intelligence has the potential to help people solve immense global challenges, and we want the upside of AI to be widely shared. Join us in shaping the future of technology.\n\nApply for this Job",
+  "headings": [
+    "AI Systems Engineer, Codex Agents",
+    "Location",
+    "Employment Type",
+    "Department",
+    "Compensation"
+  ],
+  "fields": [],
+  "structuredData": [
+    {
+      "@context": "https://schema.org/",
+      "@type": "JobPosting",
+      "baseSalary": {
+        "@type": "MonetaryAmount",
+        "currency": "USD",
+        "value": {
+          "@type": "QuantitativeValue",
+          "maxValue": 385000,
+          "minValue": 230000,
+          "unitText": "YEAR"
+        }
+      },
+      "datePosted": "2026-05-15",
+      "description": "[description omitted from the fixture: 30KB of HTML, and no test reads it]",
+      "directApply": true,
+      "employmentType": "FULL_TIME",
+      "hiringOrganization": {
+        "@type": "Organization",
+        "logo": "https://app.ashbyhq.com/api/images/org-theme-logo/redacted.png",
+        "name": "OpenAI",
+        "sameAs": "https://openai.com/"
+      },
+      "identifier": {
+        "@type": "PropertyValue",
+        "name": "OpenAI",
+        "value": "de06790a-7243-4e33-a6f1-e7bd34009588"
+      },
+      "jobLocation": {
+        "@type": "Place",
+        "address": {
+          "@type": "PostalAddress",
+          "addressCountry": "United States",
+          "addressLocality": "San Francisco",
+          "addressRegion": "California"
+        }
+      },
+      "title": "AI Systems Engineer, Codex Agents"
+    }
+  ],
+  "links": [
+    {
+      "text": "Overview",
+      "href": "https://jobs.ashbyhq.com/openai/de06790a-7243-4e33-a6f1-e7bd34009588"
+    },
+    {
+      "text": "Application",
+      "href": "https://jobs.ashbyhq.com/openai/de06790a-7243-4e33-a6f1-e7bd34009588/application"
+    },
+    {
+      "text": "Apply for this Job",
+      "href": "https://jobs.ashbyhq.com/openai/de06790a-7243-4e33-a6f1-e7bd34009588/application"
+    },
+    {
+      "text": "Powered by Ashby",
+      "href": "https://www.ashbyhq.com/"
+    }
+  ],
+  "extraction": {
+    "candidates": 4,
+    "chosenChars": 28237,
+    "regionChars": 28237,
+    "linkDensity": 0.01,
+    "usedWholeRegion": true
+  },
+  "capturedAt": 1789248900000
+}

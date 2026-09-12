@@ -469,3 +469,54 @@ describe("a real NHS Jobs advert", () => {
     expect(rightToWork, rightToWork?.evidence).toBeUndefined();
   });
 });
+
+/*
+ * A real Ashby-hosted posting — the first captured page that actually publishes a
+ * schema.org JobPosting, and therefore the only end-to-end evidence that the
+ * structured path works on a real site rather than on a fixture we wrote.
+ *
+ * The JSON-LD's `description` is omitted from the fixture: it is 30KB of escaped
+ * HTML duplicating the page text, and nothing reads it. The employer logo URL is
+ * shortened. Everything else is exactly as captured.
+ */
+describe("a real Ashby posting, which publishes structured data", () => {
+  const page = captured("ashby-job");
+  const analysis = run(page);
+
+  it("is recognised as a job advert from its structured data alone", () => {
+    expect(analysis.classification.surface).toBe("job");
+    expect(analysis.classification.confidence).toBeGreaterThan(0.9);
+  });
+
+  it("takes the title and employer the site published", () => {
+    expect(analysis.brief?.title?.value).toBe("AI Systems Engineer, Codex Agents");
+    expect(analysis.brief?.title?.source).toBe("structured");
+    expect(analysis.brief?.organisation?.value).toBe("OpenAI");
+  });
+
+  it("takes the salary from the published range, not from the page's own '$230K – $385K'", () => {
+    expect(analysis.brief?.salary?.value).toBe("USD 230000–385000");
+    expect(analysis.brief?.salary?.source).toBe("structured");
+  });
+
+  it("reads the location out of the nested postal address", () => {
+    expect(analysis.brief?.location?.value).toBe("San Francisco");
+  });
+
+  it("renders the employment type as a person would write it", () => {
+    expect(analysis.brief?.employmentType?.value).toBe("Full time");
+  });
+
+  it("reports no closing date, because the posting states none", () => {
+    expect(analysis.brief?.closingDate).toBeUndefined();
+  });
+
+  it("reports no blocker from the fair-chance and background-check wording", () => {
+    // "arrest or conviction records", "criminal history" and "background checks"
+    // are a statement of the employer's obligations, not a condition on the
+    // reader. Reporting one as a blocker would rule someone out of a job nobody
+    // ruled them out of.
+    expect(analysis.brief?.blockers).toHaveLength(0);
+    expect(analysis.brief?.verdict).toBeUndefined();
+  });
+});

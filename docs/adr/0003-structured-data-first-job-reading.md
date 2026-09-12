@@ -59,11 +59,16 @@ sentence behind it, and otherwise absent. There is no verdict meaning eligible.
 
 **Bad:**
 
-- **The structured path does not fire on the site that matters most.** Every real page
-  captured in `tests/captured/` — LinkedIn three times over, Indeed — has an empty
-  `structuredData`. Whatever those sites serve to crawlers, what the extension sees on
-  a logged-in job page contains no JSON-LD. So prose is not a fallback here; it is the
-  path that runs, and the structured path is an accuracy win only where it exists.
+- **The structured path does not fire on the sites that matter most.** LinkedIn (three
+  captures), Indeed, a Greenhouse-hosted posting and an NHS Jobs advert all have an
+  empty `structuredData`. Whatever those sites serve to crawlers, what the extension
+  sees on the page contains no JSON-LD. So prose is not a fallback here; it is the path
+  that runs on the job boards people actually use.
+
+  An Ashby-hosted posting does publish one, in full — title, employer, a salary range,
+  a nested postal address, an employment type — and `tests/captured/ashby-job.json`
+  pins it. So the split is roughly: company career pages hosted on an ATS that cares
+  about Google for Jobs, yes; the big aggregators, no.
 - The employer is read only from structured data. Naming it from prose is the guess
   that went wrong most often — a job board's own name, or the company advertising
   beside the advert — and it is left to the Entity extractor, which carries its own
