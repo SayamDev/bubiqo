@@ -97,22 +97,29 @@ To see it: `npm run demo`, then open the panel on any of the pages.
 ## Privacy
 
 - **Nothing leaves your machine.** Out of the box, zero network requests.
-- **No host permissions at install.** Bubiqo cannot read a page you haven't opened it
-  on. The page reader is injected on demand under `activeTab`, which Chrome grants
-  only on a user gesture and only for that one tab. You may optionally grant one
-  named site standing access — see below — and revoke it at any time.
+- **Nothing is granted at install.** Bubiqo ships with no host permissions at all, so
+  the install prompt asks for nothing about your browsing. The first time you use it,
+  the panel asks for page access itself and Chrome shows you its own confirmation.
+  You can decline, and you can revoke it later at `chrome://extensions`.
 - **No raw content is stored.** Only extracted entities — a date, an amount, a
   reference. Never page text, never email bodies.
 - **Password and payment fields are never read.** Not their values, not their labels,
   not whether they're filled.
 - **No hidden profile.** Memory contains what you explicitly saved and nothing else.
 
-**Standing access, if you want it.** By default Chrome only lets Bubiqo read a page
-at the moment you open it from the toolbar, so it cannot keep up as you move between
-messages. The panel offers, *after a read has already worked*, to let you grant one
-site — and only that site. It is `optional_host_permissions`, so nothing is granted
-at install, the prompt names the exact domain, and you can revoke it at
-`chrome://extensions`.
+**Why it asks, rather than demanding at install.** A Chrome side panel never receives
+the `activeTab` permission — Chrome grants that for an action click, a context-menu
+click or a keyboard command, and the grant does not reach a panel. So a panel-based
+extension genuinely cannot read anything without page access.
+
+Most extensions solve this by declaring `host_permissions` and putting *"read and
+change all your data on all websites"* in front of you at install, before you have
+seen the thing work. Bubiqo declares `optional_host_permissions` instead and asks in
+the product, once, at the moment you first try to use it. Same capability, asked for
+at the point where you can judge it, and revocable.
+
+What that access is used for does not change: the page is read only while the panel is
+open on it, and nothing leaves your device.
 
 Full detail in [PRIVACY.md](PRIVACY.md).
 

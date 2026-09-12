@@ -75,15 +75,35 @@ describe("analysing the active tab", () => {
     expect(panel.unavailableReason).toMatch(/switched Bubiqo off/i);
   });
 
-  it("asks the user to grant access when Chrome refuses the injection", async () => {
-    // The real failure mode: activeTab was never granted for this tab.
+  it("asks for permission when Chrome refuses the injection", async () => {
+    /*
+     * The real failure mode, and the one that shipped: a side panel never receives
+     * activeTab, so injection is refused until the user grants page access. The
+     * panel must offer that, not advise clicking an icon — which can never work.
+     */
     state.denyInjection = true;
     const panel = asState(await dispatch({ type: "ANALYSE_ACTIVE_TAB" }));
 
     expect(panel.analysis).toBeUndefined();
     expect(panel.canRequestAccess).toBe(true);
-    // It must tell the user what to DO, not just that it failed.
-    expect(panel.unavailableReason).toMatch(/click the bubiqo icon/i);
+    expect(panel.pageAccessGranted).toBe(false);
+    expect(panel.unavailableReason).toMatch(/permission to read/i);
+    // Advice that cannot work is worse than no advice.
+    expect(panel.unavailableReason).not.toMatch(/click the bubiqo icon/i);
+  });
+
+  it("reads the page once permission has been granted", async () => {
+    state.denyInjection = true;
+    expect(asState(await dispatch({ type: "ANALYSE_ACTIVE_TAB" })).analysis).toBeUndefined();
+
+    // What the panel's "Allow Bubiqo to read pages" button does.
+    const granted = await (globalThis as unknown as { chrome: { permissions: { request(o: { origins: string[] }): Promise<boolean> } } })
+      .chrome.permissions.request({ origins: ["*://*/*"] });
+    expect(granted).toBe(true);
+
+    const panel = asState(await dispatch({ type: "ANALYSE_ACTIVE_TAB" }));
+    expect(panel.analysis?.classification.surface).toBe("email");
+    expect(panel.unavailableReason).toBeUndefined();
   });
 
   it("never claims there is no page open, which is what a missing tabs permission looked like", async () => {

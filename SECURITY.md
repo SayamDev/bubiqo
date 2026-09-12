@@ -100,10 +100,17 @@ the page cannot close the fence and write outside it.
 `activeTab` means Chrome grants access only on a user gesture and only for that tab,
 so Bubiqo physically cannot read a page you haven't opened it on.
 
-`optional_host_permissions` is declared so the user *may* grant one named site
-standing access. Nothing is granted at install; Chrome's own prompt names the domain;
-the offer appears only after a read on that site has already succeeded; and it is
-revocable. The default posture — no standing access to anything — is unchanged.
+Page access is `optional_host_permissions`, requested in the product on first use.
+
+This is not cosmetic. A Chrome side panel never receives `activeTab`: that permission
+is granted for an action click, a context-menu click or a keyboard command, and the
+grant does not reach a panel. A panel-based extension therefore cannot read anything
+without host access — so the honest choice is not *whether* to ask, but *when*. Asking
+at first use, with Chrome's own prompt, lets the user decide having seen the product;
+declaring `host_permissions` would put the same capability behind an install-time
+warning they have no basis to judge.
+
+Nothing is granted at install, and it is revocable at `chrome://extensions`.
 
 The `notifications` permission is deliberately not requested: a toolbar badge
 conveys a due reminder without widening the manifest.

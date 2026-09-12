@@ -186,6 +186,29 @@ export function App() {
     setAnnounce(`Downloaded ${response.filename}. Open it to add the event to your calendar.`);
   }, []);
 
+  const turnOn = useCallback(async () => {
+    /*
+     * Requested here, not in the service worker: chrome.permissions.request needs a
+     * user gesture in an extension page, and a worker has none.
+     *
+     * This asks for page access once, in the product, the first time the user tries
+     * to use it — rather than declaring host_permissions and putting "read all your
+     * data on all websites" in front of them at install, before they have any reason
+     * to trust it. Chrome shows its own prompt, and it is revocable at any time.
+     */
+    try {
+      const granted = await chrome.permissions.request({ origins: ["*://*/*"] });
+      if (granted) {
+        setAnnounce("Bubiqo can now read the pages you open it on.");
+        await analyse();
+      } else {
+        setAnnounce("No problem — Bubiqo stays switched off until you allow it.");
+      }
+    } catch {
+      setAnnounce("Chrome would not show the permission prompt. Try reopening the panel.");
+    }
+  }, [analyse]);
+
   const grantSiteAccess = useCallback(async (origin: string) => {
     /*
      * chrome.permissions.request must be called from a user gesture in an
@@ -269,6 +292,7 @@ export function App() {
             onCopy={copyText}
             onDownload={downloadCalendar}
             onGrantSite={grantSiteAccess}
+            onTurnOn={turnOn}
             now={now}
           />
         )}
@@ -337,6 +361,7 @@ interface NowProps {
   onCopy: (text: string) => void;
   onDownload: (handle: string) => void;
   onGrantSite: (origin: string) => void;
+  onTurnOn: () => void;
   now: number;
 }
 
@@ -350,14 +375,23 @@ function NowTab(props: NowProps) {
       <>
         <p className="notice">{state.unavailableReason}</p>
         {state.canRequestAccess && (
-          <div style={{ marginTop: 12 }}>
-            <button className="btn btn--primary" onClick={props.onRefresh}>
-              Try again
+          <div style={{ marginTop: 14 }}>
+            <button className="btn btn--primary" onClick={props.onTurnOn}>
+              Allow Bubiqo to read pages
             </button>
-            <p className="why" style={{ marginTop: 8 }}>
-              Chrome grants Bubiqo access to a page only when you ask for it — that is why it
-              has no permission to read sites in the background.
+            <p className="why" style={{ marginTop: 10, lineHeight: 1.55 }}>
+              Chrome will ask you to confirm. Bubiqo asks here, the first time you use it,
+              rather than demanding it at install before it has shown you anything. It reads a
+              page only while the panel is open on it, everything stays on this device, and you
+              can revoke this at any time in <code>chrome://extensions</code>.
             </p>
+            <button
+              className="btn btn--quiet btn--small"
+              style={{ marginTop: 6 }}
+              onClick={props.onRefresh}
+            >
+              Already allowed it? Re-read this page
+            </button>
           </div>
         )}
         <BriefingBlock briefing={briefing} now={now} />

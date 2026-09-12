@@ -15,7 +15,7 @@ export interface FakeChrome {
   tabs: { query(q: unknown): Promise<{ id?: number; url?: string; active?: boolean }[]> };
   scripting: { executeScript(opts: unknown): Promise<{ result: unknown }[]> };
   action: { setBadgeText(o: { text: string }): Promise<void>; setBadgeBackgroundColor(o: unknown): Promise<void> };
-  permissions: { contains(o: { origins: string[] }): Promise<boolean> };
+  permissions: { contains(o: { origins: string[] }): Promise<boolean>; request(o: { origins: string[] }): Promise<boolean> };
   sidePanel: { setPanelBehavior(o: unknown): Promise<void> };
 }
 
@@ -28,8 +28,10 @@ export interface FakeState {
   badge: string;
   activeTab: { id?: number; url?: string };
   pageResult: unknown;
-  /** Simulates Chrome refusing injection for want of activeTab. */
+  /** Simulates Chrome refusing injection for want of a page permission. */
   denyInjection?: boolean;
+  /** Simulates the user declining the permission prompt. */
+  denyPermission?: boolean;
   grantedOrigins: string[];
 }
 
@@ -108,7 +110,14 @@ export function installFakeChrome(state: FakeState): FakeChrome {
     sidePanel: { async setPanelBehavior() {} },
     permissions: {
       async contains(o) {
-        return o.origins.some((origin) => state.grantedOrigins.includes(origin));
+        return o.origins.every((origin) => state.grantedOrigins.includes(origin));
+      },
+      async request(o) {
+        // Chrome shows a prompt; the fake grants whatever the test said it would.
+        if (state.denyPermission) return false;
+        state.grantedOrigins.push(...o.origins);
+        state.denyInjection = false;
+        return true;
       },
     },
   };

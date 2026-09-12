@@ -1,10 +1,12 @@
-# 1. Read pages by on-demand injection, not a declared content script
+# 1. Ask for page access in the product, not at install
 
 Date: 2026-09-12
 
 ## Status
 
-Accepted
+Accepted, then **amended** after the extension met a real inbox. The original
+decision — rely on `activeTab` alone — turned out to be impossible for a side panel.
+See Amendment below.
 
 ## Context
 
@@ -70,3 +72,32 @@ gesture happened in. Opening the side panel is that gesture.
 - **Declared content script on a narrow allowlist** (`mail.google.com`, etc.).
   Rejected: it makes the product work on a fixed list of sites, when the whole pitch
   is that it works on whatever page you happen to be reading.
+
+## Amendment (2026-09-12)
+
+`activeTab` cannot work for this product, and no amount of care in the code changes
+that. **A Chrome side panel never receives the `activeTab` grant.** Chrome grants it
+for an action click, a context-menu click, a keyboard command or an omnibox
+suggestion; when the action opens a side panel, the grant does not reach the panel.
+
+So the original decision shipped an extension that could not read any page at all,
+and — worse — told the user to "click the Bubiqo icon", advice that could never work.
+It took running it against a real inbox to find, because the test fake had been
+written to match the intended design rather than the browser's actual behaviour.
+
+The decision is therefore amended, keeping as much of the original intent as the
+platform allows:
+
+- `optional_host_permissions`, not `host_permissions`. **Nothing is granted at
+  install**, so the install prompt still asks for nothing about browsing.
+- The panel requests access itself, on first use, from a user gesture. Chrome shows
+  its own confirmation naming what is being asked.
+- Revocable at `chrome://extensions`.
+
+What survives is the part that mattered: the user decides, having seen the product
+work, rather than being confronted with "read and change all your data on all
+websites" at install before Bubiqo has shown them anything. What is lost is the
+stronger claim that Bubiqo is structurally incapable of reading other pages. It is
+now capable, and constrained by behaviour and by the code rather than by the
+permission model. That is a genuinely weaker guarantee and is stated as such in
+PRIVACY.md rather than papered over.

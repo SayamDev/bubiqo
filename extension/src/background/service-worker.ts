@@ -181,6 +181,15 @@ function blockedUrl(url: string | undefined): string | undefined {
   return undefined;
 }
 
+/** Do we currently hold permission to read pages at all? */
+async function hasPageAccess(): Promise<boolean> {
+  try {
+    return await chrome.permissions.contains({ origins: ["*://*/*"] });
+  } catch {
+    return false;
+  }
+}
+
 async function analyseActiveTab(): Promise<PanelState> {
   const settings = await getSettings();
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -218,12 +227,31 @@ async function analyseActiveTab(): Promise<PanelState> {
     const message = error instanceof Error ? error.message : "";
     const privileged = /chrome:\/\/|chrome-extension:\/\/|edge:\/\/|about:|devtools|extensions gallery|Web Store/i.test(message);
 
+    if (privileged) {
+      return {
+        ...(await baseState(settings)),
+        unavailableReason: "Bubiqo can't read browser pages like this one. Open an ordinary web page and try again.",
+      };
+    }
+
+    /*
+     * The real reason this happens, and it took a real inbox to find it:
+     *
+     * a side panel never receives `activeTab`. Chrome grants that permission for an
+     * action click, a context-menu click or a keyboard command — but when the action
+     * opens a side panel, the grant does not reach the panel. So an extension whose
+     * entire UI is a side panel cannot read anything on activeTab alone, and telling
+     * the user to "click the icon" is advice that can never work.
+     *
+     * The permission is therefore requested explicitly, in the product, at the
+     * moment the user first tries to use it — not silently at install time. They see
+     * Chrome's own prompt, they can say no, and they can revoke it later.
+     */
     return {
       ...(await baseState(settings)),
-      unavailableReason: privileged
-        ? "Bubiqo can't read browser pages like this one. Open an ordinary web page and try again."
-        : "Click the Bubiqo icon in your toolbar to let me read this page. Chrome only grants access when you ask for it.",
-      ...(privileged ? {} : { canRequestAccess: true }),
+      unavailableReason: "Bubiqo needs your permission to read the pages you open it on.",
+      canRequestAccess: true,
+      pageAccessGranted: await hasPageAccess(),
     };
   }
 

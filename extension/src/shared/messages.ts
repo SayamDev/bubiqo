@@ -40,6 +40,8 @@ export interface PanelState {
   readonly unavailableReason?: string;
   /** True when the failure is a missing permission the user can grant. */
   readonly canRequestAccess?: boolean;
+  /** Whether broad page-read access is currently held. */
+  readonly pageAccessGranted?: boolean;
   /** Origin of the page just read, e.g. "https://mail.google.com". */
   readonly siteOrigin?: string;
   /** Whether standing access to that origin has already been granted. */

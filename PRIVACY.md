@@ -52,15 +52,15 @@ entities: input.entities.filter((e) => e.sensitivity !== "sensitive"),
 - **Payment fields.** Anything whose name or autocomplete hints at a card number,
   CVC, IBAN, sort code or account number is excluded the same way.
 - **Hidden fields.**
-- **Any page you haven't opened the panel on.** Bubiqo declares no host permissions at
-  install. The page reader is injected on demand under `activeTab`, which Chrome
-  grants only on a user gesture and only for the tab in front of you.
+- **Any page while the panel is not open on it.** Bubiqo reads a page only when you
+  open the panel on it and it analyses that one page. There is no background
+  scanning, no crawling, and no persistent content script running on your tabs.
 
-  You can optionally grant one site standing access, so Bubiqo keeps up as you move
-  between messages there. That is `optional_host_permissions`: nothing is granted
-  until you accept a prompt naming the exact domain, the offer only appears after a
-  read has already succeeded on that site, and it is revocable at
-  `chrome://extensions`. Granting it for one site grants nothing anywhere else.
+  Page access is `optional_host_permissions`: **nothing is granted at install**. The
+  panel asks the first time you use it, Chrome shows its own confirmation, you can
+  decline, and you can revoke it at `chrome://extensions`. This is asked for in the
+  product rather than demanded at install, so you can see what Bubiqo does before
+  deciding whether to let it read anything.
 
 That last point is the one worth dwelling on. Most extensions that read pages declare
 a content script over `<all_urls>`, which means they run on every page you visit for
