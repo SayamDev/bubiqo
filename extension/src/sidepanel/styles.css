@@ -1177,3 +1177,98 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
   cursor: pointer;
 }
 .btn--link:hover { color: var(--accent); }
+
+/* ==========================================================================
+   First run
+   ==========================================================================
+
+   The old screen asked for a permission before saying what the product was for.
+   This says what it does, what it works on and what it will never do, and only
+   then asks — which is the order a stranger needs it in.
+   ========================================================================== */
+
+.welcome { padding-top: 2px; }
+
+.welcome__mark {
+  width: 44px;
+  height: 44px;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+
+.welcome__title {
+  margin: 0 0 10px;
+  font-size: var(--step-2);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.welcome__lead {
+  margin: 0 0 20px;
+  font-size: var(--step-1);
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.welcome__heading {
+  margin: 0 0 9px;
+  font-size: var(--step-00);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.welcome__list {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: grid;
+  gap: 9px;
+}
+
+.welcome__list li {
+  display: grid;
+  gap: 2px;
+  padding: 11px 13px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--lift-sm);
+}
+
+.welcome__list strong { font-size: var(--step-1); font-weight: 650; }
+.welcome__list span { font-size: var(--step-0); color: var(--ink-soft); line-height: 1.5; }
+
+.welcome__list--compact { margin-bottom: 0; gap: 6px; }
+.welcome__list--compact li { padding: 9px 11px; box-shadow: none; }
+
+.welcome__never {
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+  font-size: var(--step-0);
+  color: var(--ink-soft);
+}
+
+.welcome__never li { display: flex; gap: 8px; align-items: baseline; }
+
+/* A word, not only a colour — the list is a set of guarantees. */
+.welcome__never li::before {
+  content: "Never";
+  flex: none;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--alert);
+  background: var(--alert-bg);
+  padding: 2px 6px;
+  border-radius: var(--r-pill);
+}
+
+.welcome__cta { margin-top: 4px; }

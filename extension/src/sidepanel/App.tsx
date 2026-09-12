@@ -22,6 +22,7 @@ import { shortenUrl } from "@core/storage-hygiene";
 import { riskLabel } from "@core/safety";
 import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime } from "./format";
 import { BubbleMark, ShieldIcon, QuietMark, ActionIcon, HeaderArt } from "./icons";
+import { Welcome, WhatItDoes } from "./Welcome";
 
 type Tab = "now" | "memory" | "activity" | "settings";
 
@@ -307,10 +308,16 @@ export function App() {
     [analysis],
   );
 
-  const surface = state?.analysis?.classification.surface ?? "generic";
+  /*
+   * Only wear a surface accent once there is something to describe. Defaulting to
+   * "generic" made the welcome screen — and its primary button — slate grey, which
+   * is the colour that means "nothing found here", on the one screen where the
+   * product should look like itself.
+   */
+  const surface = state?.analysis?.classification.surface;
 
   return (
-    <div className="app" data-surface={surface}>
+    <div className="app" {...(surface ? { "data-surface": surface } : {})}>
       <Header state={state} />
 
       <nav className="tabs" role="tablist" aria-label="Bubiqo sections">
@@ -401,11 +408,15 @@ function Header({ state }: { state: PanelState | undefined }) {
   const analysis = state?.analysis;
   const blocked = Boolean(state?.unavailableReason);
 
-  const headline = blocked
-    ? "Nothing to read here"
-    : analysis
-      ? attentionHeadline(analysis.problems.length, analysis.suggestions.length)
-      : "Reading this page…";
+  const firstRun = Boolean(state?.canRequestAccess);
+
+  const headline = firstRun
+    ? "Welcome to Bubiqo"
+    : blocked
+      ? "Nothing to read here"
+      : analysis
+        ? attentionHeadline(analysis.problems.length, analysis.suggestions.length)
+        : "Reading this page…";
 
   const attention = analysis?.problems.length ?? 0;
 
@@ -434,7 +445,9 @@ function Header({ state }: { state: PanelState | undefined }) {
 
       <h1 className="context__what">{headline}</h1>
       <p className="context__where">
-        {state?.unavailableReason ?? state?.page?.title ?? state?.page?.domain ?? ""}
+        {firstRun
+          ? "One thing to set up, then it works on whatever you open it on."
+          : (state?.unavailableReason ?? state?.page?.title ?? state?.page?.domain ?? "")}
       </p>
     </header>
   );
@@ -471,27 +484,9 @@ function NowTab(props: NowProps) {
   if (state?.unavailableReason) {
     return (
       <>
-        <p className="notice">{state.unavailableReason}</p>
-        {state.canRequestAccess && (
-          <div style={{ marginTop: 14 }}>
-            <button className="btn btn--primary" onClick={props.onTurnOn}>
-              Allow Bubiqo to read pages
-            </button>
-            <p className="why" style={{ marginTop: 10, lineHeight: 1.55 }}>
-              Chrome will ask you to confirm. Bubiqo asks here, the first time you use it,
-              rather than demanding it at install before it has shown you anything. It reads a
-              page only while the panel is open on it, everything stays on this device, and you
-              can revoke this at any time in <code>chrome://extensions</code>.
-            </p>
-            <button
-              className="btn btn--quiet btn--small"
-              style={{ marginTop: 6 }}
-              onClick={props.onRefresh}
-            >
-              Already allowed it? Re-read this page
-            </button>
-          </div>
-        )}
+        {/* The welcome explains itself; a one-line reason above it is just noise. */}
+        {!state.canRequestAccess && <p className="notice">{state.unavailableReason}</p>}
+        {state.canRequestAccess && <Welcome onTurnOn={props.onTurnOn} onSkip={props.onRefresh} />}
         <BriefingBlock briefing={briefing} now={now} />
       </>
     );
@@ -565,6 +560,10 @@ function NowTab(props: NowProps) {
             <QuietMark className="empty__mark" />
             <p className="empty__title">All quiet here</p>
             <p>Bubiqo stays out of the way unless it has something genuinely useful.</p>
+            <p style={{ marginTop: 10 }}>
+              It has most to say on an email that asks you for something, an invoice, a job advert,
+              or anything carrying a date you would rather not forget.
+            </p>
           </div>
         ) : (
           <>
@@ -1252,6 +1251,8 @@ function SettingsTab({ state, onChange }: { state: PanelState | undefined; onCha
           ))}
         </div>
       </fieldset>
+
+      <WhatItDoes />
 
       <label className="field">
         <span className="field__label">How proactive should Bubiqo be?</span>
