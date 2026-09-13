@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BriefField, Entity, EntityType, JobBrief, MemoryItem, Problem, Suggestion } from "@core/types";
+import type { BriefField, Entity, EntityType, JobBrief, MemoryItem, Problem, Reminder, Suggestion } from "@core/types";
 import type { StepOutcome, CompleteItReport } from "@core/executor";
 import type { Briefing, PageFingerprint, PanelState, Request, Response } from "@shared/messages";
 import { send } from "@shared/messages";
@@ -612,10 +612,15 @@ function Header({ state }: { state: PanelState | undefined }) {
       <div className="brand">
         <img
           className={`brand__mark${analysis || blocked ? "" : " brand__mark--reading"}${scanning ? " brand__mark--scanned" : ""}`}
-          src="icons/icon-32.png"
+          /*
+           * The 128px asset, drawn at 40. It was the 32px one scaled up, which is
+           * soft at 40 and softer again on a high-density screen, where the
+           * browser is really drawing 80.
+           */
+          src="icons/icon-128.png"
           alt=""
-          width={20}
-          height={20}
+          width={40}
+          height={40}
         />
         <span className="brand__name">bubiqo</span>
       </div>
@@ -1247,6 +1252,75 @@ export function shareText(item: MemoryItem): string {
  * does it close, what did it ask for, who do I contact, and where do I find it
  * again. That is the order this shows them in.
  */
+
+/**
+ * One reminder.
+ *
+ * Deleting asks first, the same as a saved job does. It did not, and a reminder
+ * is the one thing in here whose whole purpose is to exist at a moment in the
+ * future: delete it by accident and nothing tells you it is gone until the
+ * moment it was meant to fire has passed.
+ */
+function ReminderCard({
+  reminder,
+  now,
+  onChange,
+  delayMs,
+}: {
+  reminder: Reminder;
+  now: number;
+  onChange: (response: Response) => void;
+  delayMs: number;
+}) {
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <li className="card card--reminder" style={{ animationDelay: `${delayMs}ms` }}>
+      <div className="card__head">
+        <div>
+          <p className="card__title">{reminder.title}</p>
+          <p className="card__meta">
+            <span className={`due due--${describeUrgency(reminder.dueAt, now)}`}>
+              {formatDue(reminder.dueAt, now)}
+            </span>
+            {" · "}
+            {clockTime(reminder.dueAt)}
+          </p>
+        </div>
+        <span className="kind kind--reminder">reminder</span>
+      </div>
+
+      <div className="card__actions">
+        {confirming ? (
+          <>
+            <button
+              className="btn btn--small btn--danger"
+              onClick={async () => {
+                setConfirming(false);
+                onChange(await send({ type: "DELETE_REMINDER", id: reminder.id }));
+              }}
+            >
+              Delete this reminder
+            </button>
+            <button className="btn btn--quiet btn--small" onClick={() => setConfirming(false)}>
+              Keep it
+            </button>
+          </>
+        ) : (
+          <button
+            className="btn btn--quiet btn--small btn--icon"
+            onClick={() => setConfirming(true)}
+            aria-label={`Delete reminder: ${reminder.title}`}
+            title="Delete"
+          >
+            <TrashMark className="btn__mark" />
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
 export function SavedItem({
   item,
   now,
@@ -1704,32 +1778,13 @@ function MemoryTab({
          */
         <ul className="list list--cards">
             {reminders.map((reminder, index) => (
-              <li className="card card--reminder" key={reminder.id} style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}>
-                <div className="card__head">
-                  <div>
-                    <p className="card__title">{reminder.title}</p>
-                    <p className="card__meta">
-                      <span className={`due due--${describeUrgency(reminder.dueAt, now)}`}>
-                        {formatDue(reminder.dueAt, now)}
-                      </span>
-                      {" · "}
-                      {clockTime(reminder.dueAt)}
-                    </p>
-                  </div>
-                  <span className="kind kind--reminder">reminder</span>
-                </div>
-
-                <div className="card__actions">
-                  <button
-                    className="btn btn--quiet btn--small btn--icon"
-                    onClick={async () => onChange(await send({ type: "DELETE_REMINDER", id: reminder.id }))}
-                    aria-label={`Delete reminder: ${reminder.title}`}
-                    title="Delete"
-                  >
-                    <TrashMark className="btn__mark" />
-                  </button>
-                </div>
-              </li>
+              <ReminderCard
+                key={reminder.id}
+                reminder={reminder}
+                now={now}
+                onChange={onChange}
+                delayMs={Math.min(index, 6) * 40}
+              />
             ))}
           </ul>
         )}

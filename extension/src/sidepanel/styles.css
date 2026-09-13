@@ -2100,3 +2100,46 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 }
 
 .brand__mark--scanned { animation: mark-scan 900ms var(--spring); }
+
+/* ==========================================================================
+   The dot
+   --------------------------------------------------------------------------
+   The full stop after the wordmark is the same dot the radar mark finds, so it
+   is the one piece of the identity that should look alive. It beats — slowly,
+   about once every two and a half seconds, with a soft halo on the upbeat.
+
+   Deliberately slow. A fast pulse in the corner of the eye is a notification;
+   this is a heartbeat, which is a different thing entirely.
+   ========================================================================== */
+
+@keyframes dot-beat {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(157, 84, 6, 0);
+  }
+  14% {
+    transform: scale(1.22);
+    box-shadow: 0 0 0 3px rgba(157, 84, 6, 0.22);
+  }
+  28% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(157, 84, 6, 0);
+  }
+  42% {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 2px rgba(157, 84, 6, 0.14);
+  }
+  56% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(157, 84, 6, 0);
+  }
+}
+
+/*
+ * The beat starts once the dot has landed, so the arrival reads as one movement
+ * rather than two competing ones.
+ */
+.brand__name::after { animation: dot-land 460ms var(--spring) 380ms both, dot-beat 2600ms ease-in-out 900ms infinite; }
+
+/* The mark is drawn from the 128px asset; keep the browser from softening it. */
+.brand__mark { image-rendering: -webkit-optimize-contrast; }
