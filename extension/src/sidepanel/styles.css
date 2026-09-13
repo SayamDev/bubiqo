@@ -2003,3 +2003,80 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 
 /* Empty states: a mark, a line that says what would fill it, and why. */
 .empty__mark { width: 44px; height: 44px; color: var(--ink-faint); opacity: 0.9; }
+
+/* ==========================================================================
+   The radar, running
+   --------------------------------------------------------------------------
+   It was a picture of a radar: five rings and a few dots, sitting still. Now
+   the rings breathe outward one behind the next, a sweep turns over them, and
+   each thing found pulses where it sits. Twelve seconds a revolution — present
+   at the edge of vision, never asking to be watched.
+
+   All of it is switched off by the prefers-reduced-motion rule near the top of
+   this file, which leaves exactly the picture that was here before.
+   ========================================================================== */
+
+@keyframes radar-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+
+@keyframes radar-sweep {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes radar-find {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.35); opacity: 0.35; }
+}
+
+.radar { transform-origin: 186px 52px; }
+.radar__ring { animation: radar-breathe 7s ease-in-out infinite; transform-origin: 186px 52px; }
+.radar__ring:nth-child(2) { animation-delay: 0.5s; }
+.radar__ring:nth-child(3) { animation-delay: 1s; }
+.radar__ring:nth-child(4) { animation-delay: 1.5s; }
+.radar__ring:nth-child(5) { animation-delay: 2s; }
+
+.radar__sweep { animation: radar-sweep 12s linear infinite; }
+
+.radar__find { animation: radar-find 2.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.radar__find--2 { animation-delay: 0.7s; }
+.radar__find--3 { animation-delay: 1.4s; }
+
+/*
+ * The colour follows what the panel is looking at, so the corner of the screen
+ * answers "what does it think this page is" without anybody reading a word.
+ */
+.app[data-surface="job"] .header__art { color: var(--alert); opacity: 0.5; }
+.app[data-surface="invoice"] .header__art { color: var(--ok); opacity: 0.45; }
+.app[data-surface="email"] .header__art { color: var(--accent); opacity: 0.5; }
+
+/* ==========================================================================
+   The wordmark, louder
+   ========================================================================== */
+
+.brand { gap: 11px; margin-bottom: 16px; }
+.brand__mark { width: 40px; height: 40px; border-radius: 13px; }
+
+.brand__name {
+  font-size: 1.875rem;
+  font-weight: 850;
+  letter-spacing: -0.05em;
+}
+.brand__name::after { width: 9px; height: 9px; margin-left: 5px; }
+
+/*
+ * One turn of the mark each time a page is read.
+ *
+ * Not a spinner and not decoration: it is the one moment the product does its
+ * whole job, and it happens now without being asked for, so it should be
+ * visible. 900ms, once, and it cannot stack because the class is removed as
+ * soon as it finishes.
+ */
+@keyframes mark-scan {
+  0% { transform: rotate(0) scale(1); }
+  55% { transform: rotate(200deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.brand__mark--scanned { animation: mark-scan 900ms var(--spring); }

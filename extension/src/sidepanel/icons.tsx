@@ -150,6 +150,18 @@ export function PulseDot({ className }: MarkProps) {
 export function HeaderArt({ attention, className }: { attention: number; className?: string }) {
   const found = Math.min(attention, 3);
 
+  /*
+   * The radar, alive.
+   *
+   * It was five static rings and up to three dots — a picture of a radar rather
+   * than one running. The rings now breathe outward on a long loop, each one a
+   * little behind the last, and a sweep turns over them. The dots it has found
+   * pulse where they sit.
+   *
+   * Every bit of it is CSS animation on named classes, so the blanket
+   * prefers-reduced-motion rule switches the whole thing off and leaves exactly
+   * the picture that was here before.
+   */
   return (
     <svg
       className={className}
@@ -158,21 +170,34 @@ export function HeaderArt({ attention, className }: { attention: number; classNa
       aria-hidden="true"
       focusable="false"
     >
-      <g fill="none" stroke="currentColor" strokeWidth="1.1">
-        <circle cx="186" cy="52" r="16" opacity="0.55" />
-        <circle cx="186" cy="52" r="31" opacity="0.38" />
-        <circle cx="186" cy="52" r="47" opacity="0.24" />
-        <circle cx="186" cy="52" r="65" opacity="0.13" />
-        <circle cx="186" cy="52" r="84" opacity="0.07" />
+      <defs>
+        <linearGradient id="bubiqo-sweep" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0" />
+          <stop offset="100%" stopColor="currentColor" stopOpacity="0.5" />
+        </linearGradient>
+      </defs>
+
+      <g fill="none" stroke="currentColor" strokeWidth="1.1" className="radar">
+        <circle className="radar__ring" cx="186" cy="52" r="16" opacity="0.55" />
+        <circle className="radar__ring" cx="186" cy="52" r="31" opacity="0.38" />
+        <circle className="radar__ring" cx="186" cy="52" r="47" opacity="0.24" />
+        <circle className="radar__ring" cx="186" cy="52" r="65" opacity="0.13" />
+        <circle className="radar__ring" cx="186" cy="52" r="84" opacity="0.07" />
       </g>
 
-      {/* One dot per thing found, out on the sweep. */}
-      {found > 0 && <circle cx="217" cy="34" r="4.2" fill="currentColor" opacity="0.85" />}
-      {found > 1 && <circle cx="151" cy="79" r="3" fill="currentColor" opacity="0.5" />}
-      {found > 2 && <circle cx="199" cy="97" r="2.4" fill="currentColor" opacity="0.35" />}
+      {/* The sweep: one wedge, turning. */}
+      <g className="radar__sweep" style={{ transformOrigin: "186px 52px" }}>
+        <path d="M186 52 L186 -12 A64 64 0 0 1 240 22 Z" fill="url(#bubiqo-sweep)" opacity="0.5" />
+      </g>
+
+      {/* One dot per thing found, out on the sweep, pulsing where it sits. */}
+      {found > 0 && <circle className="radar__find" cx="217" cy="34" r="4.2" fill="currentColor" opacity="0.85" />}
+      {found > 1 && <circle className="radar__find radar__find--2" cx="151" cy="79" r="3" fill="currentColor" opacity="0.5" />}
+      {found > 2 && <circle className="radar__find radar__find--3" cx="199" cy="97" r="2.4" fill="currentColor" opacity="0.35" />}
     </svg>
   );
 }
+
 
 /**
  * The mark on a job brief.

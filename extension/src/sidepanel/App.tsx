@@ -558,6 +558,30 @@ function Header({ state }: { state: PanelState | undefined }) {
   const analysis = state?.analysis;
   const blocked = Boolean(state?.unavailableReason);
 
+  /*
+   * The mark turns once each time a page is read.
+   *
+   * Reading happens on its own now — the panel keeps up with whatever advert is
+   * in front of the user — so the one moment the product does its whole job was
+   * passing with nothing to show for it. Keyed on analysedAt, which changes once
+   * per read, and cleared when the turn finishes so it cannot stack.
+   */
+  const [scanning, setScanning] = useState(false);
+  const lastRead = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    const at = state?.analysedAt;
+    if (at === undefined || at === lastRead.current) return;
+
+    const first = lastRead.current === undefined;
+    lastRead.current = at;
+    if (first) return; // The arrival animation already covers the first read.
+
+    setScanning(true);
+    const timer = setTimeout(() => setScanning(false), 900);
+    return () => clearTimeout(timer);
+  }, [state?.analysedAt]);
+
   const firstRun = Boolean(state?.canRequestAccess);
 
   const headline = firstRun
@@ -586,7 +610,7 @@ function Header({ state }: { state: PanelState | undefined }) {
       <HeaderArt className="header__art" attention={attention} />
       <div className="brand">
         <img
-          className={`brand__mark${analysis || blocked ? "" : " brand__mark--reading"}`}
+          className={`brand__mark${analysis || blocked ? "" : " brand__mark--reading"}${scanning ? " brand__mark--scanned" : ""}`}
           src="icons/icon-32.png"
           alt=""
           width={20}
