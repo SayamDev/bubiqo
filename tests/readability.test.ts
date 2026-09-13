@@ -199,3 +199,93 @@ describe("Readability's signals, which I should have started from", () => {
     expect(scoreBlock(linky)).toBe(0);
   });
 });
+
+/*
+ * A job board that shows a list of adverts beside the selected one.
+ *
+ * Measured on uk.indeed.com in September 2026: the card list is
+ * "mosaic-provider-jobcards" at 5,125 characters, the detail pane is
+ * "jobsearch-RightPane" at 34,943, and <main> holds both. Reading <main> mixed
+ * three other adverts' salaries into the brief and named the employer "New" —
+ * the badge on a neighbouring card.
+ */
+describe("a list of adverts beside the one being read", () => {
+  const pane = (over: Partial<BlockStats> = {}): BlockStats => ({
+    index: 1, textLength: 34943, linkTextLength: 2000, linkCount: 40, depth: 2,
+    commas: 300, signature: "jobsearch-RightPane serp-page-6iabie eu4oa1w0", ...over,
+  });
+  const list = (over: Partial<BlockStats> = {}): BlockStats => ({
+    index: 2, textLength: 5125, linkTextLength: 2600, linkCount: 60, depth: 2,
+    commas: 30, signature: "mosaic mosaic-provider-jobcards mosaic-provider-hydrated", ...over,
+  });
+  const main = (over: Partial<BlockStats> = {}): BlockStats => ({
+    index: 0, textLength: 40068, linkTextLength: 4600, linkCount: 100, depth: 0,
+    commas: 330, signature: "is-i18n", ...over,
+  });
+
+  it("reads the pane holding the advert, not the whole page around it", () => {
+    const best = pickBestBlock([main(), list(), pane()]);
+    expect(best?.index, "the detail pane should win").toBe(1);
+  });
+
+  it("scores a card list at nothing", () => {
+    expect(scoreBlock(list())).toBe(0);
+  });
+
+  it("prefers the pane on LinkedIn's equivalent markup", () => {
+    const linkedInPane = pane({ signature: "jobs-search__job-details--wrapper" });
+    const linkedInList = list({ signature: "jobs-search-results-list" });
+    const best = pickBestBlock([main(), linkedInList, linkedInPane]);
+    expect(best?.index).toBe(1);
+  });
+
+  it("still reads the whole region on a page that has no detail pane", () => {
+    const article = { index: 0, textLength: 3000, linkTextLength: 100, linkCount: 4, depth: 0, commas: 40, signature: "job-description" };
+    expect(pickBestBlock([article])?.index).toBe(0);
+  });
+});
+
+describe("nested detail panes", () => {
+  it("takes the outer pane, which still has the job title on it", () => {
+    // Indeed nests jobsearch-JobComponent-description inside jobsearch-RightPane.
+    // The inner block scores better — it holds no links — but it begins below the
+    // job title and the employer's name, which is the half that says whose job
+    // this is. Measured September 2026: 34,943 chars outer, 31,804 inner.
+    const outer: BlockStats = {
+      index: 1, textLength: 34943, linkTextLength: 2000, linkCount: 40, depth: 1,
+      commas: 300, signature: "jobsearch-RightPane",
+    };
+    const inner: BlockStats = {
+      index: 2, textLength: 31804, linkTextLength: 0, linkCount: 0, depth: 1,
+      commas: 290, signature: "jobsearch-JobComponent-description css-dyse26",
+    };
+    expect(pickBestBlock([outer, inner])?.index).toBe(1);
+  });
+});
+
+/*
+ * The injected extractor cannot import — Chrome serialises it — so it carries an
+ * inlined copy of the scoring rules. That duplication is the cost recorded in
+ * ADR 0001, and the failure it invites is drift: the tested copy gets a fix and
+ * the copy that actually runs on the page does not.
+ *
+ * This is the cheapest guard against that. It compares source text, which is
+ * crude, and which is the point: it fails the moment the two stop matching.
+ */
+describe("the injected extractor keeps up with the tested rules", () => {
+  it("carries the same UNLIKELY, LIKELY and DETAIL_PANE patterns", async () => {
+    const { readFileSync } = await import("node:fs");
+    const extract = readFileSync("extension/src/background/extract.ts", "utf8");
+    const readability = readFileSync("extension/src/core/readability.ts", "utf8");
+
+    const pattern = (source: string, name: string): string => {
+      const match = new RegExp(`${name}\\s*=\\s*\\n?\\s*(/.+/i);`).exec(source);
+      if (!match) throw new Error(`${name} not found`);
+      return match[1] as string;
+    };
+
+    expect(pattern(extract, "UNLIKELY")).toBe(pattern(readability, "UNLIKELY_CANDIDATE"));
+    expect(pattern(extract, "LIKELY")).toBe(pattern(readability, "LIKELY_CANDIDATE"));
+    expect(pattern(extract, "DETAIL_PANE")).toBe(pattern(readability, "DETAIL_PANE"));
+  });
+});

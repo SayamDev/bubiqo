@@ -45,6 +45,9 @@ export function extractPageContext(): {
     /-ad-|ai2html|banner|breadcrumb|combx|comment|community|cover-wrap|disqus|extra|footer|gdpr|header|legends|menu|related|remark|replies|rss|shoutbox|sidebar|skyscraper|social|sponsor|supplemental|ad-break|agegate|pagination|pager|popup|yom-remote|promo|paywall|subscribe|newsletter|recommend|jobs-list|job-card|results-list|search-result|upsell|premium/i;
   const LIKELY =
     /and|article|body|column|content|main|mainContent|shadow|post|entry|description|details|job-details|job-description/i;
+  // Mirrors DETAIL_PANE in core/readability.ts, where the tested version lives.
+  const DETAIL_PANE =
+    /right-?pane|jobsearch-jobcomponent|\bvjs\b|viewjob|jobs?-details|job-view|details-pane|job-description/i;
 
   const scoreBlock = (b: {
     textLength: number; linkTextLength: number; linkCount: number; depth: number;
@@ -135,6 +138,36 @@ export function extractPageContext(): {
   walk(region, 1);
 
   /*
+   * Then the detail pane, wherever it is.
+   *
+   * The walk stops at depth 3 to keep this cheap, and on Indeed the pane holding
+   * the advert sits SEVEN levels below <main> (measured September 2026), so it was
+   * never measured at all — the only candidates were <main> and the card list, and
+   * <main> won. The brief then carried three other adverts' salaries and an
+   * employer called "New", the badge on a neighbouring card.
+   *
+   * These selectors name the same thing DETAIL_PANE matches, asked of the DOM
+   * directly so depth cannot hide it.
+   */
+  const PANE_SELECTOR = [
+    "[class*='RightPane']",
+    "[class*='jobsearch-JobComponent']",
+    "[id*='vjs']",
+    "[class*='job-details']",
+    "[class*='jobs-details']",
+    "[class*='job-view']",
+    "[class*='jobs-search__job-details']",
+    "[class*='job-description']",
+  ].join(",");
+
+  for (const pane of Array.from(region.querySelectorAll<HTMLElement>(PANE_SELECTOR)).slice(0, 5)) {
+    if (candidates.includes(pane)) continue;
+    // Depth 1: shallow enough to beat nothing on its own, since a named pane wins
+    // on its name rather than on its score.
+    measure(pane, 1);
+  }
+
+  /*
    * Propagate upward, as Readability does. A container holding several good
    * paragraphs is a better answer than the best single paragraph inside it,
    * because the paragraph alone loses the heading and the byline.
@@ -150,10 +183,29 @@ export function extractPageContext(): {
     }
   }
 
-  const best = scored.reduce<{ block: (typeof stats)[number]; score: number } | undefined>(
-    (winner, current) => (current.score > (winner?.score ?? 0) ? current : winner),
-    undefined,
-  )?.block;
+  /*
+   * A pane that names itself as the advert wins outright.
+   *
+   * Propagation above means a parent always out-scores its own child, so on a job
+   * board <main> — list of adverts, filters, and the advert being read — beat the
+   * pane holding the one advert. That put three other adverts' salaries into the
+   * brief and named the employer "New", the badge on a neighbouring card.
+   */
+  const viable = scored.filter((c) => c.score > 0);
+  const panes = viable.filter((c) => DETAIL_PANE.test(c.block.signature));
+
+  // The widest named pane, not the highest-scoring: Indeed nests a
+  // "-description" block inside "RightPane", and the inner one starts below the
+  // job title and the employer. Mirrors pickBestBlock in core/readability.ts.
+  const best =
+    panes.length > 0
+      ? panes.reduce((widest, current) =>
+          current.block.textLength > widest.block.textLength ? current : widest,
+        ).block
+      : viable.reduce<{ block: (typeof stats)[number]; score: number } | undefined>(
+          (winner, current) => (current.score > (winner?.score ?? 0) ? current : winner),
+          undefined,
+        )?.block;
   const root = best ? (candidates[best.index] ?? region) : region;
 
   const extraction = {

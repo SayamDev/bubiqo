@@ -40,6 +40,22 @@ export const UNLIKELY_CANDIDATE =
 export const LIKELY_CANDIDATE =
   /and|article|body|column|content|main|mainContent|shadow|post|entry|description|details|job-details|job-description/i;
 
+/**
+ * Names that mean "this is the pane holding the one advert being read".
+ *
+ * A job board shows a list of adverts beside the selected one, and both live
+ * inside <main>. Scoring alone picks <main>, because it is the longest block and
+ * a parent collects its children's text — so the brief ended up with three
+ * salaries belonging to other adverts and an employer called "New", which is the
+ * badge on a neighbouring card.
+ *
+ * Measured September 2026: Indeed's pane is "jobsearch-RightPane" (34,943 chars)
+ * against a "mosaic-provider-jobcards" list (5,125); LinkedIn's is
+ * "jobs-search__job-details--wrapper" against "jobs-search-results-list".
+ */
+export const DETAIL_PANE =
+  /right-?pane|jobsearch-jobcomponent|\bvjs\b|viewjob|jobs?-details|job-view|details-pane|job-description/i;
+
 export interface BlockStats {
   /** Index of the candidate, so the caller can map a choice back to its element. */
   readonly index: number;
@@ -117,17 +133,31 @@ export function scoreBlock(block: BlockStats): number {
  * which is the right behaviour on a simple page that has no sub-structure.
  */
 export function pickBestBlock(blocks: readonly BlockStats[]): BlockStats | undefined {
-  let best: BlockStats | undefined;
-  let bestScore = 0;
+  const scored = blocks.map((block) => ({ block, score: scoreBlock(block) })).filter((c) => c.score > 0);
+  if (scored.length === 0) return undefined;
 
-  for (const block of blocks) {
-    const score = scoreBlock(block);
-    if (score > bestScore) {
-      bestScore = score;
-      best = block;
-    }
+  /*
+   * A pane that names itself as the advert wins outright.
+   *
+   * Not by weighting — weighting cannot beat a parent that contains the pane and
+   * everything else, because the parent is always longer. The page has told us
+   * which part is the advert; believing it is better than out-scoring it.
+   */
+  const panes = scored.filter((c) => DETAIL_PANE.test(c.block.signature ?? ""));
+  if (panes.length > 0) {
+    /*
+     * The widest named pane, not the highest-scoring one. Indeed nests a
+     * "jobsearch-JobComponent-description" inside "jobsearch-RightPane"; the inner
+     * one scores better because it holds no links, and it starts below the
+     * employer's name and the job title. Taking the outer pane keeps the header
+     * that answers "whose job is this".
+     */
+    return panes.reduce((widest, current) =>
+      current.block.textLength > widest.block.textLength ? current : widest,
+    ).block;
   }
-  return best;
+
+  return scored.reduce((winner, current) => (current.score > winner.score ? current : winner)).block;
 }
 
 /**
