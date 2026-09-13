@@ -18,6 +18,7 @@ import type { StepOutcome, CompleteItReport } from "@core/executor";
 import type { Briefing, PageFingerprint, PanelState, Request, Response } from "@shared/messages";
 import { send } from "@shared/messages";
 import { formatDue, describeUrgency } from "@core/dates";
+import { CURRENCY_CODES, CURRENCY_NAMES } from "@core/money";
 import { riskLabel } from "@core/safety";
 import { surfaceChip, attentionHeadline, jobHeadline, urgencyWord, relativeTime, clockTime, displayMoney } from "./format";
 import { hasMoved, nextCheckDelay } from "./watch";
@@ -2029,12 +2030,24 @@ function SettingsTab({
       <label className="field">
         <span className="field__label">Your currency</span>
         <p className="field__help">Used to show what a foreign amount is worth to you.</p>
-        <input
-          type="text"
+        {/*
+          * A list, not a text field.
+          *
+          * It accepted any three characters, so "XYZ" was a currency as far as the
+          * panel was concerned — and then the rate lookup failed with nothing to
+          * explain why. These are the codes core/money.ts actually recognises, so
+          * an unusable value cannot be chosen.
+          */}
+        <select
           value={settings.homeCurrency}
-          maxLength={3}
-          onChange={(e) => void update({ homeCurrency: e.target.value.toUpperCase() })}
-        />
+          onChange={(e) => void update({ homeCurrency: e.target.value })}
+        >
+          {CURRENCY_CODES.map((code) => (
+            <option key={code} value={code}>
+              {code} — {CURRENCY_NAMES[code]}
+            </option>
+          ))}
+        </select>
       </label>
 
       </div>
@@ -2080,7 +2093,12 @@ function SettingsTab({
               </button>
             </>
           ) : (
-            <button className="btn btn--small" onClick={() => setConfirmingWipe(true)} disabled={held === 0}>
+            <button
+              className={`btn btn--small${held === 0 ? "" : " btn--danger-quiet"}`}
+              onClick={() => setConfirmingWipe(true)}
+              disabled={held === 0}
+            >
+              {held === 0 ? null : <TrashMark className="btn__mark" />}
               {held === 0 ? "Nothing stored" : "Delete everything Bubiqo has saved"}
             </button>
           )}

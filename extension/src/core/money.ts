@@ -28,6 +28,27 @@ export const CURRENCY_CODES = [
 ] as const;
 
 /**
+ * The names behind the codes, for anywhere a person has to choose one.
+ *
+ * Settings offered a three-character text box, which accepted "XYZ" as happily
+ * as "GBP" and then failed a rate lookup with nothing to explain why.
+ */
+export const CURRENCY_NAMES: Readonly<Record<(typeof CURRENCY_CODES)[number], string>> = {
+  GBP: "British pound",
+  USD: "US dollar",
+  EUR: "Euro",
+  JPY: "Japanese yen",
+  INR: "Indian rupee",
+  CHF: "Swiss franc",
+  CAD: "Canadian dollar",
+  AUD: "Australian dollar",
+  SEK: "Swedish krona",
+  NOK: "Norwegian krone",
+  DKK: "Danish krone",
+  PLN: "Polish złoty",
+};
+
+/**
  * Read a numeric string, returning nothing rather than a wrong number.
  *
  * `k` and `m` suffixes are expanded, because a job advert writes "85k" far more
