@@ -652,3 +652,26 @@ describe("the page changed under the panel", () => {
     expect(state.injections, "the page was read again for no reason").toBe(before);
   });
 });
+
+describe("the page fingerprint", () => {
+  it("answers without disturbing the analysis the panel is showing", async () => {
+    await bootWorker(jobPage, "https://uk.indeed.com/jobs?q=x&vjs=1");
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+    const before = asState(await dispatch({ type: "GET_STATE" }));
+
+    const response = await dispatch({ type: "PAGE_FINGERPRINT" });
+    expect(response.type).toBe("FINGERPRINT");
+
+    const after = asState(await dispatch({ type: "GET_STATE" }));
+    expect(after.page?.url).toBe(before.page?.url);
+    expect(after.analysis?.brief?.title?.value).toBe(before.analysis?.brief?.title?.value);
+  });
+
+  it("returns nothing rather than an error when the page cannot be read", async () => {
+    await bootWorker(jobPage);
+    state.denyInjection = true;
+    const response = await dispatch({ type: "PAGE_FINGERPRINT" });
+    expect(response.type).toBe("FINGERPRINT");
+    expect((response as { fingerprint?: unknown }).fingerprint).toBeUndefined();
+  });
+});

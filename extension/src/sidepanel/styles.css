@@ -1432,3 +1432,6 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
   font-size: var(--step-0);
   font-weight: 700;
 }
+
+/* "keeping up with this page" — quieter than the status it follows. */
+.status__watching { opacity: 0.65; }

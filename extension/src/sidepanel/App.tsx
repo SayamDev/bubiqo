@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BriefField, BriefSource, JobBrief, Problem, Suggestion } from "@core/types";
 import type { StepOutcome, CompleteItReport } from "@core/executor";
-import type { Briefing, PanelState, Request, Response } from "@shared/messages";
+import type { Briefing, PageFingerprint, PanelState, Request, Response } from "@shared/messages";
 import { send } from "@shared/messages";
 import { formatDue } from "@core/dates";
 import { shortenUrl } from "@core/storage-hygiene";
@@ -110,12 +110,35 @@ export function App() {
     }
   }, []);
 
+  /*
+   * The fingerprint of the page as it was when it was last read.
+   *
+   * Taken from the page, never derived from the analysis: the analysis holds the
+   * text of the block that was chosen, while the fingerprint measures the whole
+   * document. Comparing one against the other would differ every time and re-read
+   * the page forever.
+   */
+  const lastFingerprint = useRef<PageFingerprint | undefined>(undefined);
+
+  // The timer must not queue a re-read on top of one already running.
+  const busyRef = useRef(false);
+  useEffect(() => {
+    busyRef.current = busy;
+  }, [busy]);
+
   const analyse = useCallback(async () => {
     setBusy(true);
     setReport(undefined);
     try {
       apply(await send({ type: "ANALYSE_ACTIVE_TAB" }));
       apply(await send({ type: "BRIEFING" }));
+
+      // Record what the page looked like at the moment it was read, so the watcher
+      // below has something to compare against.
+      const response = await send({ type: "PAGE_FINGERPRINT" });
+      if (response.type === "FINGERPRINT" && response.fingerprint) {
+        lastFingerprint.current = response.fingerprint;
+      }
     } finally {
       setBusy(false);
     }
@@ -169,11 +192,6 @@ export function App() {
    * title with the page it analysed. That costs one call to chrome.tabs.query,
    * needs no extra permission, and does not care how the page changed.
    */
-  const analysedPage = useRef<{ url: string; title: string } | undefined>(undefined);
-  useEffect(() => {
-    if (state?.page) analysedPage.current = { url: state.page.url, title: state.page.title };
-  }, [state?.page]);
-
   useEffect(() => {
     const onActivated = () => void analyse();
     const onUpdated = (_id: number, change: chrome.tabs.TabChangeInfo, t: chrome.tabs.Tab) => {
@@ -183,26 +201,37 @@ export function App() {
     chrome.tabs.onActivated.addListener(onActivated);
     chrome.tabs.onUpdated.addListener(onUpdated);
 
+    /*
+     * Ask the page what it is showing now.
+     *
+     * Comparing the tab's URL is not enough on its own: Chrome withholds url and
+     * title from chrome.tabs.query unless the extension holds access to the site,
+     * and some boards swap the advert without changing either. The fingerprint
+     * comes from the page itself — url, title, first heading, text length — and
+     * any of the four changing means what the user is reading has changed.
+     */
     const moved = async (): Promise<void> => {
       if (document.visibilityState !== "visible") return;
-      const analysed = analysedPage.current;
-      if (!analysed) return;
+      const analysed = lastFingerprint.current;
+      if (!analysed || busyRef.current) return;
 
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab) return;
+      const response = await send({ type: "PAGE_FINGERPRINT" });
+      if (response.type !== "FINGERPRINT" || !response.fingerprint) return;
 
-      // Without host access for this site Chrome withholds url and title, and
-      // there is nothing to compare — the periodic check simply does nothing.
-      const url = tab.url;
-      const title = tab.title;
-      if (url === undefined && title === undefined) return;
-
-      if ((url !== undefined && url !== analysed.url) || (title !== undefined && title !== analysed.title)) {
+      const now = response.fingerprint;
+      if (
+        now.url !== analysed.url ||
+        now.title !== analysed.title ||
+        now.heading !== analysed.heading ||
+        // A page redrawn at almost exactly the same size is not worth a re-read;
+        // a different advert always differs by more than a few characters.
+        Math.abs(now.length - analysed.length) > 40
+      ) {
         void analyse();
       }
     };
 
-    const timer = setInterval(() => void moved(), 1500);
+    const timer = setInterval(() => void moved(), 1200);
     const onVisible = () => void moved();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
@@ -539,6 +568,12 @@ function Header({ state }: { state: PanelState | undefined }) {
           {analysis
             ? `${analysis.fromSelection ? "Read your selection" : "Read this page"} ${relativeTime(state?.analysedAt ?? Date.now(), Date.now())}`
             : "Reading this page…"}
+          {/*
+            * Say that it is watching. The panel keeps itself up to date now, and a
+            * reader who cannot see that keeps pressing "Re-read this page" —
+            * which is what happened.
+            */}
+          {analysis && <span className="status__watching"> · keeping up with this page</span>}
         </p>
       )}
     </header>

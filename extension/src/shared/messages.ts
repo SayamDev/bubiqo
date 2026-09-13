@@ -30,7 +30,15 @@ export type Request =
   | { type: "GET_DRAFTS" }
   | { type: "DELETE_DRAFT"; id: string }
   | { type: "DOWNLOAD_CALENDAR"; handle: string }
-  | { type: "BRIEFING" };
+  | { type: "BRIEFING" }
+  /**
+   * A cheap check of what the tab is showing right now.
+   *
+   * The panel asks for this on a timer so it can notice the page changing under
+   * it. It reads four short strings and nothing else, so it is safe to run often
+   * — a full analysis is not.
+   */
+  | { type: "PAGE_FINGERPRINT" };
 
 export interface PanelState {
   readonly page?: PageContext;
@@ -88,7 +96,18 @@ export type Response =
   | { type: "REPORT"; report: CompleteItReport }
   | { type: "BRIEFING"; briefing: Briefing }
   | { type: "CALENDAR_FILE"; filename: string; ics: string }
+  | { type: "FINGERPRINT"; fingerprint?: PageFingerprint }
   | { type: "ERROR"; message: string };
+
+/** What the tab is showing, in four short strings. See PAGE_FINGERPRINT. */
+export interface PageFingerprint {
+  readonly url: string;
+  readonly title: string;
+  /** The first visible heading, which changes when the advert does. */
+  readonly heading: string;
+  /** How much text the page holds, which changes when its content is replaced. */
+  readonly length: number;
+}
 
 export function send(request: Request): Promise<Response> {
   return chrome.runtime.sendMessage(request) as Promise<Response>;

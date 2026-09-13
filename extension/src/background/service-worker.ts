@@ -17,7 +17,7 @@ import { buildRegistry } from "@core/actions";
 import { Executor } from "@core/executor";
 import { CostGuard, emptyUsage, type ProviderBudget, type ProviderUsage } from "@core/cost-guard";
 import { DEFAULT_SETTINGS, type Analysis, type PageContext, type Reminder, type Settings } from "@core/types";
-import type { Briefing, PanelState, Request, Response } from "@shared/messages";
+import type { Briefing, PageFingerprint, PanelState, Request, Response } from "@shared/messages";
 import { createPorts, readCollection, STORAGE_KEYS } from "./adapters";
 import { extractPageContext } from "./extract";
 import {
@@ -688,11 +688,51 @@ async function contextForAction(): Promise<{ page: PageContext; analysis: Analys
   return ctx;
 }
 
+
+/**
+ * What the active tab is showing, cheaply.
+ *
+ * The panel could not tell that the page had changed. chrome.tabs.onUpdated is
+ * not dependable for same-document navigation — a job board switching advert with
+ * history.pushState — and chrome.tabs.query withholds url and title unless the
+ * extension holds access to that site. So the panel asks the page itself, on a
+ * timer, through the same injection a full read uses.
+ *
+ * Four short strings. No page text is returned, nothing is stored, and if
+ * injection is refused this quietly returns nothing rather than reporting an
+ * error the user did not ask for.
+ */
+async function pageFingerprint(): Promise<{ fingerprint?: PageFingerprint }> {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return {};
+
+  try {
+    const [injection] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const heading = document.querySelector("h1, h2");
+        return {
+          url: location.href,
+          title: document.title,
+          heading: (heading?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 120),
+          length: (document.body?.innerText ?? "").length,
+        };
+      },
+    });
+    return injection?.result ? { fingerprint: injection.result as PageFingerprint } : {};
+  } catch {
+    return {};
+  }
+}
+
 async function handle(request: Request): Promise<Response> {
   const settings = await getSettings();
   const executor = new Executor(registry, ports, settings);
 
   switch (request.type) {
+    case "PAGE_FINGERPRINT":
+      return { type: "FINGERPRINT", ...(await pageFingerprint()) };
+
     case "ANALYSE_ACTIVE_TAB":
       return { type: "STATE", state: await analyseActiveTab() };
 
