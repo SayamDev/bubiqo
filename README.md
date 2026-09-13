@@ -18,11 +18,10 @@
 
 ## Install it
 
-Bubiqo is not on the Chrome Web Store yet, so you load it yourself. It takes
-about two minutes, and you need [Node.js 20+](https://nodejs.org) and Chrome 116
-or newer.
+Bubiqo is not on the Chrome Web Store yet, so you load it yourself. About two
+minutes. You need [Node.js 20+](https://nodejs.org) and Chrome 116 or newer.
 
-### 1. Build it
+### Step 1 — build it
 
 ```bash
 git clone https://github.com/SayamDev/bubiqo.git
@@ -31,54 +30,68 @@ npm install
 npm run build
 ```
 
-That writes the extension into a folder called `dist`. Leave the terminal open —
-you will need the path in step 4.
+This creates a folder called `dist`. That folder *is* the extension. Keep the
+terminal open — you will want the path in step 5.
 
-### 2 – 3. Load it into Chrome
+### Steps 2, 3 and 4 — load it into Chrome
 
-![Diagram of the Chrome extensions page: Developer mode is switched on at the top right, which makes the Load unpacked button appear at the top left](docs/brand/install.png)
+![Diagram of the Chrome extensions page: Developer mode is switched on at the top right, which makes the Load unpacked button appear at the top left, and Bubiqo then appears as a card below](docs/brand/install.png)
 
-*A diagram, not a screenshot — Chrome's own pages cannot be captured.*
+*A diagram, not a screenshot — Chrome will not let its own pages be captured.*
 
-1. Open a new tab and go to **`chrome://extensions`**.
-2. Turn on **Developer mode** — the switch at the **top right**. Nothing appears
-   to happen until you do this.
-3. Press **Load unpacked**, which has just appeared at the **top left**.
+**2.** Open a new tab, type **`chrome://extensions`** in the address bar and press Enter.
 
-### 4. Pick the `dist` folder
+**3.** Turn on **Developer mode**, the switch at the **top right**. Until you do,
+the button you need in the next step does not exist.
 
-In the file picker, choose the **`dist`** folder inside the `bubiqo` folder you
-cloned — not the `bubiqo` folder itself, and not anything inside `dist`.
+**4.** Press **Load unpacked**, which has just appeared at the **top left**.
 
-> On macOS you can press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>G</kbd> in the picker and
-> paste the path. To get it, run `pwd` in the terminal from step 1 and add
-> `/dist` to the end.
+### Step 5 — choose the `dist` folder
 
-### 5. Open it on a page
+In the file picker, open the `bubiqo` folder you cloned, click once on **`dist`**
+to select it, and press **Select**.
 
-Bubiqo appears in the list, switched on. Pin it to the toolbar if you like, then:
+Pick `dist` itself — not the `bubiqo` folder around it, and not a file inside
+`dist`. If you get *"Manifest file is missing or unreadable"*, the wrong folder
+was selected; try again.
 
-- Open any job advert, email or invoice and press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>A</kbd>
-  (<kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd> on Windows), **or**
-- Select the part of the page you care about, right-click, and choose
-  **“Read this with Bubiqo”** — the most reliable way on a busy page.
+> **Shortcut:** in the picker press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>G</kbd> (macOS)
+> and paste the path. Run `pwd` in your terminal from step 1 and add `/dist`.
 
-The first time you open it on a site, Chrome asks whether Bubiqo may read that
-site. It cannot read anything until you say yes, and you can revoke it later at
-`chrome://extensions`.
+Bubiqo now appears in the list with its switch on.
 
-This is what you should see on a job advert:
+### Steps 6 and 7 — pin it, then click it
+
+![Diagram of the Chrome toolbar: press the puzzle-piece Extensions button, press the pin beside Bubiqo, and its icon stays on the toolbar ready to click](docs/brand/pin.png)
+
+**6.** Press the **puzzle piece** at the right of the toolbar, find **Bubiqo**,
+and press the **pin** beside it. Its icon now stays on the toolbar.
+
+**7.** Open any job advert, email or invoice, and **click the Bubiqo icon**. The
+panel opens beside the page and reads it.
+
+The first time you use it on a site, Chrome asks whether Bubiqo may read that
+site. It cannot read anything until you say yes, and you can take the permission
+back at `chrome://extensions` whenever you like.
+
+This is what you should see:
 
 ![The Bubiqo side panel open beside a job advert, showing the pay, the closing date, the contract, and what the advert asks for](docs/brand/panel.png)
 
+**On a busy page** — a job board with twenty adverts on screen — select the advert
+you mean, right-click, and choose **"Read this with Bubiqo"**. Selecting is the
+one unambiguous way to say which part of a page you mean, and it cannot be broken
+by a site redesign.
+
 ### If something goes wrong
 
-| What you see | What it means |
+| What you see | What to do |
 |---|---|
-| **“Manifest file is missing or unreadable”** | The wrong folder was picked. It must be `dist`, which contains `manifest.json`. |
-| **The panel says it needs permission** | Press **Allow** on the prompt, or grant the site at `chrome://extensions` → Bubiqo → Site access. |
-| **The panel is empty on a `chrome://` page** | No extension can read Chrome's own pages. Open an ordinary web page. |
-| **You changed the code** | Run `npm run build` again, then press the **reload** icon on the Bubiqo card at `chrome://extensions`. |
+| **"Manifest file is missing or unreadable"** | The wrong folder was picked in step 5. It must be `dist`, the folder containing `manifest.json`. |
+| **Clicking the icon does nothing** | Reload the extension: `chrome://extensions` → the reload icon on the Bubiqo card. |
+| **The panel says it needs permission** | Press **Allow**. Or grant it at `chrome://extensions` → Bubiqo → Site access. |
+| **The panel is blank on a `chrome://` page** | No extension may read Chrome's own pages. Open an ordinary web page. |
+| **You changed the code** | Run `npm run build`, then press reload on the Bubiqo card. |
 
 ---
 

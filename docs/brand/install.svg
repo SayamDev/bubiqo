@@ -47,10 +47,10 @@
     <rect x="404" y="356" width="44" height="24" rx="12" fill="#0d6551"/>
     <circle cx="436" cy="368" r="9" fill="#ffffff"/>
     <circle cx="516" cy="326" r="15" fill="#0d6551"/>
-    <text x="516" y="332" text-anchor="middle" font-family="Inter, sans-serif" font-size="16" font-weight="800" fill="#ffffff">5</text>
-    <text x="540" y="320" font-family="Inter, sans-serif" font-size="15" font-weight="600" fill="#241f18">It appears here, switched on.</text>
-    <text x="540" y="344" font-family="Inter, sans-serif" font-size="14" fill="#5d5346">Pin it, then open it on any page with</text>
-    <text x="540" y="364" font-family="Inter, sans-serif" font-size="14" fill="#5d5346">⌘⇧A — or right-click a selection and</text>
-    <text x="540" y="384" font-family="Inter, sans-serif" font-size="14" fill="#5d5346">choose “Read this with Bubiqo”.</text>
+    <text x="516" y="332" text-anchor="middle" font-family="Inter, sans-serif" font-size="16" font-weight="800" fill="#ffffff">4</text>
+    <text x="540" y="320" font-family="Inter, sans-serif" font-size="15" font-weight="600" fill="#241f18">Bubiqo appears here, switched on.</text>
+    <text x="540" y="344" font-family="Inter, sans-serif" font-size="14" fill="#5d5346">If it is not switched on, flick the</text>
+    <text x="540" y="364" font-family="Inter, sans-serif" font-size="14" fill="#5d5346">switch on its card.</text>
+    
   </g>
 </svg>
