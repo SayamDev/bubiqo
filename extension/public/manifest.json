@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Bubiqo",
   "version": "0.1.0",
-  "description": "Finds what needs your attention on the page you're already on, and completes the useful next steps in one click.",
+  "description": "Reads the page you have open \u2014 job adverts, emails, invoices, anything with a date \u2014 and pulls out the parts that matter. Nothing leaves your device.",
   "minimum_chrome_version": "116",
   "permissions": [
     "activeTab",

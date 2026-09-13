@@ -35,8 +35,8 @@
   <text x="234" y="230" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="92" font-weight="800" letter-spacing="-4" fill="#241f18">bubiqo</text>
   <circle cx="512" cy="220" r="13" fill="#9d5406"/>
 
-  <text x="106" y="330" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="38" font-weight="600" fill="#5d5346">Reads the page you are on, and tells you what it</text>
-  <text x="106" y="382" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="38" font-weight="600" fill="#5d5346">actually says — without sending it anywhere.</text>
+  <text x="106" y="330" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="36" font-weight="600" fill="#5d5346">Job adverts, emails, invoices, anything with a date —</text>
+  <text x="106" y="382" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="36" font-weight="600" fill="#5d5346">read on your machine, and never sent anywhere.</text>
 
   <!-- What it pulls off a job advert, as the panel shows it. -->
   <g transform="translate(106 452)" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">

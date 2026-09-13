@@ -1,8 +1,9 @@
 # Bubiqo
 
-An action layer for the web. A privacy-first browser extension that understands the
-page you're on, finds what needs attention, and completes useful actions in one click
-without you building an automation first.
+A Chrome side panel that reads whatever page the user has open — job adverts, emails,
+invoices, anything carrying a date — and pulls out the parts they would otherwise go
+hunting for, then offers to save, copy, remind or export. Page content never leaves the
+device.
 
 ## Agent skills
 

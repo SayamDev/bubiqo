@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <b>A privacy-first browser extension that reads the page in front of you and tells you what it actually says.</b>
+  <b>A Chrome side panel that reads whatever page you have open and pulls out the parts you would otherwise go hunting for.</b>
 </p>
 
 <p align="center">
@@ -16,9 +16,20 @@
 
 ---
 
-## What it does
+## What it reads
 
-Open Bubiqo on a job advert and it gives you the brief the advert buries:
+| | What it pulls out |
+|---|---|
+| **Job adverts** | Pay, closing date, contract, location, the requirements, and any condition the advert sets — DBS, clearance, right to work — each quoted from the text |
+| **Emails** | The deadline, what was asked of you, and what you promised |
+| **Invoices** | Supplier, total, reference, due date |
+| **Anything carrying a date** | Bookings, renewals, appointments, tickets, course deadlines |
+
+Then it offers to **save it** to a local memory you can search later, **copy the
+details**, **set a reminder**, or **make a calendar file**. It never sends,
+submits, posts or pays, and it cannot read a page you have not opened it on.
+
+### On a job advert
 
 | | |
 |---|---|
@@ -27,13 +38,9 @@ Open Bubiqo on a job advert and it gives you the brief the advert buries:
 | **Conditions** | DBS check required — *"This post is subject to an enhanced DBS check."* |
 | **Asks for** | the eight requirements, quoted in the advert's own words |
 
-Every fact says where it came from — the site's own structured data, or the prose —
-because those are different kinds of claim and you should be able to tell them
+Every fact says where it came from — the site's own structured data, or the prose
+— because those are different kinds of claim and you should be able to tell them
 apart. Nothing is inferred that cannot be quoted.
-
-It also reads **emails** (the deadline, the request, what you promised),
-**invoices** (supplier, total, reference, due date) and **anything carrying a date
-you would rather not forget**.
 
 ## The part that matters
 
