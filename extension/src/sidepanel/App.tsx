@@ -21,6 +21,7 @@ import { formatDue } from "@core/dates";
 import { shortenUrl } from "@core/storage-hygiene";
 import { riskLabel } from "@core/safety";
 import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime, displayMoney } from "./format";
+import { hasMoved, nextCheckDelay } from "./watch";
 import { splitSuggestions } from "@core/ranker";
 import { BubbleMark, ShieldIcon, QuietMark, ActionIcon, HeaderArt } from "./icons";
 import { Welcome, WhatItDoes } from "./Welcome";
@@ -126,6 +127,12 @@ export function App() {
     busyRef.current = busy;
   }, [busy]);
 
+  // A page that cannot be read is checked slowly: every check is an injection.
+  const readableRef = useRef(true);
+  useEffect(() => {
+    readableRef.current = state?.unavailableReason === undefined;
+  }, [state?.unavailableReason]);
+
   const analyse = useCallback(async () => {
     setBusy(true);
     setReport(undefined);
@@ -178,68 +185,93 @@ export function App() {
   }, [state?.settings.theme]);
 
   /*
-   * Re-read the page when the user switches tab or navigates, so the panel is
-   * never showing a stale answer for a page that is no longer in front of them.
+   * Keep the panel in step with the page the user is reading.
    *
-   * Events alone do not do it. `chrome.tabs.onUpdated` is documented as firing on
-   * navigation, but it is not dependable for same-document navigation — which is
-   * exactly how a job board changes advert: history.pushState, no reload, no
-   * "complete" status. The panel sat on the previous advert until the user pressed
-   * "Re-read this page", and "Complete all" then saved that previous advert.
+   * Three signals, in order of how much they can be trusted:
    *
-   * So the panel also watches. Every second and a half, while it is actually
-   * visible, it asks Chrome what the active tab is now and compares the URL and
-   * title with the page it analysed. That costs one call to chrome.tabs.query,
-   * needs no extra permission, and does not care how the page changed.
+   *   1. Chrome's own events — a tab switch, a navigation, the panel regaining
+   *      focus. These are free and immediate, and they are also incomplete:
+   *      chrome.tabs.onUpdated is not dependable for same-document navigation,
+   *      which is exactly how a job board switches advert.
+   *   2. The page itself, asked for a four-string fingerprint. Dependable, and
+   *      the only thing that catches an advert swapped behind the same URL.
+   *   3. Nothing at all, when the panel is not visible. A panel nobody is looking
+   *      at does not need to keep up with anything.
+   *
+   * The cadence follows the user rather than the clock: attentive for twenty
+   * seconds after any sign of activity, spaced out once they settle. The policy
+   * lives in sidepanel/watch.ts, where it is tested without a browser.
    */
-  useEffect(() => {
-    const onActivated = () => void analyse();
-    const onUpdated = (_id: number, change: chrome.tabs.TabChangeInfo, t: chrome.tabs.Tab) => {
-      if (!t.active) return;
-      if (change.status === "complete" || change.url !== undefined) void analyse();
-    };
-    chrome.tabs.onActivated.addListener(onActivated);
-    chrome.tabs.onUpdated.addListener(onUpdated);
+  const lastActivityAt = useRef(Date.now());
 
-    /*
-     * Ask the page what it is showing now.
-     *
-     * Comparing the tab's URL is not enough on its own: Chrome withholds url and
-     * title from chrome.tabs.query unless the extension holds access to the site,
-     * and some boards swap the advert without changing either. The fingerprint
-     * comes from the page itself — url, title, first heading, text length — and
-     * any of the four changing means what the user is reading has changed.
-     */
-    const moved = async (): Promise<void> => {
-      if (document.visibilityState !== "visible") return;
-      const analysed = lastFingerprint.current;
-      if (!analysed || busyRef.current) return;
+  useEffect(() => {
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const noteActivity = (): void => {
+      lastActivityAt.current = Date.now();
+    };
+
+    const check = async (): Promise<void> => {
+      if (stopped || busyRef.current) return;
 
       const response = await send({ type: "PAGE_FINGERPRINT" });
       if (response.type !== "FINGERPRINT" || !response.fingerprint) return;
 
-      const now = response.fingerprint;
-      if (
-        now.url !== analysed.url ||
-        now.title !== analysed.title ||
-        now.heading !== analysed.heading ||
-        // A page redrawn at almost exactly the same size is not worth a re-read;
-        // a different advert always differs by more than a few characters.
-        Math.abs(now.length - analysed.length) > 40
-      ) {
+      if (hasMoved(lastFingerprint.current, response.fingerprint)) {
+        noteActivity();
         void analyse();
       }
     };
 
-    const timer = setInterval(() => void moved(), 1200);
-    const onVisible = () => void moved();
+    const schedule = (): void => {
+      if (stopped) return;
+      const delay = nextCheckDelay(
+        {
+          lastActivityAt: lastActivityAt.current,
+          visible: document.visibilityState === "visible",
+          busy: busyRef.current,
+          readable: readableRef.current,
+        },
+        Date.now(),
+      );
+
+      // Hidden panel: no timer at all. visibilitychange starts it again.
+      if (delay === undefined) return;
+      timer = setTimeout(() => void check().finally(schedule), delay);
+    };
+
+    const restart = (immediate: boolean): void => {
+      noteActivity();
+      if (timer) clearTimeout(timer);
+      if (immediate) void check().finally(schedule);
+      else schedule();
+    };
+
+    const onActivated = (): void => {
+      noteActivity();
+      void analyse();
+    };
+    const onUpdated = (_id: number, change: chrome.tabs.TabChangeInfo, t: chrome.tabs.Tab): void => {
+      if (!t.active) return;
+      if (change.status === "complete" || change.url !== undefined) {
+        noteActivity();
+        void analyse();
+      }
+    };
+    const onVisible = (): void => restart(document.visibilityState === "visible");
+
+    chrome.tabs.onActivated.addListener(onActivated);
+    chrome.tabs.onUpdated.addListener(onUpdated);
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
+    schedule();
 
     return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
       chrome.tabs.onActivated.removeListener(onActivated);
       chrome.tabs.onUpdated.removeListener(onUpdated);
-      clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
