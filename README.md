@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/brand/cover.png" alt="Bubiqo — reads the page you are on, and tells you what it actually says" width="100%">
+  <img src="docs/brand/cover.png" alt="Bubiqo — job adverts, emails, invoices, anything with a date: read on your machine, and never sent anywhere" width="100%">
 </p>
 
 <p align="center">
@@ -13,6 +13,72 @@
   <img alt="No host permissions at install" src="https://img.shields.io/badge/host%20permissions-none%20at%20install-a81f42?style=flat-square">
   <img alt="No network" src="https://img.shields.io/badge/page%20data-never%20leaves%20the%20device-0d6551?style=flat-square">
 </p>
+
+---
+
+## Install it
+
+Bubiqo is not on the Chrome Web Store yet, so you load it yourself. It takes
+about two minutes, and you need [Node.js 20+](https://nodejs.org) and Chrome 116
+or newer.
+
+### 1. Build it
+
+```bash
+git clone https://github.com/SayamDev/bubiqo.git
+cd bubiqo
+npm install
+npm run build
+```
+
+That writes the extension into a folder called `dist`. Leave the terminal open —
+you will need the path in step 4.
+
+### 2 – 3. Load it into Chrome
+
+![Diagram of the Chrome extensions page: Developer mode is switched on at the top right, which makes the Load unpacked button appear at the top left](docs/brand/install.png)
+
+*A diagram, not a screenshot — Chrome's own pages cannot be captured.*
+
+1. Open a new tab and go to **`chrome://extensions`**.
+2. Turn on **Developer mode** — the switch at the **top right**. Nothing appears
+   to happen until you do this.
+3. Press **Load unpacked**, which has just appeared at the **top left**.
+
+### 4. Pick the `dist` folder
+
+In the file picker, choose the **`dist`** folder inside the `bubiqo` folder you
+cloned — not the `bubiqo` folder itself, and not anything inside `dist`.
+
+> On macOS you can press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>G</kbd> in the picker and
+> paste the path. To get it, run `pwd` in the terminal from step 1 and add
+> `/dist` to the end.
+
+### 5. Open it on a page
+
+Bubiqo appears in the list, switched on. Pin it to the toolbar if you like, then:
+
+- Open any job advert, email or invoice and press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>A</kbd>
+  (<kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd> on Windows), **or**
+- Select the part of the page you care about, right-click, and choose
+  **“Read this with Bubiqo”** — the most reliable way on a busy page.
+
+The first time you open it on a site, Chrome asks whether Bubiqo may read that
+site. It cannot read anything until you say yes, and you can revoke it later at
+`chrome://extensions`.
+
+This is what you should see on a job advert:
+
+![The Bubiqo side panel open beside a job advert, showing the pay, the closing date, the contract, and what the advert asks for](docs/brand/panel.png)
+
+### If something goes wrong
+
+| What you see | What it means |
+|---|---|
+| **“Manifest file is missing or unreadable”** | The wrong folder was picked. It must be `dist`, which contains `manifest.json`. |
+| **The panel says it needs permission** | Press **Allow** on the prompt, or grant the site at `chrome://extensions` → Bubiqo → Site access. |
+| **The panel is empty on a `chrome://` page** | No extension can read Chrome's own pages. Open an ordinary web page. |
+| **You changed the code** | Run `npm run build` again, then press the **reload** icon on the Bubiqo card at `chrome://extensions`. |
 
 ---
 
@@ -108,13 +174,10 @@ fixture would have.
   assess how you fit"*.
 
 ```bash
-npm install
-npm run verify     # typecheck, lint, 477 tests, build
-npm run dev        # rebuild on change
+npm run verify            # typecheck, lint, 477 tests, build
+npm run dev               # rebuild on change
 npm run capture-snippet   # build the fixture-capture console snippet
 ```
-
-Load `dist/` at `chrome://extensions` → Developer mode → Load unpacked.
 
 ## Decisions worth reading
 
