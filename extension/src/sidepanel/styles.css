@@ -1837,3 +1837,52 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 /* The one panel where a mistake cannot be taken back says so in its border. */
 .panel--danger { border-color: var(--alert-bg); background: linear-gradient(var(--surface), var(--alert-bg) 320%); }
 .panel--danger .panel__mark { color: var(--alert); }
+
+/* ==========================================================================
+   Suggestion cards
+   --------------------------------------------------------------------------
+   One obvious thing to press. "Do it" sits left at full weight; "Why?" and
+   "Not useful" sit right, quiet, on the same line — before, "Not useful" hung
+   alone under the row and read as a caption rather than a control.
+   ========================================================================== */
+
+.suggestion__row { justify-content: flex-start; }
+
+/* The quiet pair sits to the right of the one thing worth pressing. */
+.suggestion__why { margin-left: auto; }
+.suggestion__dismiss { margin: 0 0 0 12px; align-self: center; }
+
+/*
+ * The action mark takes the colour of what the action does: keeping something is
+ * honey, reading and copying is ink, anything that leaves the machine is rose.
+ * Colour carries a second signal here, never the only one — the risk badge and
+ * the button label both still say it.
+ */
+.suggestion__icon[data-action="save_to_memory"],
+.suggestion__icon[data-action="create_reminder"],
+.suggestion__icon[data-action="export_calendar_event"] {
+  background: var(--accent-bg);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.suggestion__icon[data-action="copy_details"],
+.suggestion__icon[data-action="extract_entities"],
+.suggestion__icon[data-action="summarise"] {
+  background: var(--sunk);
+  border-color: var(--line);
+  color: var(--ink-soft);
+}
+
+.suggestion__icon[data-action="open_application_link"],
+.suggestion__icon[data-action="open_payment_link"] {
+  background: var(--alert-bg);
+  border-color: transparent;
+  color: var(--alert);
+}
+
+/* A card whose action leaves the machine says so along its edge as well. */
+.suggestion:has(.badge--confirm) { border-left: 3px solid var(--alert-bg); }
+
+/* Complete-all: the hero of the screen, so it gets the product's own geometry. */
+.complete-all .btn__mark { width: 17px; height: 17px; }

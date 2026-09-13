@@ -811,9 +811,19 @@ function NowTab(props: NowProps) {
             )}
 
             {safeSuggestions.length > 1 && (
-              <div style={{ marginTop: 14 }}>
+              <div className="complete-all" style={{ marginTop: 14 }}>
                 <button className="btn btn--primary" onClick={props.onCompleteIt} disabled={busy}>
-                  {busy ? "Working…" : `Complete all ${safeSuggestions.length}`}
+                  {busy ? (
+                    <>
+                      <span className="spinner" aria-hidden="true" />
+                      Working…
+                    </>
+                  ) : (
+                    <>
+                      <BubbleMark className="btn__mark" />
+                      {`Complete all ${safeSuggestions.length}`}
+                    </>
+                  )}
                 </button>
                 <p className="why" style={{ marginTop: 6 }}>
                   Runs the {safeSuggestions.length} safe steps above, checks each one worked, and tells you
@@ -928,7 +938,7 @@ function SuggestionCard({
 
   return (
     <article className={`suggestion${outcome ? ` suggestion--${tone}` : ""}${running ? " suggestion--running" : ""}`}>
-      <span className="suggestion__icon" aria-hidden="true">
+      <span className="suggestion__icon" data-action={suggestion.actionId} aria-hidden="true">
         <ActionIcon actionId={suggestion.actionId} />
       </span>
 
@@ -984,7 +994,7 @@ function SuggestionCard({
             * explanation look like padding. It now only carries what the card does
             * not already say.
             */}
-          <details className="why">
+          <details className="why suggestion__why">
             <summary>Why?</summary>
             <dl>
               <dt>Risk</dt>
@@ -1004,59 +1014,62 @@ function SuggestionCard({
               <dd>No.</dd>
             </dl>
           </details>
+
+          {!outcome && !running && (
+            <button
+              className="btn--link btn--link-quiet suggestion__dismiss"
+              onClick={() => onDismiss(suggestion.actionId)}
+              title="Stop suggesting this"
+            >
+              Not useful
+            </button>
+          )}
+  
+          {/*
+            * The answer to the click, on the card that was clicked. Carries whatever
+            * the step produced — the file to download, the text to copy — and the
+            * Undo, so the user never has to go looking for the consequence of their
+            * own action.
+            */}
+          {outcome && (
+            <div className={`outcome outcome--${tone}`} id={`${suggestion.actionId}-result`} role="status">
+              <span className={`result__mark result__mark--${tone}`} aria-hidden="true">
+                {tone === "done" ? "✓" : tone === "fail" ? "×" : "!"}
+              </span>
+              <div className="outcome__body">
+                <p className="outcome__message">{outcome.message}</p>
+                <div className="outcome__actions">
+                  {suggestion.actionId === "copy_details" && outcome.handle && (
+                    <button className="btn btn--small" onClick={() => onCopy(outcome.handle!)}>
+                      Copy
+                    </button>
+                  )}
+                  {suggestion.actionId === "export_calendar_event" && outcome.handle && (
+                    <button className="btn btn--small" onClick={() => onDownload(outcome.handle!)}>
+                      Download .ics
+                    </button>
+                  )}
+                  {undoable && outcome.undoHandle && (
+                    <button
+                      className="btn btn--quiet btn--small"
+                      onClick={() => onUndo(outcome.actionId, outcome.undoHandle!)}
+                    >
+                      Undo
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/*
-          * Secondary controls sit below, in quiet text, so the card has exactly one
-          * obvious thing to press. Three same-weight buttons meant none of them
-          * read as the action.
+          * One obvious thing to press on the left; everything else quiet and to
+          * the right. Three controls at the same weight meant none of them read
+          * as the action — and "Not useful" sitting alone below looked like a
+          * caption rather than a button.
           */}
-        {!outcome && !running && (
-          <button
-            className="btn--link btn--link-quiet"
-            onClick={() => onDismiss(suggestion.actionId)}
-            title="Stop suggesting this"
-          >
-            Not useful
-          </button>
-        )}
 
-        {/*
-          * The answer to the click, on the card that was clicked. Carries whatever
-          * the step produced — the file to download, the text to copy — and the
-          * Undo, so the user never has to go looking for the consequence of their
-          * own action.
-          */}
-        {outcome && (
-          <div className={`outcome outcome--${tone}`} id={`${suggestion.actionId}-result`} role="status">
-            <span className={`result__mark result__mark--${tone}`} aria-hidden="true">
-              {tone === "done" ? "✓" : tone === "fail" ? "×" : "!"}
-            </span>
-            <div className="outcome__body">
-              <p className="outcome__message">{outcome.message}</p>
-              <div className="outcome__actions">
-                {suggestion.actionId === "copy_details" && outcome.handle && (
-                  <button className="btn btn--small" onClick={() => onCopy(outcome.handle!)}>
-                    Copy
-                  </button>
-                )}
-                {suggestion.actionId === "export_calendar_event" && outcome.handle && (
-                  <button className="btn btn--small" onClick={() => onDownload(outcome.handle!)}>
-                    Download .ics
-                  </button>
-                )}
-                {undoable && outcome.undoHandle && (
-                  <button
-                    className="btn btn--quiet btn--small"
-                    onClick={() => onUndo(outcome.actionId, outcome.undoHandle!)}
-                  >
-                    Undo
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </article>
   );
@@ -1816,7 +1829,7 @@ function Diagnostics({
 
   return (
     <div className="field">
-      <span className="field__label">What Bubiqo read</span>
+      <span className="visually-hidden">What Bubiqo read</span>
       <p className="field__help">
         If it got this page wrong, this says why — whether it read the wrong part of the page, or
         read the right part and misunderstood it. Copy it into a bug report.
