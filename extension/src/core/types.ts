@@ -82,6 +82,8 @@ export type EntityType =
   | "job_title"
   /** A condition that rules the reader out. Carries the advert's own sentence. */
   | "blocker"
+  /** Something the advert asks for, quoted in its own words. */
+  | "requirement"
   | "url";
 
 /**

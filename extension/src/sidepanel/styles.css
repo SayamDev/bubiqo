@@ -1435,3 +1435,96 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 
 /* "keeping up with this page" — quieter than the status it follows. */
 .status__watching { opacity: 0.65; }
+
+/* ==========================================================================
+   Saved items
+   --------------------------------------------------------------------------
+   A saved job was a title and a column of type/value pairs. These are cards
+   answering, in order, what a reader goes back to a saved advert to find out:
+   what it was, who for, what it paid, when it closes, what it asked for, who
+   to contact, and where to find it again.
+   ========================================================================== */
+
+.list--cards { display: flex; flex-direction: column; gap: 10px; }
+
+.card {
+  display: block;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--lift-sm);
+}
+
+.card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.card__title { margin: 0; font-size: var(--step-1); font-weight: 700; line-height: 1.25; }
+.card__meta { margin: 3px 0 0; font-size: var(--step--1); color: var(--ink-soft); }
+.card__employer { font-weight: 600; color: var(--ink); }
+
+/* The kind of thing this is, stated once rather than repeated per field. */
+.kind {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--sunk);
+  font-size: var(--step--2);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.card__verdict {
+  margin: 10px 0 0;
+  padding: 7px 11px;
+  border-radius: var(--r-input);
+  background: var(--alert-bg);
+  color: var(--alert);
+  font-size: var(--step--1);
+  font-weight: 700;
+}
+
+/* The headline facts, as a definition list: label above value, wrapping. */
+.facts { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 12px 0 0; }
+.facts__item { min-width: 84px; }
+.facts dt {
+  margin: 0;
+  font-size: var(--step--2);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.facts dd { margin: 2px 0 0; font-size: var(--step-0); font-weight: 600; }
+
+.bullets { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.bullets li { font-size: var(--step--1); color: var(--ink-soft); line-height: 1.45; }
+
+.card__contact { margin: 12px 0 0; font-size: var(--step--1); color: var(--ink-soft); }
+.card__contactLabel {
+  display: inline-block;
+  margin-right: 8px;
+  font-size: var(--step--2);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.card__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.card__actions .btn { text-decoration: none; }
+
+/*
+ * Deleting is two steps, not a confirm dialog.
+ *
+ * A single quiet "Delete" beside everything else was easy to hit by accident and
+ * gave no way back. The first press asks, the second does it, and "Keep it" is
+ * always the easier target.
+ */
+.btn--danger {
+  background: var(--alert);
+  border-color: transparent;
+  color: var(--surface);
+  font-weight: 700;
+}
+.btn--danger:hover:not(:disabled) { background: var(--alert); color: var(--surface); border-color: transparent; filter: brightness(1.08); }

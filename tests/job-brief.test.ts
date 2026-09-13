@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildJobBrief } from "@core/job-brief";
+import { buildJobBrief, briefToEntities } from "@core/job-brief";
 import { extractEntities } from "@core/entity-engine";
 import type { JobBrief, PageContext } from "@core/types";
 
@@ -11,6 +11,8 @@ import type { JobBrief, PageContext } from "@core/types";
 function build(page: PageContext, now = NOW): JobBrief {
   return buildJobBrief(page, extractEntities(page, now), now);
 }
+
+const entitiesFor = (page: PageContext, now = NOW) => extractEntities(page, now);
 
 const NOW = Date.UTC(2026, 8, 12);
 
@@ -539,5 +541,56 @@ describe("buildJobBrief — headings that end in a colon", () => {
       page({ text: "Consultancy experience would be helpful, but it is not essential.\nSecurity requirements\nYou will need clearance." }),
     );
     expect(brief.eligibility).not.toContain("Security requirements");
+  });
+});
+
+describe("briefToEntities — what a saved job should hold", () => {
+  const advert = page({
+    title: "Project Manager | EdenCare Support Services Ltd | Indeed",
+    headings: ["Project Manager"],
+    text: [
+      "Project Manager",
+      "EdenCare Support Services Ltd",
+      "53 Thicketford Road, Bolton BL2 2LS",
+      "From £33,900 a year - Full-time",
+      "Closing date: 30 September 2026",
+      "For questions about the job, contact: Kim Ellis, recruitment@edencare.example.com, 01204 555123",
+      "Person Specification",
+      "Proven experience of leading projects in health or social care",
+      "Strong organisational and time-management skills",
+      "An enhanced DBS check is required",
+      "What we offer",
+      "A pension",
+    ].join("\n"),
+  });
+
+  it("keeps the requirements, not only the headline facts", () => {
+    const saved = briefToEntities(build(advert), entitiesFor(advert));
+    const requirements = saved.filter((e) => e.type === "requirement").map((e) => e.value);
+    expect(requirements).toContain("Proven experience of leading projects in health or social care");
+    expect(requirements).toContain("Strong organisational and time-management skills");
+  });
+
+  it("keeps a way to get back to the advert", () => {
+    const saved = briefToEntities(build(advert), entitiesFor(advert), advert.url);
+    expect(saved.find((e) => e.type === "url")?.value).toBe("https://example.com/job");
+  });
+
+  it("keeps who to contact, where the advert names one", () => {
+    const saved = briefToEntities(build(advert), entitiesFor(advert));
+    expect(saved.find((e) => e.type === "email")?.value).toBe("recruitment@edencare.example.com");
+    expect(saved.find((e) => e.type === "phone")?.value).toContain("01204");
+  });
+
+  it("keeps the closing date and the blocker", () => {
+    const saved = briefToEntities(build(advert), entitiesFor(advert));
+    expect(saved.some((e) => e.type === "deadline")).toBe(true);
+    expect(saved.find((e) => e.type === "blocker")?.value).toBe("DBS check required");
+  });
+
+  it("saves nothing it cannot show evidence for", () => {
+    for (const entity of briefToEntities(build(advert), entitiesFor(advert))) {
+      expect(entity.source.length, `${entity.type} had no evidence`).toBeGreaterThan(0);
+    }
   });
 });

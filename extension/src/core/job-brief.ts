@@ -134,6 +134,9 @@ const MAX_ELIGIBILITY_ITEMS = 8;
 const MAX_ELIGIBILITY_CHARS = 400;
 const MAX_QUOTE = 180;
 
+/** Requirements kept on a saved job. Enough to judge it by, short of a transcript. */
+const MAX_SAVED_REQUIREMENTS = 8;
+
 /**
  * A quote cut to length, at a word.
  *
@@ -555,7 +558,7 @@ export function buildJobBrief(page: PageContext, entities: readonly Entity[], no
  * — into a saved job. These are the facts the Brief actually stands behind, each
  * carrying the evidence it was read from.
  */
-export function briefToEntities(brief: JobBrief): Entity[] {
+export function briefToEntities(brief: JobBrief, entities: readonly Entity[] = [], url?: string): Entity[] {
   const out: Entity[] = [];
 
   const add = (
@@ -593,6 +596,40 @@ export function briefToEntities(brief: JobBrief): Entity[] {
       source: blocker.evidence,
       sensitivity: "public",
     });
+  }
+
+  /*
+   * The requirements, in the advert's own words.
+   *
+   * A saved job held the headline facts and nothing about what it actually asked
+   * for, which is most of what a reader goes back to a saved advert to check.
+   */
+  for (const requirement of brief.eligibility.slice(0, MAX_SAVED_REQUIREMENTS)) {
+    out.push({
+      type: "requirement",
+      value: requirement,
+      confidence: 0.8,
+      source: requirement,
+      sensitivity: "public",
+    });
+  }
+
+  /*
+   * Who to contact, where the advert names someone. Public-sector adverts almost
+   * always do, and it is the thing a reader needs at the moment they act.
+   */
+  const contactTypes: readonly EntityType[] = ["email", "phone", "person"];
+  for (const type of contactTypes) {
+    const contact = entities.find((e) => e.type === type && e.sensitivity !== "sensitive");
+    if (contact) out.push(contact);
+  }
+
+  /*
+   * A way back to the advert. Saving the facts and not the link meant the user
+   * could not reopen the thing they had saved.
+   */
+  if (url) {
+    out.push({ type: "url", value: url, confidence: 1, source: "the page this was saved from", sensitivity: "public" });
   }
 
   return out;

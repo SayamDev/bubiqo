@@ -13,12 +13,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BriefField, BriefSource, JobBrief, Problem, Suggestion } from "@core/types";
+import type { BriefField, BriefSource, Entity, EntityType, JobBrief, MemoryItem, Problem, Suggestion } from "@core/types";
 import type { StepOutcome, CompleteItReport } from "@core/executor";
 import type { Briefing, PageFingerprint, PanelState, Request, Response } from "@shared/messages";
 import { send } from "@shared/messages";
 import { formatDue } from "@core/dates";
-import { shortenUrl } from "@core/storage-hygiene";
 import { riskLabel } from "@core/safety";
 import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime, displayMoney } from "./format";
 import { hasMoved, nextCheckDelay } from "./watch";
@@ -1123,6 +1122,126 @@ function Results({
  * of prose and could be wrong about it. Collapsing that distinction would be the
  * dishonest kind of confidence.
  */
+
+/**
+ * One saved item.
+ *
+ * A saved job used to be a title and a column of type/value pairs, which told the
+ * reader almost nothing and read like a database row. What someone goes back to a
+ * saved advert for is: what was it, who for, what did it pay, when does it close,
+ * what did it ask for, who do I contact, and where do I find it again. That is the
+ * order this shows them in.
+ */
+export function SavedItem({
+  item,
+  now,
+  onChange,
+}: {
+  item: MemoryItem;
+  now: number;
+  onChange: (response: Response) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+
+  const of = (type: EntityType) => item.entities.find((e) => e.type === type);
+  const all = (type: EntityType) => item.entities.filter((e) => e.type === type);
+
+  const employer = of("organisation");
+  const salary = of("amount");
+  const where = of("address");
+  const closes = of("deadline");
+  const link = of("url")?.value ?? item.url;
+  const requirements = all("requirement");
+  const blockers = all("blocker");
+  const contacts = [of("email"), of("phone"), of("person")].filter((e): e is Entity => e !== undefined);
+
+  const facts: { label: string; value: string }[] = [
+    ...(salary ? [{ label: "Pay", value: displayMoney(salary.value) }] : []),
+    ...(where ? [{ label: "Where", value: where.value }] : []),
+    ...(closes?.resolvedAt ? [{ label: "Closes", value: formatDue(closes.resolvedAt, now) }] : []),
+  ];
+
+  return (
+    <li className="card">
+      <div className="card__head">
+        <div>
+          <p className="card__title">{item.title}</p>
+          <p className="card__meta">
+            {employer ? <span className="card__employer">{employer.value}</span> : null}
+            {employer ? " · " : ""}
+            saved {relativeTime(item.savedAt, now)}
+          </p>
+        </div>
+        <span className={`kind kind--${item.kind}`}>{item.kind}</span>
+      </div>
+
+      {blockers.length > 0 && (
+        <p className="card__verdict">Ruled out — {blockers.map((b) => b.value).join(", ")}</p>
+      )}
+
+      {facts.length > 0 && (
+        <dl className="facts">
+          {facts.map((fact) => (
+            <div className="facts__item" key={fact.label}>
+              <dt>{fact.label}</dt>
+              <dd>{fact.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      {requirements.length > 0 && (
+        <details className="why disclosure" open={requirements.length <= 3}>
+          <summary>
+            What it asked for
+            <span className="section__count">{requirements.length}</span>
+          </summary>
+          <ul className="bullets">
+            {requirements.map((requirement) => (
+              <li key={requirement.value}>{requirement.value}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {contacts.length > 0 && (
+        <p className="card__contact">
+          <span className="card__contactLabel">Contact</span>
+          {contacts.map((contact) => contact.value).join(" · ")}
+        </p>
+      )}
+
+      <div className="card__actions">
+        {link && (
+          <a className="btn btn--small" href={link} target="_blank" rel="noreferrer noopener" title={link}>
+            Open the advert
+          </a>
+        )}
+        {confirming ? (
+          <>
+            <button
+              className="btn btn--small btn--danger"
+              onClick={async () => {
+                setConfirming(false);
+                onChange(await send({ type: "DELETE_MEMORY", id: item.id }));
+              }}
+            >
+              Delete for good
+            </button>
+            <button className="btn btn--quiet btn--small" onClick={() => setConfirming(false)}>
+              Keep it
+            </button>
+          </>
+        ) : (
+          <button className="btn btn--quiet btn--small" onClick={() => setConfirming(true)}>
+            Delete<span className="visually-hidden">: {item.title}</span>
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
 export function JobBriefBlock({ brief, now }: { brief: JobBrief | undefined; now: number }) {
   if (!brief) return null;
 
@@ -1415,44 +1534,9 @@ function MemoryTab({
             what you explicitly keep — there is no hidden profile.</p>
           </div>
         ) : (
-          <ul className="list">
+          <ul className="list list--cards">
             {memory.map((item) => (
-              <li className="row" key={item.id}>
-                <div>
-                  <p className="row__title">{item.title}</p>
-                  <p className="row__meta">
-                    {item.kind} · saved {relativeTime(item.savedAt, now)}
-                  </p>
-                  {/* "7 details" told the user nothing. Show the details. */}
-                  {item.entities.length > 0 && (
-                    <ul className="detail-list">
-                      {item.entities.slice(0, 6).map((e, i) => (
-                        <li key={`${e.type}-${i}`}>
-                          <span className="detail-list__type">{e.type.replace(/_/g, " ")}</span>
-                          <span className="detail-list__value" title={e.value}>
-                            {/* A tracking link is 700 characters of payload; show where it goes. */}
-                            {e.resolvedAt
-                              ? formatDue(e.resolvedAt, now)
-                              : e.type === "url"
-                                ? shortenUrl(e.value)
-                                : e.type === "amount"
-                                  ? // "GBP 35000–40000" is the stored shape, not a readable one.
-                                    displayMoney(e.value)
-                                  : e.value}
-                          </span>
-                        </li>
-                      ))}
-                      {item.entities.length > 6 && <li>and {item.entities.length - 6} more</li>}
-                    </ul>
-                  )}
-                </div>
-                <button
-                  className="btn btn--quiet btn--small"
-                  onClick={async () => onChange(await send({ type: "DELETE_MEMORY", id: item.id }))}
-                >
-                  Delete<span className="visually-hidden">: {item.title}</span>
-                </button>
-              </li>
+              <SavedItem key={item.id} item={item} now={now} onChange={onChange} />
             ))}
           </ul>
         )}

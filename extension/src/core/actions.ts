@@ -163,7 +163,9 @@ export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {
          * AMOUNT ×3, ORGANISATION New" — three salaries belonging to other adverts
          * in the rail, and a badge mistaken for an employer.
          */
-        const saved = (input.brief ? briefToEntities(input.brief) : input.entities).filter(
+        const saved = (
+          input.brief ? briefToEntities(input.brief, input.entities, input.page.url) : input.entities
+        ).filter(
           (e) => e.sensitivity !== "sensitive",
         );
 
@@ -306,7 +308,7 @@ export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {
       execute: async (input) => {
         // Same rule as saving: on a job advert, copy the Brief rather than every
         // amount and name the page happened to contain.
-        const lines = (input.brief ? briefToEntities(input.brief) : input.entities)
+        const lines = (input.brief ? briefToEntities(input.brief, input.entities, input.page.url) : input.entities)
           .filter((e) => e.sensitivity !== "sensitive")
           .slice(0, 12)
           .map((e) => `${e.type.replace(/_/g, " ")}: ${e.value}`);
