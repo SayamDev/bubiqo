@@ -261,6 +261,9 @@ const FURNITURE_HEADING = new RegExp(
       // September 2026: LinkedIn's first heading on a job page is now an AI
       // upsell, and it titled a brief "Use AI to assess how you fit".
       "use ai\\b", "assess how you fit",
+      // "Unlock hiring insights on Gamma" is a Premium upsell, and it was being
+      // read as the job title with the company beside it as the employer.
+      "unlock\\b", "hiring insights", "see how you compare", "am i a good fit",
       // Page sections that are about the site, not the content
       "application status", "people you can reach", "meet the hiring team", "job poster",
       "school alumni", "show all", "create (?:a )?(?:job )?alert", "job alert",

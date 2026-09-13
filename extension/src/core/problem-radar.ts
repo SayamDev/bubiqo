@@ -167,6 +167,8 @@ export function scanForProblems(
    * you were never eligible for is the worst outcome this product can allow.
    */
   for (const blocker of brief?.blockers ?? []) {
+    // A condition the user has said they meet is not something needing attention.
+    if (blocker.held) continue;
     found.push(problem("eligibility", blocker.summary, "today", 0.9, blocker.evidence));
   }
 

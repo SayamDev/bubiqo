@@ -40,7 +40,7 @@ describe("buildJobBrief — blockers", () => {
     const blocker = brief.blockers.find((b) => b.rule === "security_clearance");
     expect(blocker?.summary).toBe("Security clearance required");
     expect(blocker?.evidence).toMatch(/SC cleared/);
-    expect(brief.verdict).toBe("ruled_out");
+    expect(brief.verdict).toBe("conditions_outstanding");
   });
 
   it("flags a citizenship requirement written as a bullet under a heading", () => {
@@ -642,5 +642,32 @@ describe("briefToEntities — the contract and the pattern are kept too", () => 
     const saved = briefToEntities(build(advert), entitiesFor(advert), advert.url);
     expect(saved.find((e) => e.type === "employment_type")?.value).toBe("Permanent");
     expect(saved.find((e) => e.type === "working_pattern")?.value).toMatch(/2 days on-site/i);
+  });
+});
+
+describe("conditions the reader may already meet", () => {
+  const advert = page({ text: "This post is subject to an enhanced DBS check. A full UK driving licence is essential." });
+
+  it("states both conditions, and claims nothing about the reader", () => {
+    const brief = build(advert);
+    expect(brief.blockers.map((b) => b.rule).sort()).toEqual(["dbs_check", "driving_licence"]);
+    expect(brief.blockers.every((b) => b.held)).toBe(false);
+    expect(brief.verdict).toBe("conditions_outstanding");
+  });
+
+  it("marks a condition the user has said they meet", () => {
+    const brief = buildJobBrief(advert, entitiesFor(advert), NOW, ["dbs_check"]);
+    expect(brief.blockers.find((b) => b.rule === "dbs_check")?.held).toBe(true);
+    expect(brief.blockers.find((b) => b.rule === "driving_licence")?.held).toBe(false);
+    // One still outstanding, so the advert still has something to check.
+    expect(brief.verdict).toBe("conditions_outstanding");
+  });
+
+  it("says nothing is outstanding once the user meets them all", () => {
+    const brief = buildJobBrief(advert, entitiesFor(advert), NOW, ["dbs_check", "driving_licence"]);
+    expect(brief.verdict).toBeUndefined();
+    // The conditions are still listed: the advert still states them.
+    expect(brief.blockers).toHaveLength(2);
+    expect(brief.blockers.every((b) => b.held)).toBe(true);
   });
 });

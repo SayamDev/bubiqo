@@ -36,6 +36,7 @@ import {
   TrashMark,
   ActivityMark,
   BellMark,
+  TickMark,
   DialMark,
   LockMark,
   PaletteMark,
@@ -293,6 +294,23 @@ export function App() {
     };
   }, [analyse]);
 
+  /*
+   * "I have this" / "I do not have this".
+   *
+   * Kept in Settings with everything else, so it is local, inspectable and
+   * deletable — and it is only ever set by the user pressing the button. Nothing
+   * here infers what somebody holds.
+   */
+  const holdCondition = useCallback(
+    async (rule: string, held: boolean) => {
+      const current = state?.settings.heldConditions ?? [];
+      const next = held ? [...new Set([...current, rule])] : current.filter((id) => id !== rule);
+      apply(await send({ type: "SET_SETTINGS", settings: { heldConditions: next } }));
+      void analyse();
+    },
+    [apply, analyse, state?.settings.heldConditions],
+  );
+
   const runAction = useCallback(
     async (actionId: string, approved = false) => {
       setCardState((previous) => ({ ...previous, [actionId]: "running" }));
@@ -534,6 +552,7 @@ export function App() {
             onTurnOn={turnOn}
             onDismiss={dismiss}
             onShowMemory={() => setTab("memory")}
+            onHoldCondition={holdCondition}
             onDismissIntro={dismissIntro}
             showIntro={showIntro}
             cardState={cardState}
@@ -689,6 +708,7 @@ interface NowProps {
   onTurnOn: () => void;
   onDismiss: (id: string) => void;
   onShowMemory: () => void;
+  onHoldCondition: (rule: string, held: boolean) => void;
   onDismissIntro: () => void;
   showIntro: boolean;
   cardState: Record<string, "running" | StepOutcome>;
@@ -889,7 +909,7 @@ function NowTab(props: NowProps) {
         )}
       </section>
 
-      <JobBriefBlock brief={analysis?.brief} now={now} />
+      <JobBriefBlock brief={analysis?.brief} now={now} onHoldCondition={props.onHoldCondition} />
 
             <BriefingBlock briefing={briefing} now={now} />
 
@@ -1010,6 +1030,16 @@ function SuggestionCard({
           </p>
         )}
 
+        {/*
+          * A finished action does not need its own controls any more.
+          *
+          * The card kept a greyed-out "Done" button, a "Why?" link and a full
+          * result panel — three pieces of furniture for something already over,
+          * and the disabled button was the loudest thing on it. When a step has
+          * succeeded the card says so in one line and offers the one thing still
+          * worth doing, which is undoing it.
+          */}
+        {!finished && (
         <div className="suggestion__row">
           <button
             className="btn btn--action"
@@ -1077,9 +1107,10 @@ function SuggestionCard({
             * own action.
             */}
         </div>
+        )}
 
         {outcome && (
-            <div className={`outcome outcome--${tone}`} id={`${suggestion.actionId}-result`} role="status">
+            <div className={`outcome outcome--${tone}${finished ? " outcome--compact" : ""}`} id={`${suggestion.actionId}-result`} role="status">
               <span className={`result__mark result__mark--${tone}`} aria-hidden="true">
                 {tone === "done" ? "✓" : tone === "fail" ? "×" : "!"}
               </span>
@@ -1499,8 +1530,19 @@ export function SavedItem({
   );
 }
 
-export function JobBriefBlock({ brief, now }: { brief: JobBrief | undefined; now: number }) {
+export function JobBriefBlock({
+  brief,
+  now,
+  onHoldCondition,
+}: {
+  brief: JobBrief | undefined;
+  now: number;
+  /** Record that the user does, or no longer does, meet a condition. */
+  onHoldCondition?: (rule: string, held: boolean) => void;
+}) {
   if (!brief) return null;
+
+  const outstanding = brief.blockers.filter((blocker) => !blocker.held).length;
 
   const facts: { label: string; field: BriefField<string | number> | undefined; value?: string }[] = [
     { label: "Pay", field: brief.salary, value: brief.salary ? displayMoney(brief.salary.value) : undefined },
@@ -1536,17 +1578,38 @@ export function JobBriefBlock({ brief, now }: { brief: JobBrief | undefined; now
       </div>
 
       {brief.blockers.length > 0 && (
-        <div className="verdict" role="status">
+        /*
+         * Conditions the advert sets — never a verdict on the reader.
+         *
+         * This said "Ruled out". It cannot know: a DBS check can be obtained, a
+         * licence can be earned, the reader may already hold either. So it states
+         * what the advert asks, quotes where it asks it, and offers one press to
+         * say "I have this" — which is remembered, so the next advert asking for
+         * the same thing shows it as met.
+         */
+        <div className={`verdict${outstanding === 0 ? " verdict--met" : ""}`} role="status">
           <p className="verdict__headline">
-            <BlockMark className="verdict__mark" />
-            Ruled out — {brief.blockers.length === 1 ? "one condition" : `${brief.blockers.length} conditions`} you would
-            have to meet
+            {outstanding === 0 ? <TickMark className="verdict__mark" /> : <BlockMark className="verdict__mark" />}
+            {outstanding === 0
+              ? "You have said you meet everything this asks for"
+              : `${outstanding === 1 ? "One condition" : `${outstanding} conditions`} to check before applying`}
           </p>
           <ul className="verdict__list">
             {brief.blockers.map((blocker) => (
-              <li key={blocker.rule}>
-                <span className="verdict__name">{blocker.summary}</span>
+              <li key={blocker.rule} className={blocker.held ? "verdict__item--held" : undefined}>
+                <span className="verdict__name">
+                  {blocker.held && <TickMark className="verdict__held" />}
+                  {blocker.summary}
+                </span>
                 <span className="verdict__quote">“{blocker.evidence}”</span>
+                {onHoldCondition && (
+                  <button
+                    className="btn btn--quiet btn--small verdict__claim"
+                    onClick={() => onHoldCondition(blocker.rule, !blocker.held)}
+                  >
+                    {blocker.held ? "I do not have this" : "I have this"}
+                  </button>
+                )}
               </li>
             ))}
           </ul>

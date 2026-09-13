@@ -388,7 +388,7 @@ describe("a real Indeed page, sidebar and all", () => {
 
   it("finds the right-to-work condition", () => {
     expect(analysis.brief?.blockers.some((b) => b.rule === "right_to_work")).toBe(true);
-    expect(analysis.brief?.verdict).toBe("ruled_out");
+    expect(analysis.brief?.verdict).toBe("conditions_outstanding");
   });
 
   it("is recognised as a job advert", () => {

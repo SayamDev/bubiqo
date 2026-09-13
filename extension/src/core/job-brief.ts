@@ -183,7 +183,7 @@ function quoteAround(text: string, index: number, length: number): string {
   return line.slice(start, end).replace(/^[-•*\u2022\s]+/, "").trim();
 }
 
-function findBlockers(text: string): Blocker[] {
+function findBlockers(text: string, held: readonly string[]): Blocker[] {
   const found: Blocker[] = [];
   for (const rule of BLOCKER_RULES) {
     const match = rule.pattern.exec(text);
@@ -192,6 +192,7 @@ function findBlockers(text: string): Blocker[] {
       rule: rule.id,
       summary: rule.summary,
       evidence: clip(quoteAround(text, match.index, match[0].length)),
+      held: held.includes(rule.id),
     });
   }
   return found;
@@ -508,7 +509,12 @@ function readProseTitle(page: PageContext): BriefField<string> | undefined {
  * or the company advertising in the sidebar — and the Entity extractor already
  * offers organisations with their own evidence.
  */
-export function buildJobBrief(page: PageContext, entities: readonly Entity[], now: number): JobBrief {
+export function buildJobBrief(
+  page: PageContext,
+  entities: readonly Entity[],
+  now: number,
+  heldConditions: readonly string[] = [],
+): JobBrief {
   const posting = readJobPosting(page.structuredData);
   const text = advertText(page.text);
 
@@ -554,7 +560,8 @@ export function buildJobBrief(page: PageContext, entities: readonly Entity[], no
 
   const workingPattern = readWorkingPattern(text);
 
-  const blockers = findBlockers(text);
+  const blockers = findBlockers(text, heldConditions);
+  const outstanding = blockers.filter((blocker) => !blocker.held);
 
   return {
     ...(trimmedTitle ? { title: trimmedTitle } : {}),
@@ -566,7 +573,7 @@ export function buildJobBrief(page: PageContext, entities: readonly Entity[], no
     ...(workingPattern ? { workingPattern } : {}),
     blockers,
     eligibility: readEligibility(page, text),
-    ...(blockers.length > 0 ? { verdict: "ruled_out" as const } : {}),
+    ...(outstanding.length > 0 ? { verdict: "conditions_outstanding" as const } : {}),
   };
 }
 

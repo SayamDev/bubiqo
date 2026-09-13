@@ -672,7 +672,49 @@ body::before {
 }
 
 .switch { display: flex; align-items: flex-start; gap: 11px; }
-.switch input { margin-top: 3px; flex: none; width: 17px; height: 17px; accent-color: var(--accent); }
+/*
+ * The checkbox is drawn, not left to the browser.
+ *
+ * `accent-color` alone leaves the unchecked box as the platform's own square,
+ * which on this cream ground rendered as a solid dark block — indistinguishable
+ * from a ticked one, so a feature that is off by default looked on. Unchecked is
+ * now an empty outline on the card's own background; checked is the accent with
+ * a tick drawn on it. Both states are stated explicitly, in both themes.
+ */
+.switch input {
+  appearance: none;
+  -webkit-appearance: none;
+  margin-top: 2px;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background-color 140ms var(--spring), border-color 140ms var(--spring);
+}
+
+.switch input:hover { border-color: var(--accent-line); }
+
+.switch input::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  clip-path: polygon(14% 44%, 0 60%, 39% 100%, 100% 22%, 84% 8%, 39% 68%);
+  background: var(--surface);
+  transform: scale(0);
+  transition: transform 160ms var(--spring);
+}
+
+.switch input:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.switch input:checked::after { transform: scale(1); }
 
 .field code {
   font-size: 0.9em;
@@ -2143,3 +2185,23 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 
 /* The mark is drawn from the 128px asset; keep the browser from softening it. */
 .brand__mark { image-rendering: -webkit-optimize-contrast; }
+
+/*
+ * A finished step, said once.
+ *
+ * The done state carried a disabled "Done" button, a "Why?" link and a panel —
+ * three controls for something already over, with the dead one shouting loudest.
+ * Now: one line, and the only thing still worth offering sits on the same line.
+ */
+.outcome--compact { align-items: center; }
+.outcome--compact .outcome__body { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.outcome--compact .outcome__message { margin: 0; font-weight: 600; }
+.outcome--compact .outcome__actions { margin: 0; }
+
+/* Conditions an advert sets, and whether the reader has said they meet them. */
+.verdict--met { background: var(--ok-bg); color: var(--ok); }
+.verdict__held { width: 14px; height: 14px; flex: none; margin-right: 5px; vertical-align: -2px; }
+.verdict__item--held { opacity: 0.75; }
+.verdict__item--held .verdict__name { text-decoration: none; }
+.verdict__claim { margin-top: 4px; align-self: flex-start; color: inherit; opacity: 0.9; }
+.verdict__claim:hover { opacity: 1; text-decoration: underline; }

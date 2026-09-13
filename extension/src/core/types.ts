@@ -141,6 +141,8 @@ export interface Blocker {
   readonly summary: string;
   readonly evidence: string;
   readonly rule: string;
+  /** True when the user has said they already meet this. See Settings.heldConditions. */
+  readonly held: boolean;
 }
 
 /**
@@ -165,12 +167,15 @@ export interface JobBrief {
   /** The advert's own eligibility lines, quoted verbatim and capped. */
   readonly eligibility: readonly string[];
   /**
-   * Present only when a blocking rule matched. There is deliberately no positive
-   * verdict: telling someone they are eligible when they are not is the one error
-   * that costs them a real opportunity, and these rules are not good enough to
-   * earn that claim.
+   * Present only while at least one condition is outstanding — one the advert
+   * states and the user has not said they meet.
+   *
+   * It is a statement about the advert, never about the reader: "this asks for
+   * things you have not told us you have", not "you cannot apply". The product
+   * cannot know what someone holds, and an earlier version that assumed the worst
+   * ruled people out of jobs nobody had ruled them out of.
    */
-  readonly verdict?: "ruled_out";
+  readonly verdict?: "conditions_outstanding";
 }
 
 // ---------------------------------------------------------------------------
@@ -377,6 +382,19 @@ export interface Settings {
   readonly disabledActionIds: readonly string[];
   readonly currencyConversion: boolean;
   readonly homeCurrency: string;
+  /**
+   * Conditions the user has told us they already meet.
+   *
+   * An advert asking for a DBS check says nothing about whether the reader has
+   * one — they may hold it, or get one in a fortnight. Treating the advert's
+   * requirement as a fact about the person was the product claiming knowledge it
+   * has no way of having, and it ruled people out of jobs nobody had ruled them
+   * out of.
+   *
+   * Rule ids from core/job-brief.ts. Stored locally with everything else, never
+   * inferred from behaviour, and empty until the user says otherwise.
+   */
+  readonly heldConditions: readonly string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -386,4 +404,5 @@ export const DEFAULT_SETTINGS: Settings = {
   disabledActionIds: [],
   currencyConversion: false,
   homeCurrency: "GBP",
+  heldConditions: [],
 };

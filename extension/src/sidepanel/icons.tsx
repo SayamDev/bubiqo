@@ -391,3 +391,13 @@ export function BellMark({ className }: MarkProps) {
     </svg>
   );
 }
+
+/** A tick, for a condition the reader has said they meet. */
+export function TickMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.4" fill="currentColor" opacity="0.16" />
+      <path d="m5.2 8.2 1.9 1.9 3.7-4.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

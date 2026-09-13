@@ -289,3 +289,15 @@ describe("the injected extractor keeps up with the tested rules", () => {
     expect(pattern(extract, "DETAIL_PANE")).toBe(pattern(readability, "DETAIL_PANE"));
   });
 });
+
+describe("LinkedIn keeps inventing upsells", () => {
+  it("knows the ones seen in September 2026", () => {
+    for (const heading of [
+      "Unlock hiring insights on Gamma",
+      "Use AI to assess how you fit",
+      "See how you compare to other applicants",
+    ]) {
+      expect(isFurnitureHeading(heading), heading).toBe(true);
+    }
+  });
+});

@@ -94,7 +94,7 @@ describe("right-click, read this", () => {
 
     const analysis = asState(await dispatch({ type: "GET_STATE" })).analysis!;
     expect(analysis.brief?.blockers.some((b) => b.rule === "right_to_work")).toBe(true);
-    expect(analysis.brief?.verdict).toBe("ruled_out");
+    expect(analysis.brief?.verdict).toBe("conditions_outstanding");
   });
 
   it("opens the panel, which a context-menu click is allowed to do", async () => {
