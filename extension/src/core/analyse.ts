@@ -94,11 +94,12 @@ export function analyse(
       ? allProblems.filter((p) => p.urgency === "overdue" || p.urgency === "today")
       : allProblems;
 
-  const input: ActionInput = { page: safePage, entities, problems, params: {} };
+  const input: ActionInput = { page: safePage, entities, problems, params: {}, ...(brief ? { brief } : {}) };
 
   const suggestions = rankSuggestions(registry, input, {
     surface: classification.surface,
     entities,
+    ...(brief ? { brief } : {}),
     problems,
     intents,
     settings: options.settings,
@@ -121,7 +122,13 @@ export function analyse(
 
 /** Build the ActionInput matching an Analysis, for handing to the Executor. */
 export function toActionInput(page: PageContext, analysis: Analysis): ActionInput {
-  return { page, entities: analysis.entities, problems: analysis.problems, params: {} };
+  return {
+    page,
+    entities: analysis.entities,
+    problems: analysis.problems,
+    params: {},
+    ...(analysis.brief ? { brief: analysis.brief } : {}),
+  };
 }
 
 /**

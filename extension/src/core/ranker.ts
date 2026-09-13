@@ -8,18 +8,7 @@
  * it, because a suggestion the user cannot interrogate is one they will not trust.
  */
 
-import type {
-  ActionDefinition,
-  ActionInput,
-  Entity,
-  Intent,
-  Problem,
-  ProactivityMode,
-  Settings,
-  Suggestion,
-  Surface,
-  Urgency,
-} from "./types";
+import type { ActionDefinition, ActionInput, Entity, Intent, JobBrief, ProactivityMode, Problem, Settings, Suggestion, Surface, Urgency } from "./types";
 import { formatDue } from "./dates";
 
 export const MAX_PRIMARY_SUGGESTIONS = 3;
@@ -63,6 +52,8 @@ const SURFACE_AFFINITY: Readonly<Record<Surface, Readonly<Record<string, number>
 export interface RankingContext {
   readonly surface: Surface;
   readonly entities: readonly Entity[];
+  /** The Job Brief, on a job advert: what the page is about, not everything on it. */
+  readonly brief?: JobBrief;
   readonly problems: readonly Problem[];
   readonly intents: readonly Intent[];
   readonly settings: Settings;
@@ -194,12 +185,21 @@ function explain(actionId: string, ctx: RankingContext): { rationale: string; bo
     }
 
     case "save_to_memory": {
-      const role = ctx.entities.find((e) => e.type === "job_title");
-      const company = ctx.entities.find((e) => e.type === "organisation");
+      /*
+       * The Brief names the role and the employer where there is one. Reading them
+       * off the Entity list instead produced "the ... role at New" — "New" being
+       * the badge on a job card, not a company.
+       */
+      const role = ctx.brief?.title
+        ? { value: ctx.brief.title.value }
+        : ctx.entities.find((e) => e.type === "job_title");
+      const company = ctx.brief?.organisation
+        ? { value: ctx.brief.organisation.value }
+        : ctx.entities.find((e) => e.type === "organisation");
       if (role) {
         // Name the thing being saved. "7 details" tells the user nothing — and do
         // not promise dates on an advert that states none.
-        const hasDate = ctx.entities.some((e) => e.resolvedAt !== undefined);
+        const hasDate = ctx.brief?.closingDate !== undefined || ctx.entities.some((e) => e.resolvedAt !== undefined);
         const extras = hasDate ? "its dates, pay and requirements" : "the pay and requirements";
         return {
           rationale: company

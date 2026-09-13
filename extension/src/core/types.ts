@@ -80,6 +80,8 @@ export type EntityType =
   | "currency"
   | "reference"
   | "job_title"
+  /** A condition that rules the reader out. Carries the advert's own sentence. */
+  | "blocker"
   | "url";
 
 /**
@@ -244,6 +246,15 @@ export interface ActionInput {
   readonly entities: readonly Entity[];
   readonly problems: readonly Problem[];
   readonly params: Readonly<Record<string, string | number | boolean>>;
+  /**
+   * The Job Brief, on a job advert.
+   *
+   * Actions that save or copy prefer it to the raw Entity list, because the Entity
+   * list is everything found on the page and the Brief is what the page is about.
+   * A saved job read "CURRENCY GBP / AMOUNT ×3 / ORGANISATION New" — three of
+   * those amounts belonged to other adverts and "New" was a badge.
+   */
+  readonly brief?: JobBrief;
 }
 
 /**

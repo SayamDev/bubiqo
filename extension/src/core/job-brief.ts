@@ -20,7 +20,7 @@
  * and the reader is entitled to tell them apart.
  */
 
-import type { Blocker, BriefField, Entity, JobBrief, PageContext } from "./types";
+import type { Blocker, BriefField, Entity, EntityType, JobBrief, PageContext, Sensitivity } from "./types";
 import { readJobPosting } from "./job-posting";
 import { resolveDates } from "./dates";
 import { looksLikeSalary } from "./money";
@@ -373,4 +373,56 @@ export function buildJobBrief(page: PageContext, entities: readonly Entity[], no
     eligibility: readEligibility(page, text),
     ...(blockers.length > 0 ? { verdict: "ruled_out" as const } : {}),
   };
+}
+
+
+/**
+ * The Brief as Entities, for saving and copying.
+ *
+ * Memory stores Entities, and saving every Entity on the page put three other
+ * adverts' salaries and an employer called "New" — a badge on a neighbouring card
+ * — into a saved job. These are the facts the Brief actually stands behind, each
+ * carrying the evidence it was read from.
+ */
+export function briefToEntities(brief: JobBrief): Entity[] {
+  const out: Entity[] = [];
+
+  const add = (
+    type: EntityType,
+    value: string | undefined,
+    field: BriefField<unknown> | undefined,
+    extra: { resolvedAt?: number } = {},
+  ): void => {
+    if (!value || !field) return;
+    out.push({
+      type,
+      value,
+      confidence: field.confidence,
+      source: field.evidence,
+      sensitivity: "public" as Sensitivity,
+      ...extra,
+    });
+  };
+
+  add("job_title", brief.title?.value, brief.title);
+  add("organisation", brief.organisation?.value, brief.organisation);
+  add("amount", brief.salary?.value, brief.salary);
+  add("address", brief.location?.value, brief.location);
+  if (brief.closingDate) {
+    add("deadline", new Date(brief.closingDate.value).toISOString().slice(0, 10), brief.closingDate, {
+      resolvedAt: brief.closingDate.value,
+    });
+  }
+
+  for (const blocker of brief.blockers) {
+    out.push({
+      type: "blocker",
+      value: blocker.summary,
+      confidence: 0.9,
+      source: blocker.evidence,
+      sensitivity: "public",
+    });
+  }
+
+  return out;
 }

@@ -4,9 +4,9 @@ import { JobBriefBlock } from "../extension/src/sidepanel/App";
 import { analyse } from "@core/analyse";
 import { buildRegistry } from "@core/actions";
 import { DEFAULT_SETTINGS, type PageContext } from "@core/types";
-import techLead from "../tests/captured/linkedin-tech-lead.json";
-import indeed from "../tests/captured/indeed-job.json";
-import synthetic from "../tests/captured/job.json";
+import indeedViewjob from "../tests/captured/indeed-viewjob.json";
+import linkedin from "../tests/captured/linkedin-prompt-engineer.json";
+import nhs from "../tests/captured/nhs-job.json";
 
 const NOW = new Date(2026, 2, 6, 10, 0, 0).getTime();
 const ports = {
@@ -23,8 +23,8 @@ const brief = (page: unknown) =>
 
 createRoot(document.getElementById("root")!).render(
   <div className="app" data-surface="job" style={{ maxWidth: 420, padding: 12 }}>
-    <JobBriefBlock brief={brief(techLead)} now={NOW} />
-    <JobBriefBlock brief={brief(indeed)} now={NOW} />
-    <JobBriefBlock brief={brief(synthetic)} now={NOW} />
+    <JobBriefBlock brief={brief(indeedViewjob)} now={NOW} />
+    <JobBriefBlock brief={brief(linkedin)} now={NOW} />
+    <JobBriefBlock brief={brief(nhs)} now={NOW} />
   </div>,
 );

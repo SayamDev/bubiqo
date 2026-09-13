@@ -1309,7 +1309,14 @@ function MemoryTab({
                           <span className="detail-list__type">{e.type.replace(/_/g, " ")}</span>
                           <span className="detail-list__value" title={e.value}>
                             {/* A tracking link is 700 characters of payload; show where it goes. */}
-                            {e.resolvedAt ? formatDue(e.resolvedAt, now) : e.type === "url" ? shortenUrl(e.value) : e.value}
+                            {e.resolvedAt
+                              ? formatDue(e.resolvedAt, now)
+                              : e.type === "url"
+                                ? shortenUrl(e.value)
+                                : e.type === "amount"
+                                  ? // "GBP 35000–40000" is the stored shape, not a readable one.
+                                    displayMoney(e.value)
+                                  : e.value}
                           </span>
                         </li>
                       ))}

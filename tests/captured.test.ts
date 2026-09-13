@@ -605,3 +605,55 @@ describe("a real Indeed viewjob page, 2026", () => {
     expect(analysis.brief?.workingPattern?.source).toBe("prose");
   });
 });
+
+/*
+ * What a job advert actually saves and copies.
+ *
+ * Reported from the extension running on Indeed: the saved record read
+ * "CURRENCY GBP / AMOUNT GBP 41204–54000 / AMOUNT GBP 47303–64600 / AMOUNT
+ * GBP 40000–45000 / ORGANISATION New / JOB TITLE ...". Three of those salaries
+ * belonged to other adverts in the rail beside the one being read, and "New" is
+ * the badge on a job card, not an employer.
+ */
+describe("saving and copying a job advert", () => {
+  const page = captured("indeed-viewjob");
+  const analysis = run(page);
+  const input = toActionInput(page, analysis);
+
+  it("saves the facts the brief stands behind, not every amount on the page", async () => {
+    const registry = buildRegistry(ports);
+    const save = registry.get("save_to_memory");
+    const result = await save!.execute({ ...input, params: { kind: "job" } });
+
+    expect(result.ok).toBe(true);
+    const saved = await ports.memory.get(result.handle as string);
+
+    const values = saved!.entities.map((e) => `${e.type}:${e.value}`);
+    expect(values).toContain("job_title:Business Applications Developer");
+    expect(values).toContain("organisation:Data8 Ltd");
+    expect(values).toContain("amount:GBP 35000–40000");
+
+    // One salary, the advert's own.
+    expect(saved!.entities.filter((e) => e.type === "amount")).toHaveLength(1);
+    // A currency with no amount attached says nothing to anyone.
+    expect(saved!.entities.some((e) => e.type === "currency")).toBe(false);
+    // The employer is the employer.
+    expect(values).not.toContain("organisation:New");
+  });
+
+  it("names the role and the employer in the suggestion, from the brief", () => {
+    const save = analysis.suggestions.find((s) => s.actionId === "save_to_memory");
+    expect(save?.rationale).toContain("Business Applications Developer");
+    expect(save?.rationale).toContain("Data8 Ltd");
+    expect(save?.rationale).not.toMatch(/role at New\b/);
+  });
+
+  it("copies the same facts, in the same words", async () => {
+    const registry = buildRegistry(ports);
+    const copy = registry.get("copy_details");
+    const result = await copy!.execute(input);
+    expect(result.ok).toBe(true);
+    expect(result.handle).toContain("organisation: Data8 Ltd");
+    expect(result.handle).toContain("amount: GBP 35000–40000");
+  });
+});

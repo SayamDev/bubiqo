@@ -14,6 +14,7 @@ import type { Ports } from "./ports";
 import { assertWellFormed } from "./safety";
 import { formatDue } from "./dates";
 import { preferredTitle } from "./storage-hygiene";
+import { briefToEntities } from "./job-brief";
 
 const ok = (message: string, handle: string | undefined, undoable: boolean): ActionResult =>
   handle === undefined ? { ok: true, message, undoable } : { ok: true, message, handle, undoable };
@@ -156,14 +157,23 @@ export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {
         /*
          * Only extracted entities are saved, never raw page text. This is the
          * data-minimisation promise in PRIVACY.md expressed as code.
+         *
+         * On a job advert the Brief decides what those entities are. Saving
+         * everything the page offered produced a record reading "CURRENCY GBP,
+         * AMOUNT ×3, ORGANISATION New" — three salaries belonging to other adverts
+         * in the rail, and a badge mistaken for an employer.
          */
+        const saved = (input.brief ? briefToEntities(input.brief) : input.entities).filter(
+          (e) => e.sensitivity !== "sensitive",
+        );
+
         const id = await ports.memory.save({
           kind,
-          title: paramString(input, "title", pageTitle(input)),
-          entities: input.entities.filter((e) => e.sensitivity !== "sensitive"),
+          title: paramString(input, "title", input.brief?.title?.value ?? pageTitle(input)),
+          entities: saved,
           url: input.page.url,
         });
-        return ok(`Saved ${input.entities.length} details to Memory.`, id, true);
+        return ok(`Saved ${saved.length} details to Memory.`, id, true);
       },
       verify: async (result) => {
         if (!result.handle) return unconfirmed("No memory id was returned.");
@@ -294,7 +304,9 @@ export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {
        * this product must never do.
        */
       execute: async (input) => {
-        const lines = input.entities
+        // Same rule as saving: on a job advert, copy the Brief rather than every
+        // amount and name the page happened to contain.
+        const lines = (input.brief ? briefToEntities(input.brief) : input.entities)
           .filter((e) => e.sensitivity !== "sensitive")
           .slice(0, 12)
           .map((e) => `${e.type.replace(/_/g, " ")}: ${e.value}`);
