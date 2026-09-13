@@ -2267,3 +2267,46 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
   border-radius: var(--r-pill);
 }
 .chips__remove:hover { color: var(--alert); }
+
+/* ==========================================================================
+   A reading column, once there is room
+   --------------------------------------------------------------------------
+   The panel is usually a narrow strip, so everything was built to fill its
+   width. Undocked — or on a wide monitor where Chrome gives the panel half the
+   screen — that same rule stretched a two-line suggestion across 1,900 pixels,
+   with the button at one end, the text at the other, and a field of nothing
+   between them. It read as unfinished.
+
+   Above 720px the content stops growing and sits in a column of its own. No
+   layout changes, no breakpoint-specific components: the same cards, given a
+   width a person can actually read across.
+   ========================================================================== */
+
+/*
+ * The cap goes on the containers, not on their children.
+ *
+ * Capping each child separately centred them independently, so the wordmark sat
+ * in the middle of the screen while the surface chip stayed pinned to the far
+ * left — worse than the stretch it replaced. The artwork is absolutely
+ * positioned, so it keeps its own corner either way.
+ */
+@media (min-width: 720px) {
+  .header,
+  .tabs__inner,
+  .tabs,
+  .main {
+    max-width: 808px;
+    margin-inline: auto;
+    width: 100%;
+  }
+}
+
+/* Wider still: hold the column rather than letting it sprawl. */
+@media (min-width: 1200px) {
+  .header,
+  .tabs__inner,
+  .tabs,
+  .main {
+    max-width: 880px;
+  }
+}
