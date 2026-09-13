@@ -17,9 +17,9 @@ import type { BriefField, Entity, EntityType, JobBrief, MemoryItem, Problem, Sug
 import type { StepOutcome, CompleteItReport } from "@core/executor";
 import type { Briefing, PageFingerprint, PanelState, Request, Response } from "@shared/messages";
 import { send } from "@shared/messages";
-import { formatDue } from "@core/dates";
+import { formatDue, describeUrgency } from "@core/dates";
 import { riskLabel } from "@core/safety";
-import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime, displayMoney } from "./format";
+import { surfaceChip, attentionHeadline, jobHeadline, urgencyWord, relativeTime, clockTime, displayMoney } from "./format";
 import { hasMoved, nextCheckDelay } from "./watch";
 import { splitSuggestions } from "@core/ranker";
 import {
@@ -34,6 +34,7 @@ import {
   ShareMark,
   TrashMark,
   ActivityMark,
+  BellMark,
   DialMark,
   LockMark,
   PaletteMark,
@@ -564,11 +565,18 @@ function Header({ state }: { state: PanelState | undefined }) {
     : blocked
       ? "Nothing to read here"
       : analysis
-        ? attentionHeadline(
-          analysis.problems.length,
-          analysis.suggestions.length,
-          analysis.problems.length > 0 && analysis.problems.every((p) => p.kind === "eligibility"),
-        )
+        ? (analysis.brief
+            ? jobHeadline({
+                blockers: analysis.brief.blockers.length,
+                requirements: analysis.brief.eligibility.length,
+                hasSalary: analysis.brief.salary !== undefined,
+              })
+            : undefined) ??
+          attentionHeadline(
+            analysis.problems.length,
+            analysis.suggestions.length,
+            analysis.problems.length > 0 && analysis.problems.every((p) => p.kind === "eligibility"),
+          )
         : "Reading this page…";
 
   const attention = analysis?.problems.length ?? 0;
@@ -1658,21 +1666,44 @@ function MemoryTab({
         </h2>
         <ClearAll count={reminders.length} noun="reminder" request={{ type: "CLEAR_REMINDERS" }} onChange={onChange} />
         {reminders.length === 0 ? (
-          <p className="empty">No reminders yet. Create one from a page with a date on it.</p>
+          <div className="empty">
+            <BellMark className="empty__mark" />
+            <p className="empty__title">No reminders yet</p>
+            <p>Open Bubiqo on a page that states a date — a closing date, a due date, an appointment
+            — and it will offer to hold on to it for you.</p>
+          </div>
         ) : (
-          <ul className="list">
-            {reminders.map((reminder) => (
-              <li className="row" key={reminder.id}>
-                <div>
-                  <p className="row__title">{reminder.title}</p>
-                  <p className="row__meta">{formatDue(reminder.dueAt, now)}</p>
+        /*
+         * Reminders are cards too. The Memory tab was half new cards and half old
+         * rows, which reads as two different products stacked on one screen.
+         */
+        <ul className="list list--cards">
+            {reminders.map((reminder, index) => (
+              <li className="card card--reminder" key={reminder.id} style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}>
+                <div className="card__head">
+                  <div>
+                    <p className="card__title">{reminder.title}</p>
+                    <p className="card__meta">
+                      <span className={`due due--${describeUrgency(reminder.dueAt, now)}`}>
+                        {formatDue(reminder.dueAt, now)}
+                      </span>
+                      {" · "}
+                      {clockTime(reminder.dueAt)}
+                    </p>
+                  </div>
+                  <span className="kind kind--reminder">reminder</span>
                 </div>
-                <button
-                  className="btn btn--quiet btn--small"
-                  onClick={async () => onChange(await send({ type: "DELETE_REMINDER", id: reminder.id }))}
-                >
-                  Delete<span className="visually-hidden"> reminder: {reminder.title}</span>
-                </button>
+
+                <div className="card__actions">
+                  <button
+                    className="btn btn--quiet btn--small btn--icon"
+                    onClick={async () => onChange(await send({ type: "DELETE_REMINDER", id: reminder.id }))}
+                    aria-label={`Delete reminder: ${reminder.title}`}
+                    title="Delete"
+                  >
+                    <TrashMark className="btn__mark" />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -1916,18 +1947,40 @@ function SettingsTab({
           <DialMark className="panel__mark" />
           How it behaves
         </p>
-      <label className="field">
-        <span className="field__label">How proactive should Bubiqo be?</span>
-        <p className="field__help">
-          Quiet only answers when you ask. Helpful shows what it is confident about. Proactive also surfaces
-          things it thinks you might forget.
-        </p>
-        <select value={settings.mode} onChange={(e) => void update({ mode: e.target.value })}>
-          <option value="quiet">Quiet</option>
-          <option value="helpful">Helpful</option>
-          <option value="proactive">Proactive</option>
-        </select>
-      </label>
+      <div className="field">
+        <span className="field__label">How much should Bubiqo speak up?</span>
+
+        {/*
+          * Three cards rather than a dropdown. This is the most characterful
+          * decision in the product — how much it says without being asked — and a
+          * <select> containing three adjectives made it look like a form field
+          * with the meaning hidden until you open it.
+          */}
+        <div className="modes" role="radiogroup" aria-label="How much should Bubiqo speak up?">
+          {(
+            [
+              { id: "quiet", name: "Quiet", what: "Answers when you ask, and otherwise says nothing." },
+              { id: "helpful", name: "Helpful", what: "Shows what it is confident about. The middle setting, and the default." },
+              { id: "proactive", name: "Proactive", what: "Also raises things you have not asked about but might forget." },
+            ] as const
+          ).map((choice) => (
+            <button
+              key={choice.id}
+              type="button"
+              role="radio"
+              className="modes__option"
+              aria-checked={settings.mode === choice.id}
+              onClick={() => void update({ mode: choice.id })}
+            >
+              <span className="modes__dot" aria-hidden="true" />
+              <span>
+                <span className="modes__name">{choice.name}</span>
+                <span className="modes__what">{choice.what}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="field">
         <div className="switch">

@@ -91,3 +91,28 @@ export function displayMoney(value: string): string {
   const amount = high ? `${group(low)}–${group(high)}` : group(low);
   return symbol ? `${symbol}${amount}` : `${code} ${amount}`;
 }
+
+/**
+ * The headline on a job advert.
+ *
+ * "Nothing urgent — but I can help" sat above a brief holding the pay, the
+ * closing date and six requirements. Technically true — nothing was overdue —
+ * and useless, because the page plainly had something to say. A job advert gets
+ * a headline about the job.
+ */
+export function jobHeadline(brief: {
+  blockers: number;
+  requirements: number;
+  hasSalary: boolean;
+}): string | undefined {
+  if (brief.blockers === 1) return "One condition would rule you out";
+  if (brief.blockers > 1) {
+    const word = ["", "One", "Two", "Three", "Four", "Five", "Six"][brief.blockers] ?? String(brief.blockers);
+    return `${word} conditions would rule you out`;
+  }
+
+  // Nothing to warn about, but something worth reading: say so plainly.
+  if (brief.requirements > 0 || brief.hasSalary) return "Here is this job, in short";
+
+  return undefined;
+}

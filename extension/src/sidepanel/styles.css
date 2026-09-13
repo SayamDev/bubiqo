@@ -1886,3 +1886,120 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 
 /* Complete-all: the hero of the screen, so it gets the product's own geometry. */
 .complete-all .btn__mark { width: 17px; height: 17px; }
+
+/* ==========================================================================
+   What it works on
+   --------------------------------------------------------------------------
+   Four bordered paragraphs of grey text, which is the least interesting way
+   available to say what a product does. Each surface takes its own mark and
+   tint — the same ones the panel uses when it recognises one — so the list
+   doubles as a legend.
+   ========================================================================== */
+
+.surfaces { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+
+.surfaces__item {
+  display: flex;
+  gap: 11px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  animation: fact-in 300ms var(--spring) both;
+  transition: transform 160ms var(--spring), border-color 160ms var(--spring);
+}
+
+.surfaces__item:hover { transform: translateX(2px); border-color: var(--line-strong); }
+
+.surfaces__item strong { display: block; font-size: var(--step-0); font-weight: 700; }
+.surfaces__item span { display: block; margin-top: 2px; font-size: var(--step--1); color: var(--ink-soft); line-height: 1.45; }
+
+.surfaces__mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+}
+.surfaces__mark svg { width: 19px; height: 19px; }
+
+.surfaces__item--email .surfaces__mark { background: var(--accent-bg); color: var(--accent); }
+.surfaces__item--invoice .surfaces__mark { background: var(--ok-bg); color: var(--ok); }
+.surfaces__item--job .surfaces__mark { background: var(--alert-bg); color: var(--alert); }
+.surfaces__item--date .surfaces__mark { background: var(--sunk); color: var(--ink-soft); }
+
+/* ==========================================================================
+   Choosing how it behaves
+   --------------------------------------------------------------------------
+   A <select> with three words in it made the most characterful decision in the
+   product — how much it speaks up — look like a form field. Three cards, each
+   saying what it means, with the chosen one stated in the accent.
+   ========================================================================== */
+
+.modes { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+
+.modes__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms var(--spring), background-color 160ms var(--spring), transform 160ms var(--spring);
+}
+
+.modes__option:hover { border-color: var(--line-strong); transform: translateX(2px); }
+
+.modes__option[aria-checked="true"] {
+  border-color: var(--accent-line);
+  background: var(--accent-bg);
+}
+
+.modes__dot {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: var(--r-pill);
+  border: 2px solid var(--line-strong);
+  display: grid;
+  place-items: center;
+}
+.modes__option[aria-checked="true"] .modes__dot { border-color: var(--accent); }
+.modes__dot::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  transform: scale(0);
+  transition: transform 200ms var(--spring);
+}
+.modes__option[aria-checked="true"] .modes__dot::after { transform: scale(1); }
+
+.modes__name { display: block; font-size: var(--step-0); font-weight: 700; }
+.modes__option[aria-checked="true"] .modes__name { color: var(--accent); }
+.modes__what { display: block; margin-top: 2px; font-size: var(--step--1); color: var(--ink-soft); line-height: 1.45; }
+
+/* Reminder cards, and how urgent they are. */
+.card--reminder .card__actions { margin-top: 10px; }
+
+.due {
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  font-weight: 700;
+  background: var(--sunk);
+  color: var(--ink-soft);
+}
+.due--overdue { background: var(--alert-bg); color: var(--alert); }
+.due--today { background: var(--accent-bg); color: var(--accent); }
+.due--soon { background: var(--ok-bg); color: var(--ok); }
+
+.kind--reminder { background: var(--accent-bg); color: var(--accent); }
+
+/* Empty states: a mark, a line that says what would fill it, and why. */
+.empty__mark { width: 44px; height: 44px; color: var(--ink-faint); opacity: 0.9; }

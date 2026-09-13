@@ -11,22 +11,38 @@
  * explanation shown once and never again is not documentation.
  */
 
-import { BubbleMark } from "./icons";
+import { BubbleMark, SurfaceMark } from "./icons";
 
-const WORKS_ON: readonly { readonly title: string; readonly detail: string }[] = [
+/**
+ * What it works on.
+ *
+ * Four bordered paragraphs of grey text told the reader what the product does in
+ * the least interesting way available. Each surface now carries its own mark and
+ * its own colour — the same colours the panel uses when it actually recognises
+ * one of them, so this doubles as a legend rather than being decoration.
+ */
+const WORKS_ON: readonly {
+  readonly surface: "email" | "invoice" | "job" | "date";
+  readonly title: string;
+  readonly detail: string;
+}[] = [
   {
+    surface: "email",
     title: "An email asking you for something",
     detail: "Finds the deadline, the request, and what you promised — and offers a reminder before it is due.",
   },
   {
+    surface: "invoice",
     title: "An invoice or a bill",
     detail: "Pulls out the supplier, the total, the reference and the due date. It will never offer to pay it.",
   },
   {
+    surface: "job",
     title: "A job advert",
-    detail: "Saves the role, company, salary and closing date together, so you are not reopening the tab.",
+    detail: "The role, the pay, the closing date — and the conditions that would rule you out, quoted from the advert.",
   },
   {
+    surface: "date",
     title: "Anything with a date you will forget",
     detail: "Bookings, renewals, appointments, tickets, course deadlines. If a page states a date, it can hold on to it.",
   },
@@ -100,11 +116,16 @@ export function WhatItDoes() {
         Open the panel on a page that has something buried in it — a deadline, a request, an amount,
         a closing date — and it surfaces what needs doing.
       </p>
-      <ul className="welcome__list welcome__list--compact">
-        {WORKS_ON.map((item) => (
-          <li key={item.title}>
-            <strong>{item.title}</strong>
-            <span>{item.detail}</span>
+      <ul className="surfaces">
+        {WORKS_ON.map((item, index) => (
+          <li className={`surfaces__item surfaces__item--${item.surface}`} key={item.title} style={{ animationDelay: `${index * 50}ms` }}>
+            <span className="surfaces__mark" aria-hidden="true">
+              <SurfaceMark surface={item.surface} />
+            </span>
+            <div>
+              <strong>{item.title}</strong>
+              <span>{item.detail}</span>
+            </div>
           </li>
         ))}
       </ul>

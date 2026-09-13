@@ -20,3 +20,17 @@ describe("displayMoney", () => {
     expect(displayMoney("EUR 2880.50")).toBe("€2,880.50");
   });
 });
+
+describe("the headline on a job advert", () => {
+  it("says what the advert is, not that nothing is urgent", async () => {
+    const { jobHeadline } = await import("../extension/src/sidepanel/format");
+    expect(jobHeadline({ blockers: 0, requirements: 6, hasSalary: true })).toBe("Here is this job, in short");
+    expect(jobHeadline({ blockers: 2, requirements: 4, hasSalary: true })).toBe("Two conditions would rule you out");
+    expect(jobHeadline({ blockers: 1, requirements: 0, hasSalary: false })).toBe("One condition would rule you out");
+  });
+
+  it("says nothing special when the advert gave it nothing", async () => {
+    const { jobHeadline } = await import("../extension/src/sidepanel/format");
+    expect(jobHeadline({ blockers: 0, requirements: 0, hasSalary: false })).toBeUndefined();
+  });
+});

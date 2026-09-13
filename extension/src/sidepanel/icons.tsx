@@ -313,3 +313,56 @@ export function PaletteMark({ className }: MarkProps) {
     </svg>
   );
 }
+
+/**
+ * The four things Bubiqo reads, drawn once and used everywhere they are named.
+ *
+ * Same marks, same colours as the panel uses when it recognises one, so the list
+ * in Settings works as a legend rather than as decoration.
+ */
+export function SurfaceMark({ surface, className }: { surface: string; className?: string }) {
+  if (surface === "email") {
+    return (
+      <svg className={className} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <rect x="2.4" y="4.6" width="15.2" height="10.8" rx="3" stroke="currentColor" strokeWidth="1.7" />
+        <path d="m3.6 6.4 5.5 4.2a1.5 1.5 0 0 0 1.8 0l5.5-4.2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (surface === "invoice") {
+    return (
+      <svg className={className} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M4.4 3.4h11.2v13.2l-2.2-1.4-2.2 1.4-2.2-1.4-2.2 1.4-2.4-1.4V3.4Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+        <path d="M7.4 7.2h5.2M7.4 10.4h3.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (surface === "job") {
+    return (
+      <svg className={className} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <rect x="2.6" y="6.4" width="14.8" height="10" rx="3" stroke="currentColor" strokeWidth="1.7" />
+        <path d="M7.4 6.3V5.2a2 2 0 0 1 2-2h1.2a2 2 0 0 1 2 2v1.1" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        <rect x="8.6" y="10" width="2.8" height="2.4" rx="0.9" fill="currentColor" />
+      </svg>
+    );
+  }
+  // Anything with a date.
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <rect x="2.8" y="4.4" width="14.4" height="12.2" rx="3" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M2.8 8.2h14.4M6.8 2.8v3M13.2 2.8v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <circle cx="10" cy="12.4" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** A reminder: a bell with a clapper, tilted very slightly so it reads as ringing. */
+export function BellMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path d="M16 5.5a7 7 0 0 1 7 7v4.3l1.9 3.4a1.2 1.2 0 0 1-1 1.8H8.1a1.2 1.2 0 0 1-1-1.8L9 16.8v-4.3a7 7 0 0 1 7-7Z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" />
+      <path d="M13.4 22v.6a2.6 2.6 0 0 0 5.2 0V22" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+      <circle cx="16" cy="4" r="1.6" fill="var(--accent)" />
+    </svg>
+  );
+}
