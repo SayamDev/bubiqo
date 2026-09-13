@@ -1645,3 +1645,195 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 .facts__item--enter {
   animation: fact-in 260ms var(--spring) both;
 }
+
+/* ==========================================================================
+   Opening
+   --------------------------------------------------------------------------
+   The panel appears fully formed, which is fine and forgettable. One short
+   arrival gives it a moment of its own: the mark drops in and settles, the
+   wordmark follows, and the accent dot lands last and pulses once. Roughly
+   half a second in total — a greeting, not a loading screen.
+   ========================================================================== */
+
+@keyframes mark-arrive {
+  0% { opacity: 0; transform: translateY(-9px) scale(0.72) rotate(-12deg); }
+  60% { opacity: 1; transform: translateY(2px) scale(1.06) rotate(2deg); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes word-arrive {
+  from { opacity: 0; transform: translateX(-7px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes dot-land {
+  0% { opacity: 0; transform: scale(0.2); }
+  70% { opacity: 1; transform: scale(1.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.brand__mark { animation: mark-arrive 620ms var(--spring) both; }
+.brand__name { animation: word-arrive 420ms var(--spring) 120ms both; }
+.brand__name::after { animation: dot-land 460ms var(--spring) 380ms both; }
+
+/*
+ * While a page is being read the mark keeps a slow pulse, so the wait has the
+ * product's own character rather than a generic spinner.
+ */
+@keyframes mark-reading {
+  0%, 100% { transform: scale(1); box-shadow: var(--lift-md); }
+  50% { transform: scale(1.06); box-shadow: var(--lift-lg); }
+}
+
+.brand__mark--reading { animation: mark-reading 1400ms ease-in-out 620ms infinite; }
+
+/* ==========================================================================
+   Buttons, tightened
+   ========================================================================== */
+
+/*
+ * Every button now has room for a mark beside its label, and the marks are the
+ * ones drawn for this product. An icon-only button keeps a 32px target even
+ * where its glyph is 16px.
+ */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.btn__mark { width: 15px; height: 15px; flex: none; }
+
+.btn--icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: var(--r-pill);
+}
+.btn--icon .btn__mark { width: 16px; height: 16px; }
+
+/* Re-reading is a deliberate act, so it looks like a control rather than a link. */
+.reread { display: flex; justify-content: center; }
+.reread .btn__mark { transition: transform 420ms var(--spring); }
+.reread .btn:hover .btn__mark { transform: rotate(-120deg); }
+.reread .btn:disabled .btn__mark { animation: spin 900ms linear infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Cards arrive in order rather than all at once, matching the facts in a brief. */
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.card { animation: card-in 300ms var(--spring) both; }
+
+/* ==========================================================================
+   Activity, as a trail
+   --------------------------------------------------------------------------
+   It was a list of identical grey rows, which is the least useful shape for an
+   audit trail: the whole value is being able to tell "we noticed" from "we did"
+   from "we checked it worked" at a glance. Each kind has a mark and a colour,
+   and a rule runs between them so the order reads as a sequence.
+   ========================================================================== */
+
+.trail { margin: 0; padding: 0; list-style: none; }
+
+.trail__event {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 0 0 16px 0;
+  animation: fact-in 280ms var(--spring) both;
+}
+
+/* The rule between marks. Not under the last one, which ends the sequence. */
+.trail__event::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 30px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.trail__event:last-child::before { display: none; }
+
+.trail__mark {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  background: var(--sunk);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+}
+.trail__mark svg { width: 15px; height: 15px; }
+
+.trail__event--executed .trail__mark { background: var(--accent-bg); border-color: var(--accent-line); color: var(--accent); }
+.trail__event--verified .trail__mark { background: var(--ok-bg); border-color: transparent; color: var(--ok); }
+.trail__event--failed .trail__mark,
+.trail__event--undone .trail__mark { background: var(--alert-bg); border-color: transparent; color: var(--alert); }
+
+.trail__body { min-width: 0; padding-top: 3px; }
+.trail__summary { margin: 0; font-size: var(--step-0); font-weight: 600; line-height: 1.4; }
+.trail__meta { margin: 4px 0 0; font-size: var(--step-00); color: var(--ink-faint); display: flex; align-items: center; gap: 7px; }
+
+.trail__kind {
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: var(--sunk);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.trail__kind--executed { background: var(--accent-bg); color: var(--accent); }
+.trail__kind--verified { background: var(--ok-bg); color: var(--ok); }
+.trail__kind--failed, .trail__kind--undone { background: var(--alert-bg); color: var(--alert); }
+
+/* A saved card's flash message after sharing. */
+.card__flash {
+  margin: 10px 0 0;
+  font-size: var(--step-00);
+  font-weight: 700;
+  color: var(--ok);
+}
+
+.card__verdict { display: flex; align-items: center; gap: 8px; }
+
+/* ==========================================================================
+   Settings, grouped
+   --------------------------------------------------------------------------
+   Settings was one column of fields — appearance, behaviour, money,
+   diagnostics and a delete-everything button all at the same visual level,
+   which makes the destructive one no louder than the theme picker. Grouped
+   into labelled panels, with the data panel marked as what it is.
+   ========================================================================== */
+
+.panel {
+  margin: 0 0 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-bubble);
+  background: var(--surface);
+}
+
+.panel__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: var(--step-00);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.panel__mark { width: 15px; height: 15px; flex: none; color: var(--accent); }
+
+.panel > .field:last-child { margin-bottom: 0; }
+
+/* The one panel where a mistake cannot be taken back says so in its border. */
+.panel--danger { border-color: var(--alert-bg); background: linear-gradient(var(--surface), var(--alert-bg) 320%); }
+.panel--danger .panel__mark { color: var(--alert); }

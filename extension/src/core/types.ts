@@ -84,6 +84,10 @@ export type EntityType =
   | "blocker"
   /** Something the advert asks for, quoted in its own words. */
   | "requirement"
+  /** Permanent, fixed term, full time — what the advert says the contract is. */
+  | "employment_type"
+  /** Hybrid, remote, three days on-site. */
+  | "working_pattern"
   | "url";
 
 /**

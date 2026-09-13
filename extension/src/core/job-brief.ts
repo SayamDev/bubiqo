@@ -603,6 +603,8 @@ export function briefToEntities(brief: JobBrief, entities: readonly Entity[] = [
   add("organisation", brief.organisation?.value, brief.organisation);
   add("amount", brief.salary?.value, brief.salary);
   add("address", brief.location?.value, brief.location);
+  add("employment_type", brief.employmentType?.value, brief.employmentType);
+  add("working_pattern", brief.workingPattern?.value, brief.workingPattern);
   if (brief.closingDate) {
     add("deadline", new Date(brief.closingDate.value).toISOString().slice(0, 10), brief.closingDate, {
       resolvedAt: brief.closingDate.value,

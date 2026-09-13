@@ -201,3 +201,115 @@ export function BlockMark({ className }: MarkProps) {
     </svg>
   );
 }
+
+/** Refresh: a ring with a gap and an arrowhead, so "again" reads at 16px. */
+export function RefreshMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M13.2 8a5.2 5.2 0 1 1-1.6-3.7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M13.4 2.6v2.8h-2.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Share: a node passing to two others. Not the platform-specific arrow-out-of-box. */
+export function ShareMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="12.2" cy="3.6" r="2.1" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="3.8" cy="8" r="2.1" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="12.2" cy="12.4" r="2.1" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M5.7 7 10.3 4.6M5.7 9l4.6 2.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Bin: lid, body, two ribs. Used only where deleting is the point. */
+export function TrashMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M2.8 4.3h10.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M6.2 4.2V3.1A1.2 1.2 0 0 1 7.4 2h1.2a1.2 1.2 0 0 1 1.2 1.1v1.1" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M4.3 4.3h7.4l-.6 8.2A1.5 1.5 0 0 1 9.6 14H6.4a1.5 1.5 0 0 1-1.5-1.5L4.3 4.3Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M6.8 7v4M9.2 7v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/**
+ * What happened, per kind of Activity event.
+ *
+ * Activity was a list of grey timestamps with no shape to it. Each kind now has
+ * a mark and a colour, so a glance separates "we noticed" from "we did" from
+ * "we checked it worked" — which is the whole point of an audit trail.
+ */
+export function ActivityMark({ kind, className }: { kind: string; className?: string }) {
+  if (kind === "executed") {
+    return (
+      <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="8" cy="8" r="6.4" stroke="currentColor" strokeWidth="1.6" />
+        <path d="m5.4 8.2 1.9 1.9 3.4-3.9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (kind === "verified") {
+    return (
+      <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M8 1.8 13.4 4v4.2c0 3-2.2 5.3-5.4 6-3.2-.7-5.4-3-5.4-6V4L8 1.8Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="m5.8 8 1.6 1.6 3-3.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (kind === "suggested") {
+    return (
+      <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M8 2.2a4.2 4.2 0 0 1 2.4 7.6c-.5.4-.8 1-.8 1.6H6.4c0-.7-.3-1.2-.8-1.6A4.2 4.2 0 0 1 8 2.2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M6.6 13.4h2.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (kind === "undone" || kind === "failed") {
+    return (
+      <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="8" cy="8" r="6.4" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  // detected, and anything new: an eye, because noticing is what it did.
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M1.6 8S4 3.8 8 3.8 14.4 8 14.4 8 12 12.2 8 12.2 1.6 8 1.6 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx="8" cy="8" r="1.9" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+/** Settings groups: a dial, a bell, a lock. */
+export function DialMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="5.9" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M8 4.6v3.4l2.2 1.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function LockMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="3.2" y="6.8" width="9.6" height="7" rx="2.2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M5.6 6.7V5.2a2.4 2.4 0 0 1 4.8 0v1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Appearance: a half-filled circle, which is what a theme switch actually is. */
+export function PaletteMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M8 2a6 6 0 0 1 0 12V2Z" fill="currentColor" />
+    </svg>
+  );
+}

@@ -22,7 +22,22 @@ import { riskLabel } from "@core/safety";
 import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime, displayMoney } from "./format";
 import { hasMoved, nextCheckDelay } from "./watch";
 import { splitSuggestions } from "@core/ranker";
-import { BubbleMark, ShieldIcon, QuietMark, ActionIcon, HeaderArt, BriefcaseMark, BlockMark } from "./icons";
+import {
+  BubbleMark,
+  ShieldIcon,
+  QuietMark,
+  ActionIcon,
+  HeaderArt,
+  BriefcaseMark,
+  BlockMark,
+  RefreshMark,
+  ShareMark,
+  TrashMark,
+  ActivityMark,
+  DialMark,
+  LockMark,
+  PaletteMark,
+} from "./icons";
 import { Welcome, WhatItDoes } from "./Welcome";
 
 type Tab = "now" | "memory" | "activity" | "settings";
@@ -838,9 +853,10 @@ function NowTab(props: NowProps) {
         </section>
       )}
 
-      <section className="section">
-        <button className="btn btn--quiet btn--small" onClick={props.onRefresh} disabled={busy}>
-          Re-read this page
+      <section className="section reread">
+        <button className="btn btn--small" onClick={props.onRefresh} disabled={busy} aria-live="polite">
+          <RefreshMark className="btn__mark" />
+          {busy ? "Reading this page…" : "Re-read this page"}
         </button>
       </section>
     </>
@@ -1132,16 +1148,72 @@ function Results({
  * what did it ask for, who do I contact, and where do I find it again. That is the
  * order this shows them in.
  */
+/**
+ * A saved job, as text somebody can paste to another person.
+ *
+ * Sharing is the one thing a saved advert is for that the panel could not do:
+ * the details were kept and there was no way to get them out except by reading
+ * them off the screen. Plain text, not a link to anything of ours — what leaves
+ * the machine is exactly what is on the card, and nothing else.
+ */
+export function shareText(item: MemoryItem): string {
+  const of = (type: EntityType) => item.entities.find((e) => e.type === type);
+  const all = (type: EntityType) => item.entities.filter((e) => e.type === type);
+
+  const lines: string[] = [item.title];
+
+  const employer = of("organisation");
+  if (employer) lines.push(employer.value);
+
+  const salary = of("amount");
+  if (salary) lines.push(`Pay: ${displayMoney(salary.value)}`);
+
+  const where = of("address");
+  if (where) lines.push(`Where: ${where.value}`);
+
+  const closes = of("deadline");
+  if (closes?.resolvedAt) lines.push(`Closes: ${new Date(closes.resolvedAt).toDateString()}`);
+
+  const blockers = all("blocker");
+  if (blockers.length > 0) lines.push(`Conditions: ${blockers.map((b) => b.value).join(", ")}`);
+
+  const requirements = all("requirement");
+  if (requirements.length > 0) {
+    lines.push("", "What it asks for:");
+    for (const requirement of requirements) lines.push(`• ${requirement.value}`);
+  }
+
+  const contacts = [of("email"), of("phone"), of("person")].filter((e): e is Entity => e !== undefined);
+  if (contacts.length > 0) lines.push("", `Contact: ${contacts.map((c) => c.value).join(" · ")}`);
+
+  const link = of("url")?.value ?? item.url;
+  if (link) lines.push("", link);
+
+  return lines.join("\n");
+}
+
+/**
+ * One saved item.
+ *
+ * A saved job used to be a title and a column of type/value pairs, which is a
+ * database row rather than something a person can act on. What someone goes back
+ * to a saved advert for is: what was it, who for, what did it pay, where, when
+ * does it close, what did it ask for, who do I contact, and where do I find it
+ * again. That is the order this shows them in.
+ */
 export function SavedItem({
   item,
   now,
   onChange,
+  onCopy,
 }: {
   item: MemoryItem;
   now: number;
   onChange: (response: Response) => void;
+  onCopy?: (text: string) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [shared, setShared] = useState<string | undefined>();
 
   const of = (type: EntityType) => item.entities.find((e) => e.type === type);
   const all = (type: EntityType) => item.entities.filter((e) => e.type === type);
@@ -1150,6 +1222,8 @@ export function SavedItem({
   const salary = of("amount");
   const where = of("address");
   const closes = of("deadline");
+  const contract = of("employment_type");
+  const pattern = of("working_pattern");
   const link = of("url")?.value ?? item.url;
   const requirements = all("requirement");
   const blockers = all("blocker");
@@ -1159,7 +1233,41 @@ export function SavedItem({
     ...(salary ? [{ label: "Pay", value: displayMoney(salary.value) }] : []),
     ...(where ? [{ label: "Where", value: where.value }] : []),
     ...(closes?.resolvedAt ? [{ label: "Closes", value: formatDue(closes.resolvedAt, now) }] : []),
+    ...(contract ? [{ label: "Contract", value: contract.value }] : []),
+    ...(pattern ? [{ label: "Pattern", value: pattern.value }] : []),
   ];
+
+  const source = (() => {
+    try {
+      return link ? new URL(link).hostname.replace(/^www\./, "") : undefined;
+    } catch {
+      return undefined;
+    }
+  })();
+
+  /*
+   * Share where the browser offers it, copy where it does not. navigator.share
+   * needs a user gesture and is not present everywhere, and a button that
+   * silently does nothing is worse than one that does the plain thing.
+   */
+  const share = async (): Promise<void> => {
+    const text = shareText(item);
+    const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+    if (canShare) {
+      try {
+        await navigator.share({ title: item.title, text });
+        setShared("Shared");
+        return;
+      } catch {
+        // Cancelled, or refused. Fall through to copying rather than failing.
+      }
+    }
+
+    onCopy?.(text);
+    setShared("Copied — paste it anywhere");
+    setTimeout(() => setShared(undefined), 2600);
+  };
 
   return (
     <li className="card">
@@ -1170,13 +1278,17 @@ export function SavedItem({
             {employer ? <span className="card__employer">{employer.value}</span> : null}
             {employer ? " · " : ""}
             saved {relativeTime(item.savedAt, now)}
+            {source ? ` · ${source}` : ""}
           </p>
         </div>
         <span className={`kind kind--${item.kind}`}>{item.kind}</span>
       </div>
 
       {blockers.length > 0 && (
-        <p className="card__verdict">Ruled out — {blockers.map((b) => b.value).join(", ")}</p>
+        <p className="card__verdict">
+          <BlockMark className="verdict__mark" />
+          Ruled out — {blockers.map((b) => b.value).join(", ")}
+        </p>
       )}
 
       {facts.length > 0 && (
@@ -1217,6 +1329,11 @@ export function SavedItem({
             Open the advert
           </a>
         )}
+        <button className="btn btn--quiet btn--small" onClick={() => void share()}>
+          <ShareMark className="btn__mark" />
+          Share
+        </button>
+
         {confirming ? (
           <>
             <button
@@ -1233,11 +1350,22 @@ export function SavedItem({
             </button>
           </>
         ) : (
-          <button className="btn btn--quiet btn--small" onClick={() => setConfirming(true)}>
-            Delete<span className="visually-hidden">: {item.title}</span>
+          <button
+            className="btn btn--quiet btn--small btn--icon"
+            onClick={() => setConfirming(true)}
+            aria-label={`Delete ${item.title}`}
+            title="Delete"
+          >
+            <TrashMark className="btn__mark" />
           </button>
         )}
       </div>
+
+      {shared && (
+        <p className="card__flash" role="status">
+          {shared}
+        </p>
+      )}
     </li>
   );
 }
@@ -1554,7 +1682,7 @@ function MemoryTab({
         ) : (
           <ul className="list list--cards">
             {memory.map((item) => (
-              <SavedItem key={item.id} item={item} now={now} onChange={onChange} />
+              <SavedItem key={item.id} item={item} now={now} onChange={onChange} onCopy={onCopy} />
             ))}
           </ul>
         )}
@@ -1619,18 +1747,27 @@ function ActivityTab({
           was verified.</p>
         </div>
       ) : (
-        <ul className="list">
-          {activity.map((event) => (
-            <li className="row" key={event.id}>
-              <div>
-                <p className="row__title">{event.summary}</p>
-                <p className="row__meta">
-                  {clockTime(event.at)} · {event.kind} · {relativeTime(event.at, now)}
+        /*
+         * A timeline, not a list of grey lines. Each kind has its own mark and
+         * colour, so a glance separates what was noticed from what was done from
+         * what was checked — which is the only reason to keep an audit trail.
+         */
+        <ol className="trail">
+          {activity.map((event, index) => (
+            <li className={`trail__event trail__event--${event.kind}`} key={event.id} style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}>
+              <span className="trail__mark" aria-hidden="true">
+                <ActivityMark kind={event.kind} />
+              </span>
+              <div className="trail__body">
+                <p className="trail__summary">{event.summary}</p>
+                <p className="trail__meta">
+                  <span className={`trail__kind trail__kind--${event.kind}`}>{event.kind}</span>
+                  {clockTime(event.at)} · {relativeTime(event.at, now)}
                 </p>
               </div>
             </li>
           ))}
-        </ul>
+        </ol>
       )}
     </section>
   );
@@ -1734,8 +1871,13 @@ function SettingsTab({
     <section className="section">
       <h2 className="section__title">Settings</h2>
 
+      <div className="panel">
+        <p className="panel__head">
+          <PaletteMark className="panel__mark" />
+          Appearance
+        </p>
       <fieldset className="field field--group">
-        <legend className="field__label">Appearance</legend>
+        <legend className="visually-hidden">Appearance</legend>
         <p className="field__help">Match your system, or pick one and stay there.</p>
         <div className="segmented" role="radiogroup" aria-label="Appearance">
           {(["system", "light", "dark"] as const).map((choice) => (
@@ -1752,9 +1894,15 @@ function SettingsTab({
           ))}
         </div>
       </fieldset>
+      </div>
 
       <WhatItDoes />
 
+      <div className="panel">
+        <p className="panel__head">
+          <DialMark className="panel__mark" />
+          How it behaves
+        </p>
       <label className="field">
         <span className="field__label">How proactive should Bubiqo be?</span>
         <p className="field__help">
@@ -1799,10 +1947,23 @@ function SettingsTab({
         />
       </label>
 
-      <Diagnostics state={state} onCopy={onCopyDiagnostics} />
+      </div>
 
+      <div className="panel">
+        <p className="panel__head">
+          <ShieldIcon className="panel__mark" />
+          What it read
+        </p>
+        <Diagnostics state={state} onCopy={onCopyDiagnostics} />
+      </div>
+
+      <div className="panel panel--danger">
+        <p className="panel__head">
+          <LockMark className="panel__mark" />
+          Your data
+
+        </p>
       <div className="field">
-        <span className="field__label">Your data</span>
         <p className="field__help">
           Everything Bubiqo knows lives on this device: {state?.reminders.length ?? 0} reminder
           {(state?.reminders.length ?? 0) === 1 ? "" : "s"}, {state?.memory.length ?? 0} saved item
@@ -1834,6 +1995,7 @@ function SettingsTab({
             </button>
           )}
         </div>
+      </div>
       </div>
 
       <div className="field">

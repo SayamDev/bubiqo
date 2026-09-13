@@ -635,3 +635,12 @@ describe("buildJobBrief — labels inside a requirements section are not require
     expect(brief.eligibility).not.toContain("Desirable:");
   });
 });
+
+describe("briefToEntities — the contract and the pattern are kept too", () => {
+  it("saves what kind of job it is, not only what it pays", () => {
+    const advert = page({ text: "Product Manager\nAcme Ltd\nPermanent, Full-time\nHybrid, 2 days on-site\n£50,000 a year" });
+    const saved = briefToEntities(build(advert), entitiesFor(advert), advert.url);
+    expect(saved.find((e) => e.type === "employment_type")?.value).toBe("Permanent");
+    expect(saved.find((e) => e.type === "working_pattern")?.value).toMatch(/2 days on-site/i);
+  });
+});
