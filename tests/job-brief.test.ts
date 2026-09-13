@@ -594,3 +594,44 @@ describe("briefToEntities — what a saved job should hold", () => {
     }
   });
 });
+
+describe("buildJobBrief — the title should not repeat the employer", () => {
+  it("drops the employer from the end of the title once it is named separately", () => {
+    const brief = build(
+      page({
+        title: "Senior Prompt Engineer - AI - Full-time | OVI | LinkedIn",
+        headings: [],
+        text: "OVI\nSenior Prompt Engineer\nPermanent",
+      }),
+    );
+    expect(brief.organisation?.value).toBe("OVI");
+    expect(brief.title?.value).toBe("Senior Prompt Engineer - AI - Full-time");
+  });
+
+  it("leaves a title alone when the employer is not on the end of it", () => {
+    const brief = build(page({ title: "Nursing Associate - School Nursing", text: "Central NHS Foundation Trust\nNursing Associate" }));
+    expect(brief.title?.value).toBe("Nursing Associate - School Nursing");
+  });
+});
+
+describe("buildJobBrief — labels inside a requirements section are not requirements", () => {
+  it("skips the sub-headings an advert uses to group them", () => {
+    const brief = build(
+      page({
+        text: [
+          "Person Specification",
+          "Experience:",
+          "Proven experience of leading projects",
+          "Desirable:",
+          "Community experience",
+          "What we offer",
+          "A pension",
+        ].join("\n"),
+      }),
+    );
+    expect(brief.eligibility).toContain("Proven experience of leading projects");
+    expect(brief.eligibility).toContain("Community experience");
+    expect(brief.eligibility).not.toContain("Experience:");
+    expect(brief.eligibility).not.toContain("Desirable:");
+  });
+});

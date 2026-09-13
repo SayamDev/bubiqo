@@ -173,3 +173,31 @@ export function HeaderArt({ attention, className }: { attention: number; classNa
     </svg>
   );
 }
+
+/**
+ * The mark on a job brief.
+ *
+ * Drawn rather than borrowed from an icon set: a case with a honey clasp, so the
+ * one piece of artwork on the busiest screen belongs to this product rather than
+ * looking like every other dashboard. Two tones, both from the palette.
+ */
+export function BriefcaseMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <rect x="3" y="10" width="26" height="17" rx="5" fill="currentColor" opacity="0.12" />
+      <rect x="3.9" y="10.9" width="24.2" height="15.2" rx="4.1" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M11.5 10.5V8.8A3.3 3.3 0 0 1 14.8 5.5h2.4a3.3 3.3 0 0 1 3.3 3.3v1.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="13.4" y="16.4" width="5.2" height="4.2" rx="1.6" fill="var(--accent)" />
+    </svg>
+  );
+}
+
+/** A condition that stops you. A circle with a bar, not a scary cross. */
+export function BlockMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.2" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M5.2 8h5.6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}

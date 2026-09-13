@@ -246,6 +246,12 @@ function readEligibility(page: PageContext, text: string): string[] {
 
       const quote = clip(line.replace(/^[-•*\u2022\s]+/, ""));
       if (quote.length === 0 || out.includes(quote)) continue;
+      /*
+       * "Experience:", "Desirable:", "Knowledge and Skills:" — an advert groups
+       * its requirements under sub-labels, and listing those as requirements puts
+       * a row of bare words among the real ones.
+       */
+      if (/:$/.test(quote) && quote.length < 40) continue;
       out.push(quote);
       chars += quote.length;
     }
@@ -531,12 +537,27 @@ export function buildJobBrief(page: PageContext, entities: readonly Entity[], no
     ? field(posting.employmentType, "structured", "JobPosting.employmentType", 0.9)
     : readProseEmploymentType(text);
 
+  /*
+   * A title that ends with the employer's name repeats what the brief shows
+   * beside it: "Senior Prompt Engineer - AI - Full-time | OVI" under a heading
+   * that already says OVI. Job boards build titles that way, so trim it.
+   */
+  const trimmedTitle =
+    title && organisation
+      ? (() => {
+          const withoutEmployer = title.value
+            .replace(new RegExp(`\\s*[|–—-]\\s*${organisation.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "i"), "")
+            .trim();
+          return withoutEmployer.length > 2 ? { ...title, value: withoutEmployer } : title;
+        })()
+      : title;
+
   const workingPattern = readWorkingPattern(text);
 
   const blockers = findBlockers(text);
 
   return {
-    ...(title ? { title } : {}),
+    ...(trimmedTitle ? { title: trimmedTitle } : {}),
     ...(organisation ? { organisation } : {}),
     ...(location ? { location } : {}),
     ...(salary ? { salary } : {}),

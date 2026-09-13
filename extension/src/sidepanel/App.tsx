@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BriefField, BriefSource, Entity, EntityType, JobBrief, MemoryItem, Problem, Suggestion } from "@core/types";
+import type { BriefField, Entity, EntityType, JobBrief, MemoryItem, Problem, Suggestion } from "@core/types";
 import type { StepOutcome, CompleteItReport } from "@core/executor";
 import type { Briefing, PageFingerprint, PanelState, Request, Response } from "@shared/messages";
 import { send } from "@shared/messages";
@@ -22,7 +22,7 @@ import { riskLabel } from "@core/safety";
 import { surfaceChip, attentionHeadline, urgencyWord, relativeTime, clockTime, displayMoney } from "./format";
 import { hasMoved, nextCheckDelay } from "./watch";
 import { splitSuggestions } from "@core/ranker";
-import { BubbleMark, ShieldIcon, QuietMark, ActionIcon, HeaderArt } from "./icons";
+import { BubbleMark, ShieldIcon, QuietMark, ActionIcon, HeaderArt, BriefcaseMark, BlockMark } from "./icons";
 import { Welcome, WhatItDoes } from "./Welcome";
 
 type Tab = "now" | "memory" | "activity" | "settings";
@@ -1245,85 +1245,102 @@ export function SavedItem({
 export function JobBriefBlock({ brief, now }: { brief: JobBrief | undefined; now: number }) {
   if (!brief) return null;
 
-  const facts: { label: string; field: BriefField<string> | undefined; display?: (v: string) => string }[] = [
-    { label: "Salary", field: brief.salary, display: displayMoney },
-    { label: "Working pattern", field: brief.workingPattern },
-    { label: "Location", field: brief.location },
-    { label: "Employment type", field: brief.employmentType },
+  const facts: { label: string; field: BriefField<string | number> | undefined; value?: string }[] = [
+    { label: "Pay", field: brief.salary, value: brief.salary ? displayMoney(brief.salary.value) : undefined },
+    { label: "Closes", field: brief.closingDate, value: brief.closingDate ? formatDue(brief.closingDate.value, now) : undefined },
+    { label: "Pattern", field: brief.workingPattern },
+    { label: "Where", field: brief.location },
+    { label: "Contract", field: brief.employmentType },
   ];
-  const shown = facts.filter((f) => f.field !== undefined);
+  const shown = facts.filter((fact) => fact.field !== undefined);
 
-  const nothing =
-    brief.blockers.length === 0 && shown.length === 0 && !brief.closingDate && brief.eligibility.length === 0;
-  if (nothing) return null;
+  if (brief.blockers.length === 0 && shown.length === 0 && brief.eligibility.length === 0) return null;
 
-  const provenance = (source: BriefSource) =>
-    source === "structured" ? "Stated by the site" : "Read from the advert";
+  /*
+   * Provenance once, as a legend, not repeated under every fact.
+   *
+   * "Read from the advert" under five consecutive rows is five identical lines of
+   * grey text: it stops being information and becomes texture. A dot against each
+   * fact, explained once, says the same thing and leaves the facts legible.
+   */
+  const anyStructured = shown.some((fact) => fact.field?.source === "structured");
+  const anyProse = shown.some((fact) => fact.field?.source === "prose");
 
   return (
-    <section className="section" aria-labelledby="job-brief-title">
-      <h2 className="section__title" id="job-brief-title">
-        {brief.title?.value ?? "This job"}
-        {brief.organisation ? <span className="section__count">{brief.organisation.value}</span> : null}
-      </h2>
+    <section className="section brief" aria-labelledby="job-brief-title">
+      <div className="brief__head">
+        <BriefcaseMark className="brief__mark" />
+        <div className="brief__heading">
+          <h2 className="brief__title" id="job-brief-title">
+            {brief.title?.value ?? "This job"}
+          </h2>
+          {brief.organisation && <p className="brief__employer">{brief.organisation.value}</p>}
+        </div>
+      </div>
 
       {brief.blockers.length > 0 && (
-        <p className="brief__verdict">
-          Ruled out — {brief.blockers.length === 1 ? "one condition" : `${brief.blockers.length} conditions`} you would
-          have to meet
+        <div className="verdict" role="status">
+          <p className="verdict__headline">
+            <BlockMark className="verdict__mark" />
+            Ruled out — {brief.blockers.length === 1 ? "one condition" : `${brief.blockers.length} conditions`} you would
+            have to meet
+          </p>
+          <ul className="verdict__list">
+            {brief.blockers.map((blocker) => (
+              <li key={blocker.rule}>
+                <span className="verdict__name">{blocker.summary}</span>
+                <span className="verdict__quote">“{blocker.evidence}”</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {shown.length > 0 && (
+        <dl className="facts facts--brief">
+          {shown.map((fact, index) => (
+            <div
+              className="facts__item facts__item--enter"
+              key={fact.label}
+              style={{ animationDelay: `${index * 40}ms` }}
+            >
+              <dt>
+                {fact.label}
+                <span
+                  className={`source source--${fact.field?.source ?? "prose"}`}
+                  aria-label={fact.field?.source === "structured" ? "stated by the site" : "read from the advert"}
+                />
+              </dt>
+              <dd>{fact.value ?? String(fact.field?.value ?? "")}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      {(anyStructured || anyProse) && (
+        <p className="legend">
+          {anyStructured && (
+            <span>
+              <span className="source source--structured" aria-hidden="true" /> stated by the site
+            </span>
+          )}
+          {anyProse && (
+            <span>
+              <span className="source source--prose" aria-hidden="true" /> read from the advert
+            </span>
+          )}
         </p>
       )}
 
-      {brief.blockers.length > 0 && (
-        <ul className="list" aria-label="Conditions that would rule you out">
-          {brief.blockers.map((blocker) => (
-            <li className="row problem--blocking" key={blocker.rule}>
-              <div>
-                <p className="row__title">{blocker.summary}</p>
-                <p className="row__meta">“{blocker.evidence}”</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <ul className="list">
-        {shown.map(({ label, field, display }) => (
-          <li className="row" key={label}>
-            <div>
-              <p className="row__title">
-                {label}: {display ? display(field!.value) : field!.value}
-              </p>
-              <p className="row__meta">{provenance(field!.source)}</p>
-            </div>
-          </li>
-        ))}
-        {brief.closingDate && (
-          <li className="row" key="closing">
-            <div>
-              <p className="row__title">Closes {formatDue(brief.closingDate.value, now)}</p>
-              <p className="row__meta">{provenance(brief.closingDate.source)}</p>
-            </div>
-          </li>
-        )}
-      </ul>
-
-      {/*
-        * Open by default. These are the requirements — the substance of the
-        * advert — and hiding them behind a click meant a reader reported not
-        * seeing any requirements at all.
-        */}
       {brief.eligibility.length > 0 && (
-        <details className="why disclosure" style={{ marginTop: 10 }} open>
+        <details className="why disclosure brief__needs" open>
           <summary>
             What the advert says it needs
             <span className="section__count">{brief.eligibility.length}</span>
           </summary>
-          <ul className="list">
+          <ul className="bullets">
             {brief.eligibility.map((line) => (
-              <li className="row" key={line}>
-                <p className="row__title">{line}</p>
-              </li>
+              <li key={line}>{line}</li>
             ))}
           </ul>
         </details>
@@ -1331,6 +1348,7 @@ export function JobBriefBlock({ brief, now }: { brief: JobBrief | undefined; now
     </section>
   );
 }
+
 
 function BriefingBlock({ briefing, now }: { briefing: Briefing | undefined; now: number }) {
   if (!briefing) return null;

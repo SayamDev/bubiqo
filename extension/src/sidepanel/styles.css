@@ -56,6 +56,13 @@
   --lift-md: 0 2px 4px rgba(90, 66, 28, 0.06), 0 10px 24px -12px rgba(90, 66, 28, 0.22);
   --lift-lg: 0 2px 6px rgba(90, 66, 28, 0.08), 0 16px 32px -14px rgba(90, 66, 28, 0.3);
 
+  /*
+   * The type scale. --step--1 sits between the two smallest sizes and exists
+   * because card meta and bullet text needed something quieter than body and
+   * larger than a label; three rules referenced it before it existed, which CSS
+   * answers by silently inheriting rather than by complaining.
+   */
+  --step--1: 0.75rem;
   --step-00: 0.6875rem;
   --step-0: 0.8125rem;
   --step-1: 0.875rem;
@@ -1467,7 +1474,7 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
   padding: 3px 9px;
   border-radius: var(--r-pill);
   background: var(--sunk);
-  font-size: var(--step--2);
+  font-size: var(--step-00);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1489,7 +1496,7 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 .facts__item { min-width: 84px; }
 .facts dt {
   margin: 0;
-  font-size: var(--step--2);
+  font-size: var(--step-00);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1504,7 +1511,7 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 .card__contactLabel {
   display: inline-block;
   margin-right: 8px;
-  font-size: var(--step--2);
+  font-size: var(--step-00);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1528,3 +1535,113 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
   font-weight: 700;
 }
 .btn--danger:hover:not(:disabled) { background: var(--alert); color: var(--surface); border-color: transparent; filter: brightness(1.08); }
+
+/* ==========================================================================
+   The job brief
+   --------------------------------------------------------------------------
+   Every fact used to be its own bordered box with "Read from the advert" under
+   it: five identical rows, no hierarchy, and the same grey sentence five times.
+   The card now reads top to bottom — what the job is, what would stop you, the
+   numbers, then what it asks for — and provenance is a dot explained once.
+   ========================================================================== */
+
+.brief { padding-top: 4px; }
+
+.brief__head { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+
+.brief__mark {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  color: var(--ink-soft);
+}
+
+.brief__heading { min-width: 0; }
+
+.brief__title {
+  margin: 0;
+  font-size: var(--step-3);
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.brief__employer {
+  margin: 2px 0 0;
+  font-size: var(--step-0);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* The verdict. One block, stated once, with its evidence under it. */
+.verdict {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: var(--r-card);
+  background: var(--alert-bg);
+  color: var(--alert);
+}
+
+.verdict__headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--step-0);
+  font-weight: 750;
+}
+
+.verdict__mark { flex: none; width: 16px; height: 16px; }
+
+.verdict__list { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.verdict__list li { display: flex; flex-direction: column; gap: 2px; }
+.verdict__name { font-size: var(--step-0); font-weight: 650; }
+.verdict__quote { font-size: var(--step--1, 0.75rem); opacity: 0.85; line-height: 1.4; }
+
+/*
+ * The facts, as a row of small columns rather than a stack of boxes. Wraps to
+ * one per line at the narrowest panel width without any media query.
+ */
+.facts--brief {
+  gap: 12px 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+
+.facts--brief dt { display: flex; align-items: center; gap: 5px; }
+.facts--brief dd { font-size: var(--step-1); font-weight: 700; }
+
+/* Where a fact came from: a dot, explained once in the legend below. */
+.source { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.source--structured { background: var(--ok); }
+.source--prose { background: var(--accent-line); }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 8px 0 0;
+  font-size: var(--step-00);
+  color: var(--ink-faint);
+}
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+.brief__needs { margin-top: 12px; }
+
+/*
+ * Facts arrive in sequence rather than all at once. Forty milliseconds apart is
+ * below the threshold where it reads as waiting and above the one where it reads
+ * as nothing — and it is off entirely under prefers-reduced-motion, with the
+ * blanket rule near the top of this file.
+ */
+@keyframes fact-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.facts__item--enter {
+  animation: fact-in 260ms var(--spring) both;
+}
