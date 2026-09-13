@@ -19,6 +19,7 @@ import type { Briefing, PageFingerprint, PanelState, Request, Response } from "@
 import { send } from "@shared/messages";
 import { formatDue, describeUrgency } from "@core/dates";
 import { CURRENCY_CODES, CURRENCY_NAMES } from "@core/money";
+import { BLOCKER_RULES } from "@core/job-brief";
 import { riskLabel } from "@core/safety";
 import { surfaceChip, attentionHeadline, jobHeadline, urgencyWord, relativeTime, clockTime, displayMoney } from "./format";
 import { hasMoved, nextCheckDelay } from "./watch";
@@ -456,14 +457,25 @@ export function App() {
   const dismiss = useCallback(
     async (actionId: string) => {
       /*
-       * Respecting "no" is what earns the right to keep suggesting. Recorded
-       * locally, used only to push that action down the ranking on future pages.
+       * "Not useful" means stop offering this, and it did not.
+       *
+       * It subtracted 0.3 from the action's score, so anything ranked comfortably
+       * above the floor carried on appearing — the button looked broken because
+       * it was. Pressing it now turns the action off, which is what the words say,
+       * and Settings lists what has been turned off with a way to bring it back.
        */
+      const current = state?.settings.disabledActionIds ?? [];
+      apply(
+        await send({
+          type: "SET_SETTINGS",
+          settings: { disabledActionIds: [...new Set([...current, actionId])] },
+        }),
+      );
       await send({ type: "DISMISS_SUGGESTION", actionId });
-      setAnnounce("Noted — Bubiqo will stop leading with that.");
+      setAnnounce("Turned off. You can bring it back in Settings.");
       apply(await send({ type: "ANALYSE_ACTIVE_TAB" }));
     },
-    [apply],
+    [apply, state?.settings.disabledActionIds],
   );
 
   const analysis = state?.analysis;
@@ -1092,7 +1104,7 @@ function SuggestionCard({
 
           {!outcome && !running && (
             <button
-              className="btn--link btn--link-quiet suggestion__dismiss"
+              className="btn btn--small suggestion__dismiss"
               onClick={() => onDismiss(suggestion.actionId)}
               title="Stop suggesting this"
             >
@@ -2192,6 +2204,63 @@ function SettingsTab({
       </label>
 
       </div>
+
+      {(settings.disabledActionIds.length > 0 || settings.heldConditions.length > 0) && (
+        <div className="panel">
+          <p className="panel__head">
+            <TickMark className="panel__mark" />
+            What you have told it
+          </p>
+
+          {settings.heldConditions.length > 0 && (
+            <div className="field">
+              <span className="field__label">Conditions you have said you meet</span>
+              <p className="field__help">
+                An advert asking for these will show them as met rather than as something to check.
+              </p>
+              <ul className="chips">
+                {settings.heldConditions.map((rule) => (
+                  <li className="chips__item" key={rule}>
+                    {BLOCKER_RULES.find((r) => r.id === rule)?.summary ?? rule}
+                    <button
+                      className="chips__remove"
+                      onClick={() =>
+                        void update({ heldConditions: settings.heldConditions.filter((id) => id !== rule) })
+                      }
+                      aria-label={`I no longer have: ${BLOCKER_RULES.find((r) => r.id === rule)?.summary ?? rule}`}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {settings.disabledActionIds.length > 0 && (
+            <div className="field">
+              <span className="field__label">Suggestions you have turned off</span>
+              <p className="field__help">Pressing “Not useful” on a card puts it here. Bring it back any time.</p>
+              <ul className="chips">
+                {settings.disabledActionIds.map((id) => (
+                  <li className="chips__item" key={id}>
+                    {id.replace(/_/g, " ")}
+                    <button
+                      className="chips__remove"
+                      onClick={() =>
+                        void update({ disabledActionIds: settings.disabledActionIds.filter((x) => x !== id) })
+                      }
+                      aria-label={`Show ${id.replace(/_/g, " ")} again`}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="panel">
         <p className="panel__head">

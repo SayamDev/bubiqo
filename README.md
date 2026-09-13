@@ -1,314 +1,130 @@
-# Bubiqo
+<p align="center">
+  <img src="docs/brand/cover.png" alt="Bubiqo — reads the page you are on, and tells you what it actually says" width="100%">
+</p>
 
-**An action layer for the web.**
+<p align="center">
+  <b>A privacy-first browser extension that reads the page in front of you and tells you what it actually says.</b>
+</p>
 
-Select an email, an invoice or a job advert, right-click, and choose **“Read this
-with Bubiqo”**. It works out what needs your attention and completes the useful
-next steps in one click — without you building an automation first.
-
-It runs entirely on your machine. Out of the box it makes no network requests at
-all.
+<p align="center">
+  <img alt="477 tests" src="https://img.shields.io/badge/tests-477%20passing-0d6551?style=flat-square">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-241f18?style=flat-square">
+  <img alt="Chrome MV3" src="https://img.shields.io/badge/Chrome-MV3-9d5406?style=flat-square">
+  <img alt="No host permissions at install" src="https://img.shields.io/badge/host%20permissions-none%20at%20install-a81f42?style=flat-square">
+  <img alt="No network" src="https://img.shields.io/badge/page%20data-never%20leaves%20the%20device-0d6551?style=flat-square">
+</p>
 
 ---
 
-## The problem
+## What it does
 
-Automation tools ask you to build the automation before they can help. You have to
-know the task is repetitive, know which tool to reach for, and then spend twenty
-minutes wiring boxes together — for something you'll do four more times.
-
-So most people never automate anything. The work that would benefit most is exactly
-the work too small to justify the setup.
-
-## Why this is different
-
-Instead of asking you to describe a workflow, Bubiqo identifies useful actions from
-the context you're already working in, and lets you complete them with minimal
-setup.
-
-You open an email that says *"can you send me the revised proposal by Friday?"*.
-Bubiqo has already noticed the deadline, the request, and the meeting mentioned
-three lines down. It offers three things. You click **Complete it**. It does them,
-checks each one actually worked, and tells you what happened.
-
-You never described a workflow. There wasn't one to describe.
-
-## How it works
-
-```
-Your selection  →  Understand  →  Detect  →  Recommend  →  Complete  →  Verify  →  Remember
-```
-
-**Why selection.** Working out which part of a page you mean is guesswork, and on a
-single-page application it is guesswork that loses: a LinkedIn advert sits in the
-same container as the sidebar, the upsells and twenty-five other adverts, and
-reading all of it produced a salary belonging to a different job and a title taken
-from an advertisement for Premium.
-
-A selection is not a guess. Chrome passes the highlighted text straight to the
-extension, so there is no page to parse, no markup to understand, no permission
-needed, and nothing that breaks when a site is redesigned. On an ordinary page —
-an email, an invoice, a simple advert — you can still just open the panel and it
-reads the page itself.
-
-Everything in that chain is deterministic and local. A regex that finds `£2,400.00`
-is more reliable than a small language model asked the same question, runs in under
-a millisecond, needs no download, and can be tested exhaustively. That is why the
-core is rules rather than a model — the optional model exists to handle nuance the
-rules can't reach, never to replace them.
-
-## Key features
+Open Bubiqo on a job advert and it gives you the brief the advert buries:
 
 | | |
 |---|---|
-| **Complete it** | Runs the safe suggested steps in order, verifies each, reports what actually happened |
-| **Problem Radar** | Deadlines, promises you made, questions aimed at you, forms left half-finished |
-| **Why am I seeing this?** | Every suggestion traces to the sentence on the page that produced it |
-| **Reminders** | Local, via `chrome.alarms`. Set for the morning *before* a deadline, not the moment it expires |
-| **Calendar** | Exports a real `.ics` file. No calendar account, no OAuth, nothing to bill |
-| **Memory** | Only what you explicitly save. Inspectable and deletable item by item |
-| **Activity** | An append-only log of everything Bubiqo detected, suggested, ran and verified |
-| **Undo** | Wherever the action supports it. Where it doesn't, it says so before you click |
+| **Pay** | £35,000–40,000 · *stated by the site* |
+| **Closes** | 10 Jan 2027 · *stated by the site* |
+| **Conditions** | DBS check required — *"This post is subject to an enhanced DBS check."* |
+| **Asks for** | the eight requirements, quoted in the advert's own words |
 
-## Supported contexts
+Every fact says where it came from — the site's own structured data, or the prose —
+because those are different kinds of claim and you should be able to tell them
+apart. Nothing is inferred that cannot be quoted.
 
-| Surface | What it finds |
-|---|---|
-| **Email** | Deadlines, requests aimed at you, commitments you made, people waiting, meetings |
-| **Invoice** | Supplier, total, currency, reference, due date |
-| **Job advert** | Role, company, salary, closing date, requirements |
-| **Any page** | Dates, amounts, references, contacts, half-finished forms |
+It also reads **emails** (the deadline, the request, what you promised),
+**invoices** (supplier, total, reference, due date) and **anything carrying a date
+you would rather not forget**.
 
-Booking and meeting pages are on the roadmap, not in this version.
+## The part that matters
 
-## Design
+**It never tells you that you cannot apply.**
 
-The panel is warm and soft-edged on purpose, and disciplined on purpose. It holds
-your deadlines, so it has to read as trustworthy as well as friendly.
+An advert asking for a DBS check says nothing about whether you hold one, or could
+hold one in a fortnight. Earlier versions said *"Ruled out"* — the product claiming
+knowledge it has no way of having, and ruling people out of jobs nobody had ruled
+them out of. Conditions are now stated as what they are: what the advert asks, with
+the sentence it asks in, and a button that says **I have this**. Press it once and
+every future advert asking the same thing shows it as met.
 
-- **A cream ground and a honey accent**, taken from the product mark — not the
-  blue/indigo that most AI-built tools default to.
-- **Rounding is a hierarchy, not a constant.** Pills for actions, soft bubbles for
-  cards, tighter radii for inputs. Rounding everything equally is the giveaway.
-- **Warm-tinted shadows, used once.** Only the primary action lifts off the page;
-  grey shadows on a cream ground look like dirt.
-- **The headline answers the user's question,** not the classifier's: *"3 things need
-  you"*, with the surface as a small chip above it.
-- **Motion is springy and short** — cards lift, buttons compress, Complete It results
-  stagger in so three steps read as a sequence — and all of it is off under
-  `prefers-reduced-motion`.
+## Privacy, as a property of the build
 
-Every text/background pairing was **measured** against its real backdrop in both
-themes rather than eyeballed. Seven failed WCAG AA on the first pass, between 3.66:1
-and 4.45:1; the tokens were darkened until all sixteen pass. The tightest is now
-4.79:1 in light and 4.92:1 in dark. Urgency is always carried by a word and a dot,
-never by colour alone.
+Not a promise in a policy — things you can check in `manifest.json` in thirty seconds:
 
-To see it: `npm run demo`, then open the panel on any of the pages.
+- **No host permissions at install.** `optional_host_permissions` only, granted per
+  site, in the product, after you have seen it work. The install prompt asks for
+  nothing about your browsing.
+- **No content scripts.** Nothing runs on any page until you open the panel on it.
+- **One network call in the entire codebase** — an exchange rate, off by default,
+  sending a currency pair and nothing else. CSP pins `connect-src` to that one host.
+- **Page text is never stored.** Only extracted entities are, and only what you
+  explicitly save.
+- **No model, no server, no account.** The analysis is deterministic: regular
+  expressions, date arithmetic and structured-data reading. Same page in, same
+  answer out — which is why it can be tested exhaustively and why it works offline.
 
-## Privacy
+## How it is built
 
-- **Nothing leaves your machine.** Out of the box, zero network requests.
-- **Nothing is granted at install.** Bubiqo ships with no host permissions at all, so
-  the install prompt asks for nothing about your browsing. The first time you use it,
-  the panel asks for page access itself and Chrome shows you its own confirmation.
-  You can decline, and you can revoke it later at `chrome://extensions`.
-- **No raw content is stored.** Only extracted entities — a date, an amount, a
-  reference. Never page text, never email bodies.
-- **Password and payment fields are never read.** Not their values, not their labels,
-  not whether they're filled.
-- **No hidden profile.** Memory contains what you explicitly saved and nothing else.
+```
+extension/src/core/         pure TypeScript — no chrome.*, no DOM, no React
+  job-posting.ts            schema.org JobPosting, normalised
+  job-brief.ts              the brief: conditions, pay, dates, requirements
+  entity-engine.ts          dates, amounts, people, organisations, references
+  problem-radar.ts          what has a deadline and needs you
+  actions.ts                the Action Registry — nothing outside it can run
+  safety.ts                 risk tiers: safe / confirm / blocked
+extension/src/background/   the service worker and the injected extractor
+extension/src/sidepanel/    the panel — React, no framework beyond it
+tests/captured/             real pages, captured through the real extractor
+```
 
-**Why it asks, rather than demanding at install.** A Chrome side panel never receives
-the `activeTab` permission — Chrome grants that for an action click, a context-menu
-click or a keyboard command, and the grant does not reach a panel. So a panel-based
-extension genuinely cannot read anything without page access.
+**Actions carry a risk tier.** `safe` runs without asking. `confirm` never runs
+without approval in the moment. `blocked` — payments, credentials, account deletion
+— never runs at all, and exists so the refusal is visible rather than implied.
 
-Most extensions solve this by declaring `host_permissions` and putting *"read and
-change all your data on all websites"* in front of you at install, before you have
-seen the thing work. Bubiqo declares `optional_host_permissions` instead and asks in
-the product, once, at the moment you first try to use it. Same capability, asked for
-at the point where you can judge it, and revocable.
+**Every action verifies itself.** A step reports done only when a check confirms the
+result exists. *"We could not confirm"* is a valid outcome and always preferred to a
+false success.
 
-What that access is used for does not change: the page is read only while the panel is
-open on it, and nothing leaves your device.
+## Tested against real pages, not fixtures I wrote
 
-Full detail in [PRIVACY.md](PRIVACY.md).
+`tests/captured/` holds pages captured through the extension's own extractor —
+LinkedIn, Indeed, an NHS Jobs advert, a Greenhouse posting, an Ashby posting. They
+are not hand-written, and that is the point: each one has found a fault no invented
+fixture would have.
 
-## AI
-
-Bubiqo works with no AI at all, and that is the default. There is no bundled model,
-no API key, and no account.
-
-An optional local model (via [Ollama](https://ollama.com)) can be pointed at the
-seam in `core/` for nuance the rules miss — better summaries of long threads,
-softer intent classification. It is genuinely optional: the adapter is not wired up
-in this version, and everything in the feature table above works without it.
-
-No paid model API is used, required, or supported as a dependency.
-
-## Cost
-
-Bubiqo cannot generate a bill, and that's structural rather than a promise:
-
-- No paid model API, no calendar API, no mail API.
-- Exactly one external service exists — [Frankfurter](https://frankfurter.dev), for
-  currency conversion on invoices — it is **off by default**, needs no key and no
-  account, and **has no paid tier to reach**.
-- When it's on, it sends a currency pair (`EUR` → `GBP`). Never the page, never the
-  amount, never anything about you.
-- It still goes through `CostGuard`, a cache and a fallback, because "free today" is
-  not a promise about next year.
-
-Full audit in [COSTS.md](COSTS.md), service terms in [SERVICES.md](SERVICES.md).
-
-## Security
-
-The two rules that hold the product up are enforced in code, not by convention:
-
-1. **Only registered actions can run.** There is no path from text — page content,
-   a typed command, or a model's output — to executing anything not already in the
-   registry.
-2. **`blocked` means never.** Payments, purchases, credentials and account deletion
-   have no execution path at all. Not "after a warning" — no sequence of approvals
-   reaches them.
-
-Page content is data, never instruction. A page that tries to issue commands gets
-the attempt stripped and you get told. Full detail in [SECURITY.md](SECURITY.md).
-
-## Installation
-
-Bubiqo is not on the Chrome Web Store. Load it from source:
+- The NHS advert says *"Disclosure and Barring Service"*, never *"DBS check"* — a
+  whole sector's standard wording read as no condition at all.
+- Indeed's search page puts the advert in a pane seven levels below `<main>`; the
+  extractor never measured it, so a brief carried three other adverts' salaries and
+  named the employer *"New"* — a badge on a neighbouring card.
+- LinkedIn's first heading is now an AI upsell, and briefs were titled *"Use AI to
+  assess how you fit"*.
 
 ```bash
-git clone https://github.com/SayamDev/bubiqo.git
-cd bubiqo
 npm install
-npm run build
+npm run verify     # typecheck, lint, 477 tests, build
+npm run dev        # rebuild on change
+npm run capture-snippet   # build the fixture-capture console snippet
 ```
 
-Then in Chrome:
+Load `dist/` at `chrome://extensions` → Developer mode → Load unpacked.
 
-1. Go to `chrome://extensions`
-2. Turn on **Developer mode** (top right)
-3. Click **Load unpacked**
-4. Select the **`dist`** folder
+## Decisions worth reading
 
-The Bubiqo icon appears in your toolbar. Click it, or press <kbd>⌘⇧A</kbd> /
-<kbd>Ctrl+Shift+A</kbd>, to open the panel on whatever page you're looking at.
+- [ADR 0001](docs/adr/0001-no-host-permissions.md) — asking for page access in the
+  product rather than at install, and the amendment after it met a real inbox.
+- [ADR 0002](docs/adr/0002-deterministic-core.md) — why there is no model.
+- [ADR 0003](docs/adr/0003-structured-data-first-job-reading.md) — reading the
+  advert the site published, including the claim the evidence later disproved.
+- [CONTEXT.md](CONTEXT.md) — the domain glossary. Code, tests and docs use these
+  words and no synonyms.
+- [PRIVACY.md](PRIVACY.md) · [SECURITY.md](SECURITY.md)
 
-Chrome 116 or newer (that's when `chrome.sidePanel` landed).
+## Status
 
-## Try it without an inbox
+Working and unpublished. Not on the Chrome Web Store. Email, invoice and generic
+surfaces work; job adverts are the most developed. Non-English pages are largely
+unsupported, and the condition rules are UK-centric — both stated in ADR 0002 as
+known limits rather than discovered later.
 
-The repo ships five ordinary-looking web pages to try it against:
-
-```bash
-npm run demo
-```
-
-Then open <http://localhost:8123> and follow the list. There's an email with a
-deadline, a foreign-currency invoice, a job advert, a half-finished form, and a page
-that tries to hijack the assistant.
-
-[CEO-DEMO.md](CEO-DEMO.md) is a four-minute script through them.
-
-## Development
-
-```bash
-npm run dev        # rebuild on change (reload the extension in chrome://extensions)
-npm run test       # 157 tests
-npm run typecheck  # tsc --noEmit, strict
-npm run lint
-npm run verify     # all four, in order — run this before any commit
-npm run icons      # regenerate the icons (pure Python, no image library needed)
-```
-
-### How the code is laid out
-
-```
-extension/src/
-├── core/          pure engines — no chrome.*, no DOM, no React
-│   ├── ports.ts   the only seam to the outside world
-│   └── …          dates, entities, classification, intent, radar, ranking,
-│                  actions, safety, executor, cost guard
-├── background/    service worker, chrome-backed ports, the page extractor
-├── providers/     the one external service
-├── shared/        the typed message protocol
-└── sidepanel/     the React UI
-```
-
-The rule that matters: **`core/` never touches the browser.** It reaches the outside
-world only through `core/ports.ts`. That's why the entire action and safety layer is
-tested in Node against in-memory fakes, with no browser, no jsdom and no mocking
-library.
-
-The vocabulary the code uses is defined in [CONTEXT.md](CONTEXT.md) — worth five
-minutes before reading the source.
-
-## Testing
-
-157 tests, no browser required.
-
-`tests/service-worker.test.ts` drives the worker the way the panel does — by
-dispatching messages over a fake `chrome.*` surface — so message routing, the
-Chrome-backed storage, alarm scheduling and survival across a worker restart are
-covered, not assumed.
-
-The ones worth knowing about are in `tests/captured.test.ts`. That JSON isn't
-hand-written: it's the exact output of the page extractor running in real Chrome
-against the demo pages, saved so CI can replay it. It caught the worst bug in the
-project — `cloneNode()` detaches a node, a detached node has no layout, and
-`innerText` on a node without layout silently degrades to `textContent`, collapsing
-`Total amount due | EUR 2,880.00` into `Total amount dueEUR 2,880.00` and losing the
-invoice total. Hand-written fixtures could never have shown that, because a human
-writing them puts the newlines in by hand.
-
-## Limitations
-
-Stated plainly, because a tool that overstates what it does is worse than one that
-does less.
-
-- **Gmail is not integrated.** Bubiqo reads whatever page you open it on, including
-  an email in a webmail client, but there is no Gmail-specific adapter in this
-  version. Gmail's DOM is obfuscated and changes without notice; doing it properly is
-  a maintenance commitment, not a weekend's work.
-- **It cannot work while Chrome is closed.** MV3 service workers are terminated
-  aggressively. Reminders fire through `chrome.alarms`, which means Chrome has to be
-  running. An alarm whose moment passed while Chrome was shut fires on next startup,
-  and overdue items surface in the briefing.
-- **Ambiguous numeric dates are deliberately not parsed.** `12/03/2026` is 12 March
-  in the UK and 3 December in the US, and there is no reliable signal on a web page
-  to choose. A confidently wrong deadline is worse than no deadline.
-- **The local-model adapter is a seam, not a feature.** The interface is there; the
-  Ollama implementation is not wired up.
-- **Chrome and Edge only.** `chrome.sidePanel` has no Firefox equivalent — a port
-  means redesigning the UI, not recompiling it.
-- **Not accessibility-audited by a human.** Built to WCAG 2.2 AA intent — semantic
-  markup, visible focus, live regions, nothing signalled by colour alone. The
-  keyboard path was driven and fixed: the tablist follows the APG pattern with a
-  roving tabindex, arrow/Home/End keys, focus following selection, and no dangling
-  `aria-controls`. But it has not been reviewed by a specialist, and not tested with
-  a real screen reader on real hardware, which is where the findings that matter
-  usually are.
-
-## Roadmap
-
-1. A Gmail adapter, behind the same page-reader seam
-2. Wiring up the Ollama adapter for long threads and softer intent
-3. Booking and meeting surfaces
-4. Teach Me Once — routines offered after you repeat the same steps, never created
-   silently
-5. Goal Mode — naming a goal ("apply for this job") and tracking its steps across pages
-6. Cross-page memory: connecting a job advert to the company page you open later
-7. An in-panel command bar, and local search across reminders and memory
-8. CV comparison on a job advert — matching requirements against evidence you supply
-9. A weekly review of what you completed and what patterns repeated
-10. A human accessibility audit before any store listing
-
-Items 4–9 are in the original brief and are deliberately **not** in this version.
-Nothing stubs them: there are no unused types or dead interfaces implying they exist.
-
-## Licence
-
-MIT — see [LICENSE](LICENSE).
+MIT licensed.

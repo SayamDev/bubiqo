@@ -2205,3 +2205,65 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 .verdict__item--held .verdict__name { text-decoration: none; }
 .verdict__claim { margin-top: 4px; align-self: flex-start; color: inherit; opacity: 0.9; }
 .verdict__claim:hover { opacity: 1; text-decoration: underline; }
+
+/* ==========================================================================
+   Suggestion controls, told apart
+   --------------------------------------------------------------------------
+   At a wide panel width the row stretched: the action at the far left, the
+   other two pinned to the far right, and a hand's width of nothing between
+   them. Controls that belong to the same card should sit together — and each
+   should look like what it is.
+
+     Do it        a filled button. The thing to press.
+     Why?         a disclosure. Carries a caret, opens in place.
+     Not useful   an outlined button. Quiet, but unmistakably pressable —
+                  it was plain text, which is why it did not read as a control.
+   ========================================================================== */
+
+.suggestion__row { gap: 10px; }
+
+/* Grouped left, not flung to the edges. */
+.suggestion__why { margin-left: 4px; }
+/*
+ * An outline, because "quiet" here meant invisible: it rendered as a line of
+ * grey text beside a filled button and nobody could tell it was pressable.
+ * Quiet should mean lower contrast, not absent.
+ */
+.suggestion__dismiss {
+  margin: 0;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+
+.suggestion__dismiss:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--sunk);
+}
+
+/* The disclosure reads as a disclosure: a caret that turns when it opens. */
+.suggestion__why > summary { gap: 6px; }
+.suggestion__why > summary::before { content: "?"; }
+.suggestion__why[open] > summary { background: var(--accent-bg); color: var(--accent); }
+
+/*
+ * The card stops stretching. A brief is read in a column; text that runs the
+ * full width of a wide panel is harder to read, not easier, and it left the
+ * controls marooned at opposite ends of the row.
+ */
+.suggestion__body { max-width: 62ch; }
+.suggestion__rationale { max-width: 56ch; }
+
+/* Chips that can be removed — conditions held, suggestions turned off. */
+.chips__item { display: inline-flex; align-items: center; gap: 7px; }
+.chips__remove {
+  border: 0;
+  background: none;
+  padding: 0 1px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--ink-faint);
+  cursor: pointer;
+  border-radius: var(--r-pill);
+}
+.chips__remove:hover { color: var(--alert); }
