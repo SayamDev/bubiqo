@@ -650,6 +650,39 @@ chrome.runtime.onMessage.addListener((request: Request, _sender, sendResponse: (
   return true; // keeps the channel open for the async reply
 });
 
+
+/**
+ * The analysis to act on, checked against the page the user is actually looking at.
+ *
+ * A job board changes advert with history.pushState: the tab's URL changes and the
+ * document never reloads, so chrome.tabs.onUpdated fires without status
+ * "complete" and the panel does not re-read. Pressing "Complete all" then saved
+ * the advert the user had been reading a moment earlier — the worst kind of wrong,
+ * because everything on screen looked right.
+ *
+ * The panel listening harder is half a fix and cannot be the whole one: the worker
+ * holds the analysis that actions run against, so the worker checks at the moment
+ * of acting. If the stored analysis is for another URL, read the page again first.
+ */
+async function contextForAction(): Promise<{ page: PageContext; analysis: Analysis } | undefined> {
+  let ctx = await loadCurrent();
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const url = tab?.url;
+
+  if (ctx && url && url !== ctx.page.url) {
+    await analyseActiveTab();
+    ctx = await loadCurrent();
+  }
+
+  if (!ctx) {
+    await analyseActiveTab();
+    ctx = await loadCurrent();
+  }
+
+  return ctx;
+}
+
 async function handle(request: Request): Promise<Response> {
   const settings = await getSettings();
   const executor = new Executor(registry, ports, settings);
@@ -664,7 +697,7 @@ async function handle(request: Request): Promise<Response> {
     }
 
     case "RUN_ACTION": {
-      const ctx = (await loadCurrent()) ?? (await analyseActiveTab(), await loadCurrent());
+      const ctx = await contextForAction();
       if (!ctx) return { type: "ERROR", message: "Bubiqo lost track of this page. Press “Re-read this page” and try again." };
       const outcome = await executor.run(request.actionId, toActionInput(ctx.page, ctx.analysis), {
         approved: request.approved ? [request.actionId] : [],
@@ -692,7 +725,7 @@ async function handle(request: Request): Promise<Response> {
        * Erroring here is useless to the user: they pressed a button on suggestions
        * that are still on screen, so the right answer is to make it work.
        */
-      const ctx = (await loadCurrent()) ?? (await analyseActiveTab(), await loadCurrent());
+      const ctx = await contextForAction();
       if (!ctx) {
         return { type: "ERROR", message: "Bubiqo lost track of this page. Press “Re-read this page” and try again." };
       }

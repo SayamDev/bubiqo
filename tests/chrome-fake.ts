@@ -50,6 +50,8 @@ export interface FakeState {
   denyInjection?: boolean;
   /** Simulates the user declining the permission prompt. */
   denyPermission?: boolean;
+  /** How many times the extractor has been injected, so a test can see a re-read. */
+  injections: number;
   /** Context menu items registered by the worker. */
   menus: unknown[];
   /** Whether the side panel was opened. */
@@ -141,6 +143,7 @@ export function installFakeChrome(state: FakeState): FakeChrome {
         if (state.denyInjection) throw new Error("Cannot access contents of the page");
 
         // The injected script reports the page's own location, so keep them in step.
+        state.injections += 1;
         const page = state.pageResult as Record<string, unknown>;
         const result = url
           ? { ...page, url, domain: new URL(url).hostname }
@@ -186,5 +189,5 @@ export function installFakeChrome(state: FakeState): FakeChrome {
 }
 
 export function freshState(page: unknown, url = "https://mail.example.com/f001"): FakeState {
-  return { store: {}, session: {}, alarms: new Map(), badge: "", activeTab: { id: 1, url }, pageResult: page, grantedOrigins: [], menus: [] };
+  return { store: {}, session: {}, alarms: new Map(), badge: "", activeTab: { id: 1, url }, pageResult: page, grantedOrigins: [], menus: [], injections: 0 };
 }

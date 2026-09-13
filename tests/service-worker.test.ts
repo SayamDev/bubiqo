@@ -18,6 +18,8 @@ import type { StepOutcome, CompleteItReport } from "@core/executor";
 const here = dirname(fileURLToPath(import.meta.url));
 const emailPage = JSON.parse(readFileSync(resolve(here, "captured", "email.json"), "utf8")) as unknown;
 const invoicePage = JSON.parse(readFileSync(resolve(here, "captured", "invoice.json"), "utf8")) as unknown;
+const jobPage = JSON.parse(readFileSync(resolve(here, "captured", "linkedin-prompt-engineer.json"), "utf8")) as unknown;
+const secondJobPage = JSON.parse(readFileSync(resolve(here, "captured", "indeed-viewjob.json"), "utf8")) as unknown;
 
 let state: FakeState;
 let dispatch: (request: unknown) => Promise<Response>;
@@ -609,4 +611,44 @@ describe("the panel must never lose the analysis it is showing", () => {
       expect(panel.page, `${label} came back with no page`).toBeDefined();
     });
   }
+});
+
+/*
+ * Switching advert without a page load.
+ *
+ * Reported from the extension: click a different advert on a job board, press
+ * "Complete all", and the details saved belong to the advert you were reading
+ * before. A job board changes advert with history.pushState — the tab's URL
+ * changes, the document does not reload, and chrome.tabs.onUpdated fires without
+ * status "complete", so the panel never re-read.
+ *
+ * The panel listening harder is half a fix. The worker holds the analysis that
+ * actions run against, so the worker is where this has to be caught: before
+ * acting, what is stored must still describe the page in front of the user.
+ */
+describe("the page changed under the panel", () => {
+  it("re-reads before completing, rather than acting on the advert before it", async () => {
+    await bootWorker(jobPage, "https://uk.indeed.com/jobs?q=x&vjs=1");
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+
+    // The user clicks a different advert: same document, new URL, new content.
+    state.activeTab = { id: 1, url: "https://uk.indeed.com/jobs?q=x&vjs=2" };
+    state.pageResult = secondJobPage;
+
+    const response = await dispatch({ type: "COMPLETE_IT" });
+    expect(response.type).toBe("REPORT");
+
+    const panel = asState(await dispatch({ type: "GET_STATE" }));
+    expect(panel.page?.url).toBe("https://uk.indeed.com/jobs?q=x&vjs=2");
+    expect(panel.analysis?.brief?.title?.value).toBe("Business Applications Developer");
+  });
+
+  it("does not re-read when the page has not changed", async () => {
+    await bootWorker(jobPage, "https://uk.indeed.com/jobs?q=x&vjs=1");
+    await dispatch({ type: "ANALYSE_ACTIVE_TAB" });
+
+    const before = state.injections;
+    await dispatch({ type: "COMPLETE_IT" });
+    expect(state.injections, "the page was read again for no reason").toBe(before);
+  });
 });

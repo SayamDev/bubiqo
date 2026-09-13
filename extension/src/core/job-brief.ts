@@ -258,6 +258,109 @@ function readProseSalary(entities: readonly Entity[]): BriefField<string> | unde
   return undefined;
 }
 
+/**
+ * The contract type, in the advert's own words.
+ *
+ * Only where the advert states it. A page with no structured data was showing the
+ * reader two facts — salary and working pattern — when it had plainly said
+ * "Permanent, Full-time" at the top.
+ */
+const EMPLOYMENT_TYPES: readonly { readonly pattern: RegExp; readonly label: string }[] = [
+  { pattern: /\bpermanent\b/i, label: "Permanent" },
+  { pattern: /\bfixed[- ]term\b/i, label: "Fixed term" },
+  { pattern: /\btemporary\b/i, label: "Temporary" },
+  { pattern: /\bapprenticeship\b/i, label: "Apprenticeship" },
+  { pattern: /\binternship\b/i, label: "Internship" },
+  { pattern: /\bfull[- ]time\b/i, label: "Full time" },
+  { pattern: /\bpart[- ]time\b/i, label: "Part time" },
+  { pattern: /\b(?:contract|freelance)\b/i, label: "Contract" },
+];
+
+function readProseEmploymentType(text: string): BriefField<string> | undefined {
+  for (const { pattern, label } of EMPLOYMENT_TYPES) {
+    const match = pattern.exec(text);
+    if (!match) continue;
+    return field(label, "prose", quoteAround(text, match.index, match[0].length), 0.7);
+  }
+  return undefined;
+}
+
+/**
+ * The employer, from the Entity the engine already chose.
+ *
+ * Same reasoning as the salary: `preferTitleAnchoredOrganisation` in
+ * core/entity-engine.ts already decides which of the names on a page is the
+ * employer, with tests behind it. A second answer here would disagree with it.
+ */
+function readProseOrganisation(page: PageContext, text: string, entities: readonly Entity[]): BriefField<string> | undefined {
+  const organisation = entities.find((e) => e.type === "organisation");
+  if (organisation) {
+    return field(organisation.value, "prose", tidyQuote(organisation.source), organisation.confidence);
+  }
+
+  const fromTitle = organisationFromTitle(page.title);
+  if (fromTitle) return field(fromTitle, "prose", page.title, 0.75);
+
+  const fromOpening = organisationFromOpeningLines(text);
+  if (fromOpening) return field(fromOpening, "prose", fromOpening, 0.7);
+
+  return undefined;
+}
+
+/** Sites whose name is appended to every page title. */
+const JOB_SITE = /^(?:linkedin|indeed(?:\.com)?|glassdoor|reed(?:\.co\.uk)?|totaljobs|cv-library|monster|ziprecruiter|jobsite|adzuna|otta|welcome to the jungle)$/i;
+
+/** A postcode, a "City, Country", a distance — the things that are places, not employers. */
+const LOOKS_LIKE_A_PLACE =
+  /\b[A-Z]{1,2}\d{1,2}[A-Z]?\s*\d?[A-Z]{0,2}\b|\b\d+\s*min\b|\bremote\b|\bhybrid\b|,\s*(?:england|scotland|wales|northern ireland|united kingdom|uk|usa)\b/i;
+
+/** Words that only appear in the name of an organisation. */
+const ORGANISATION_SUFFIX =
+  /\b(?:Ltd|Limited|PLC|LLP|LLC|Inc|GmbH|N\.?V|S\.?A|Group|Holdings|Trust|Society|Foundation|University|College|Council|Partnership|Recruitment|Technologies|Consulting|Solutions|Associates|NHS)\b/;
+
+/**
+ * The employer, from the document title.
+ *
+ * Job boards write the title as "<role> | <employer> | <site>" — a LinkedIn advert
+ * reads "Senior Prompt Engineer - AI - Full-time | OVI | LinkedIn". Splitting on
+ * the pipe and dropping the site's own name leaves the employer, and it is stated
+ * by the page rather than guessed from prose.
+ *
+ * Pipes only. Indeed uses dashes — "Product Manager - Integration - Swindon SN38 -
+ * Indeed.com" — where the same rule would return a postcode as the employer.
+ */
+function organisationFromTitle(title: string): string | undefined {
+  const parts = title.split("|").map((part) => part.trim()).filter((part) => part.length > 0);
+  if (parts.length < 3) return undefined;
+
+  const candidate = parts[parts.length - 2] ?? "";
+  if (JOB_SITE.test(candidate) || LOOKS_LIKE_A_PLACE.test(candidate)) return undefined;
+  return candidate.length > 1 && candidate.length < 80 ? candidate : undefined;
+}
+
+/**
+ * The employer, from the top of the advert.
+ *
+ * An NHS advert opens with "Central and North West London NHS Foundation Trust"
+ * and never repeats it in a form the Entity extractor recognises. Only lines
+ * carrying a word that belongs to an organisation's name qualify, so a job title
+ * or a location on the same lines is not mistaken for one.
+ */
+function organisationFromOpeningLines(text: string): string | undefined {
+  for (const line of text.split("\n").slice(0, 8).map((l) => l.trim())) {
+    if (line.length < 3 || line.length > 90) continue;
+    if (LOOKS_LIKE_A_PLACE.test(line)) continue;
+    if (ORGANISATION_SUFFIX.test(line)) return line;
+  }
+  return undefined;
+}
+
+/** Where the job is, from the Entity engine's reading of the advert. */
+function readProseLocation(entities: readonly Entity[]): BriefField<string> | undefined {
+  const address = entities.find((e) => e.type === "address");
+  return address ? field(address.value, "prose", tidyQuote(address.source), address.confidence) : undefined;
+}
+
 const WORKING_PATTERNS: readonly { readonly pattern: RegExp; readonly label: (m: RegExpExecArray) => string }[] = [
   {
     pattern: /\b(\d+)\s*days?\s*(?:a week\s*|per week\s*)?(?:on[- ]?site|in (?:the )?office)\b/i,
@@ -338,11 +441,11 @@ export function buildJobBrief(page: PageContext, entities: readonly Entity[], no
 
   const organisation = posting?.organisation
     ? field(posting.organisation, "structured", "JobPosting.hiringOrganization", 0.95)
-    : undefined;
+    : readProseOrganisation(page, text, entities);
 
   const location = posting?.location
     ? field(posting.location, "structured", "JobPosting.jobLocation", 0.9)
-    : undefined;
+    : readProseLocation(entities);
 
   const salary = posting?.salary
     ? field(posting.salary, "structured", "JobPosting.baseSalary", 0.95)
@@ -355,7 +458,7 @@ export function buildJobBrief(page: PageContext, entities: readonly Entity[], no
 
   const employmentType = posting?.employmentType
     ? field(posting.employmentType, "structured", "JobPosting.employmentType", 0.9)
-    : undefined;
+    : readProseEmploymentType(text);
 
   const workingPattern = readWorkingPattern(text);
 

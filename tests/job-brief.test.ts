@@ -327,3 +327,79 @@ describe("buildJobBrief — the application form is not the advert", () => {
     expect(brief.blockers.map((b) => b.rule)).toContain("dbs_check");
   });
 });
+
+describe("buildJobBrief — an advert with no structured data still says enough", () => {
+  const advert = [
+    "Senior Prompt Engineer - AI - Full-time",
+    "OVI Ltd",
+    "Reading, England, United Kingdom",
+    "Permanent, Full-time",
+    "Hybrid",
+    "What's Offered • Competitive salary of £55,000–£60,000. • Permanent position with equity.",
+  ].join("\n");
+
+  it("names the employer from the advert when the site publishes none", () => {
+    const brief = build(page({ headings: ["Senior Prompt Engineer"], text: advert }));
+    expect(brief.organisation?.value).toBe("OVI Ltd");
+    expect(brief.organisation?.source).toBe("prose");
+  });
+
+  it("reads the contract type from the advert", () => {
+    const brief = build(page({ text: advert }));
+    expect(brief.employmentType?.value).toBe("Permanent");
+    expect(brief.employmentType?.source).toBe("prose");
+  });
+
+  it("keeps the structured employment type when there is one", () => {
+    const brief = build(
+      page({
+        structuredData: [{ "@type": "JobPosting", employmentType: "FULL_TIME" }],
+        text: advert,
+      }),
+    );
+    expect(brief.employmentType?.value).toBe("Full time");
+    expect(brief.employmentType?.source).toBe("structured");
+  });
+
+  it("does not invent a contract type the advert never states", () => {
+    const brief = build(page({ text: "We are hiring a gardener. Apply now." }));
+    expect(brief.employmentType).toBeUndefined();
+  });
+});
+
+describe("buildJobBrief — finding the employer where job boards put it", () => {
+  it("takes it from the document title, between the role and the site", () => {
+    const brief = build(
+      page({
+        title: "Senior Prompt Engineer - AI - Full-time | OVI | LinkedIn",
+        text: "OVI\nSenior Prompt Engineer - AI - Full-time\nReading, England\nPermanent",
+      }),
+    );
+    expect(brief.organisation?.value).toBe("OVI");
+  });
+
+  it("takes it from the first line when the advert opens with it", () => {
+    const brief = build(
+      page({
+        title: "Job Advert",
+        text: "Central and North West London NHS Foundation Trust\nNursing Associate - School Nursing\nThe closing date is 17 September 2026",
+      }),
+    );
+    expect(brief.organisation?.value).toBe("Central and North West London NHS Foundation Trust");
+  });
+
+  it("does not mistake a place for an employer", () => {
+    const brief = build(
+      page({
+        title: "Product Manager - Integration - Swindon SN38 - Indeed.com",
+        text: "Product Manager - Integration\nSwindon SN38\n£47,200 - £70,800 a year",
+      }),
+    );
+    expect(brief.organisation?.value).not.toBe("Swindon SN38");
+  });
+
+  it("says nothing when the advert names no employer", () => {
+    const brief = build(page({ title: "Jobs", text: "We are hiring a gardener. £25,000 a year." }));
+    expect(brief.organisation).toBeUndefined();
+  });
+});

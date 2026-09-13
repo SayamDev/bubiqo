@@ -154,12 +154,21 @@ export function App() {
     else document.documentElement.setAttribute("data-theme", theme);
   }, [state?.settings.theme]);
 
-  // Re-read the page when the user switches tab or navigates, so the panel is
-  // never showing a stale answer for a page that is no longer in front of them.
+  /*
+   * Re-read the page when the user switches tab or navigates, so the panel is
+   * never showing a stale answer for a page that is no longer in front of them.
+   *
+   * `status === "complete"` alone was not enough. A job board switches advert with
+   * history.pushState: the URL changes, the document does not reload, and Chrome
+   * reports that as a url change with no status. The panel sat on the previous
+   * advert while the user read a new one — and "Complete all" then saved the
+   * previous one.
+   */
   useEffect(() => {
     const onActivated = () => void analyse();
     const onUpdated = (_id: number, change: chrome.tabs.TabChangeInfo, t: chrome.tabs.Tab) => {
-      if (change.status === "complete" && t.active) void analyse();
+      if (!t.active) return;
+      if (change.status === "complete" || change.url !== undefined) void analyse();
     };
     chrome.tabs.onActivated.addListener(onActivated);
     chrome.tabs.onUpdated.addListener(onUpdated);

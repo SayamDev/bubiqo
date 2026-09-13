@@ -447,6 +447,10 @@ describe("a real NHS Jobs advert", () => {
     expect(analysis.brief?.closingDate?.value).toBe(new Date(2026, 8, 17, 9, 0, 0, 0).getTime());
   });
 
+  it("names the trust, which the advert opens with", () => {
+    expect(analysis.brief?.organisation?.value).toBe("Central and North West London NHS Foundation Trust");
+  });
+
   it("flags the DBS check, however the advert words it", () => {
     expect(analysis.brief?.blockers.map((b) => b.rule)).toContain("dbs_check");
   });
@@ -555,6 +559,13 @@ describe("a logged-in LinkedIn job page, 2026", () => {
 
   it("reads the working pattern", () => {
     expect(analysis.brief?.workingPattern?.value).toBe("Hybrid");
+  });
+
+  it("names the employer, which LinkedIn puts in the page title", () => {
+    // The advert showed two facts — salary and working pattern — on a page that
+    // names the employer in its title and the contract type in its first lines.
+    expect(analysis.brief?.organisation?.value).toBe("OVI");
+    expect(analysis.brief?.employmentType?.value).toBe("Permanent");
   });
 
   it("reports no blocker, because this advert states none", () => {
