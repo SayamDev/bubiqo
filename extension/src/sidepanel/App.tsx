@@ -555,6 +555,13 @@ export function App() {
 
 // ---------------------------------------------------------------------------
 
+/** The three settings for how much Bubiqo says without being asked. */
+const MODES = [
+  { id: "quiet", name: "Quiet", what: "Answers when you ask, and otherwise says nothing." },
+  { id: "helpful", name: "Helpful", what: "Shows what it is confident about. The middle setting, and the default." },
+  { id: "proactive", name: "Proactive", what: "Also raises things you have not asked about but might forget." },
+] as const;
+
 function Header({ state }: { state: PanelState | undefined }) {
   const analysis = state?.analysis;
   const blocked = Boolean(state?.unavailableReason);
@@ -1069,7 +1076,9 @@ function SuggestionCard({
             * Undo, so the user never has to go looking for the consequence of their
             * own action.
             */}
-          {outcome && (
+        </div>
+
+        {outcome && (
             <div className={`outcome outcome--${tone}`} id={`${suggestion.actionId}-result`} role="status">
               <span className={`result__mark result__mark--${tone}`} aria-hidden="true">
                 {tone === "done" ? "✓" : tone === "fail" ? "×" : "!"}
@@ -1099,7 +1108,7 @@ function SuggestionCard({
               </div>
             </div>
           )}
-        </div>
+
 
         {/*
           * One obvious thing to press on the left; everything else quiet and to
@@ -2037,19 +2046,33 @@ function SettingsTab({
           * with the meaning hidden until you open it.
           */}
         <div className="modes" role="radiogroup" aria-label="How much should Bubiqo speak up?">
-          {(
-            [
-              { id: "quiet", name: "Quiet", what: "Answers when you ask, and otherwise says nothing." },
-              { id: "helpful", name: "Helpful", what: "Shows what it is confident about. The middle setting, and the default." },
-              { id: "proactive", name: "Proactive", what: "Also raises things you have not asked about but might forget." },
-            ] as const
-          ).map((choice) => (
+          {MODES.map((choice, index) => (
             <button
               key={choice.id}
               type="button"
               role="radio"
               className="modes__option"
               aria-checked={settings.mode === choice.id}
+              /*
+               * Roving tabindex plus arrow keys, which is what a radiogroup is
+               * expected to do: Tab moves past the whole group, arrows move
+               * within it. Without this a keyboard user tabs through three
+               * separate controls and a screen reader announces a group whose
+               * keys do nothing.
+               */
+              tabIndex={settings.mode === choice.id ? 0 : -1}
+              onKeyDown={(event) => {
+                const step = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : event.key === "ArrowUp" || event.key === "ArrowLeft" ? -1 : 0;
+                if (step === 0) return;
+                event.preventDefault();
+
+                const next = MODES[(index + step + MODES.length) % MODES.length];
+                if (!next) return;
+                void update({ mode: next.id });
+                const group = event.currentTarget.parentElement;
+                const buttons = group?.querySelectorAll<HTMLButtonElement>("[role='radio']");
+                buttons?.[(index + step + MODES.length) % MODES.length]?.focus();
+              }}
               onClick={() => void update({ mode: choice.id })}
             >
               <span className="modes__dot" aria-hidden="true" />

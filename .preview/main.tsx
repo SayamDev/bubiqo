@@ -74,6 +74,18 @@ const briefing = { greeting: "Good afternoon", overdue: [], dueToday: [], loose:
     sendMessage: async (request: { type: string }) => {
       if (request.type === "BRIEFING") return { type: "BRIEFING", briefing };
       if (request.type === "PAGE_FINGERPRINT") return { type: "FINGERPRINT" };
+      // So the finished state of a suggestion card can be looked at.
+      if (request.type === "RUN_ACTION")
+        return {
+          type: "STEP",
+          outcome: {
+            actionId: (request as { actionId: string }).actionId,
+            name: "Save details",
+            status: "done",
+            message: "Saved 12 details to Memory.",
+            undoHandle: "x1",
+          },
+        };
       if (request.type === "CALENDAR_FILE") return { type: "ERROR", message: "not in preview" };
       return { type: "STATE", state };
     },
