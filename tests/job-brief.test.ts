@@ -403,3 +403,67 @@ describe("buildJobBrief — finding the employer where job boards put it", () =>
     expect(brief.organisation).toBeUndefined();
   });
 });
+
+/*
+ * An Indeed search page with the advert in its pane, captured 13 September 2026.
+ *
+ * Reported from the extension: the brief was headed "JOB POST DETAILS" with
+ * "PROJECT MANAGER" shown as the employer, and the saved record read
+ * "JOB TITLE: Job Post Details / ORGANISATION: Project Manager". The employer,
+ * EdenCare, appears twice on the page and neither was used.
+ */
+describe("buildJobBrief — an Indeed pane, which names things its own way", () => {
+  const indeedPane = page({
+    title: "Edencare Support Services Project Manager Job in Bolton (with Salaries) | Indeed United Kingdom",
+    headings: ["Job Post Details", "Project Manager - job post", "Job details", "Pay", "Job type", "Location", "Full job description"],
+    text: [
+      "Return to Search Result",
+      "Job Post Details",
+      "Project Manager",
+      "- job post",
+      "Edencare",
+      "53 Thicketford Road, Bolton BL2 2LS",
+      "From £33,900 a year - Full-time",
+      "Apply with Indeed",
+      "Full job description",
+      "About EdenCare Support Services Ltd",
+      "EdenCare Support Services Ltd provides high-quality, person-centred care and support.",
+      "Person Specification",
+      "Knowledge, Skills, Experience and Qualifications",
+      "Essential",
+      "· Proven experience of leading and managing projects in health, social care or a related regulated environment.",
+    ].join("\n"),
+  });
+
+  it("names the job, not the pane's own heading", () => {
+    const brief = build(indeedPane);
+    expect(brief.title?.value).toBe("Project Manager");
+  });
+
+  it("names the employer, not the job title", () => {
+    const brief = build(indeedPane);
+    expect(brief.organisation?.value).toMatch(/EdenCare/i);
+    expect(brief.organisation?.value).not.toBe("Project Manager");
+  });
+
+  it("reads the salary the advert states", () => {
+    expect(build(indeedPane).salary?.value).toBe("GBP 33900");
+  });
+
+  it("reads the address the advert gives", () => {
+    expect(build(indeedPane).location?.value).toContain("Bolton BL2 2LS");
+  });
+});
+
+describe("buildJobBrief — quoting without cutting words in half", () => {
+  it("ends a long eligibility line at a word", () => {
+    const long =
+      "Experience of capturing stakeholder needs, assessing, defining and justifying those needs to arrive at an agreed schedule of requirements using appropriate communication and engagement channels across the organisation.";
+    const brief = build(page({ headings: ["Essential"], text: `Essential\n${long}` }));
+    const quote = brief.eligibility[0] ?? "";
+    expect(quote.length).toBeLessThanOrEqual(181);
+    expect(quote.endsWith("…")).toBe(true);
+    // "…and enga" was what the panel showed.
+    expect(quote).not.toMatch(/\benga…$/);
+  });
+});

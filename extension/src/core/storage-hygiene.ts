@@ -45,7 +45,14 @@ export function cleanTitle(rawTitle: string, domain: string): string {
 }
 
 /** Site names appended to a tab title by the site itself. */
-const SITE_SUFFIX = /\s[-–|]\s(?:LinkedIn|Indeed|Glassdoor|Reed\.co\.uk|Totaljobs|Monster|Otta|Welcome to the Jungle)\s*$/i;
+/*
+ * Indeed does not write a bare "Indeed": a job page ends "- Indeed.com" and a
+ * search page "| Indeed United Kingdom". Matching only the bare name meant the
+ * title never counted as templated, so a heading was never preferred over it and
+ * a brief came out titled with the whole search query.
+ */
+const SITE_SUFFIX =
+  /\s[-–|]\s(?:LinkedIn|Indeed(?:\.com)?(?:\s+\w+(?:\s+\w+)?)?|Glassdoor|Reed\.co\.uk|Totaljobs|Monster|Otta|Welcome to the Jungle)\s*$/i;
 
 /**
  * The best title for this page.

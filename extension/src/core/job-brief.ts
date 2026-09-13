@@ -126,8 +126,24 @@ const MAX_ELIGIBILITY_ITEMS = 8;
 const MAX_ELIGIBILITY_CHARS = 400;
 const MAX_QUOTE = 180;
 
+/**
+ * A quote cut to length, at a word.
+ *
+ * Slicing at exactly 180 characters ended an eligibility line mid-word — the panel
+ * showed "...using appropriate communication and enga" — which reads like a bug
+ * whatever the text behind it says.
+ */
+function clip(text: string, limit = MAX_QUOTE): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= limit) return trimmed;
+
+  const cut = trimmed.slice(0, limit - 1);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > limit * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+}
+
 function field<T>(value: T, source: "structured" | "prose", evidence: string, confidence: number): BriefField<T> {
-  return { value, source, evidence: evidence.replace(/\s+/g, " ").trim().slice(0, MAX_QUOTE), confidence };
+  return { value, source, evidence: clip(evidence.replace(/\s+/g, " ")), confidence };
 }
 
 /**
@@ -164,7 +180,7 @@ function findBlockers(text: string): Blocker[] {
     found.push({
       rule: rule.id,
       summary: rule.summary,
-      evidence: quoteAround(text, match.index, match[0].length).slice(0, MAX_QUOTE),
+      evidence: clip(quoteAround(text, match.index, match[0].length)),
     });
   }
   return found;
@@ -211,7 +227,7 @@ function readEligibility(page: PageContext, text: string): string[] {
       if (closesSection(line)) break;
       if (out.length >= MAX_ELIGIBILITY_ITEMS || chars >= MAX_ELIGIBILITY_CHARS) break;
 
-      const quote = line.replace(/^[-•*\u2022\s]+/, "").slice(0, MAX_QUOTE);
+      const quote = clip(line.replace(/^[-•*\u2022\s]+/, ""));
       if (quote.length === 0 || out.includes(quote)) continue;
       out.push(quote);
       chars += quote.length;
@@ -292,17 +308,26 @@ function readProseEmploymentType(text: string): BriefField<string> | undefined {
  * core/entity-engine.ts already decides which of the names on a page is the
  * employer, with tests behind it. A second answer here would disagree with it.
  */
-function readProseOrganisation(page: PageContext, text: string, entities: readonly Entity[]): BriefField<string> | undefined {
-  const organisation = entities.find((e) => e.type === "organisation");
+function readProseOrganisation(
+  page: PageContext,
+  text: string,
+  entities: readonly Entity[],
+  jobTitle: string | undefined,
+): BriefField<string> | undefined {
+  // The employer is never the role. A panel showed "ORGANISATION: Project Manager".
+  const isTheJobTitle = (name: string): boolean =>
+    jobTitle !== undefined && name.toLowerCase() === jobTitle.toLowerCase();
+
+  const organisation = entities.find((e) => e.type === "organisation" && !isTheJobTitle(e.value));
   if (organisation) {
     return field(organisation.value, "prose", tidyQuote(organisation.source), organisation.confidence);
   }
 
   const fromTitle = organisationFromTitle(page.title);
-  if (fromTitle) return field(fromTitle, "prose", page.title, 0.75);
+  if (fromTitle && !isTheJobTitle(fromTitle)) return field(fromTitle, "prose", page.title, 0.75);
 
   const fromOpening = organisationFromOpeningLines(text);
-  if (fromOpening) return field(fromOpening, "prose", fromOpening, 0.7);
+  if (fromOpening && !isTheJobTitle(fromOpening)) return field(fromOpening, "prose", fromOpening, 0.7);
 
   return undefined;
 }
@@ -347,7 +372,11 @@ function organisationFromTitle(title: string): string | undefined {
  * or a location on the same lines is not mistaken for one.
  */
 function organisationFromOpeningLines(text: string): string | undefined {
-  for (const line of text.split("\n").slice(0, 8).map((l) => l.trim())) {
+  // "About EdenCare Support Services Ltd" is a heading about the employer, not the
+  // employer's name. Every advert that has this line writes it this way.
+  const lines = text.split("\n").map((l) => l.trim().replace(/^About\s+/i, ""));
+
+  for (const line of lines.slice(0, 60)) {
     if (line.length < 3 || line.length > 90) continue;
     if (LOOKS_LIKE_A_PLACE.test(line)) continue;
     if (ORGANISATION_SUFFIX.test(line)) return line;
@@ -355,10 +384,22 @@ function organisationFromOpeningLines(text: string): string | undefined {
   return undefined;
 }
 
-/** Where the job is, from the Entity engine's reading of the advert. */
-function readProseLocation(entities: readonly Entity[]): BriefField<string> | undefined {
+/** A UK postcode, which is how an advert states an address it means literally. */
+const POSTCODE_LINE = /^[^\n]{0,80}\b[A-Z]{1,2}\d{1,2}[A-Z]?\s+\d[A-Z]{2}\b[^\n]{0,20}$/m;
+
+/**
+ * Where the job is.
+ *
+ * The Entity engine's address extractor is written for invoices and misses the way
+ * a job board prints one — "53 Thicketford Road, Bolton BL2 2LS" on a line of its
+ * own — so a postcode line is read directly when it has nothing.
+ */
+function readProseLocation(text: string, entities: readonly Entity[]): BriefField<string> | undefined {
   const address = entities.find((e) => e.type === "address");
-  return address ? field(address.value, "prose", tidyQuote(address.source), address.confidence) : undefined;
+  if (address) return field(address.value, "prose", tidyQuote(address.source), address.confidence);
+
+  const match = POSTCODE_LINE.exec(text);
+  return match ? field(match[0].trim(), "prose", match[0].trim(), 0.7) : undefined;
 }
 
 const WORKING_PATTERNS: readonly { readonly pattern: RegExp; readonly label: (m: RegExpExecArray) => string }[] = [
@@ -416,7 +457,8 @@ function readStructuredDate(raw: string): number | undefined {
  * Sayam".
  */
 function readProseTitle(page: PageContext): BriefField<string> | undefined {
-  const title = preferredTitle(page).trim();
+  // Indeed appends "- job post" to the advert's heading.
+  const title = preferredTitle(page).replace(/\s*[-–]\s*job post\s*$/i, "").trim();
   return title.length > 2 && title.length < 120 ? field(title, "prose", title, 0.6) : undefined;
 }
 
@@ -441,11 +483,11 @@ export function buildJobBrief(page: PageContext, entities: readonly Entity[], no
 
   const organisation = posting?.organisation
     ? field(posting.organisation, "structured", "JobPosting.hiringOrganization", 0.95)
-    : readProseOrganisation(page, text, entities);
+    : readProseOrganisation(page, text, entities, title?.value);
 
   const location = posting?.location
     ? field(posting.location, "structured", "JobPosting.jobLocation", 0.9)
-    : readProseLocation(entities);
+    : readProseLocation(text, entities);
 
   const salary = posting?.salary
     ? field(posting.salary, "structured", "JobPosting.baseSalary", 0.95)

@@ -251,7 +251,7 @@ const FURNITURE_HEADING = new RegExp(
     [
       // Feedback and survey widgets
       "are these", "was this", "how (?:did|was)", "rate\\b", "feedback",
-      "jobs for you", "job details", "full job description", "your profile",
+      "jobs for you", "job details", "job post details", "full job description", "your profile",
       // Controls
       "share\\b", "save\\b", "(?:easy\\s+)?apply\\b", "sign in", "log in", "message\\b",
       // Upsells and coaching prompts — these are what named a saved job

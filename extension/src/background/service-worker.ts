@@ -669,8 +669,13 @@ async function contextForAction(): Promise<{ page: PageContext; analysis: Analys
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const url = tab?.url;
+  // Some boards swap the advert without touching the URL, but the document title
+  // follows the advert, so it catches what the URL misses.
+  const movedOn =
+    (url !== undefined && url !== ctx?.page.url) ||
+    (tab?.title !== undefined && ctx !== undefined && tab.title !== ctx.page.title);
 
-  if (ctx && url && url !== ctx.page.url) {
+  if (ctx && movedOn) {
     await analyseActiveTab();
     ctx = await loadCurrent();
   }
