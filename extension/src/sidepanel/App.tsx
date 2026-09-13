@@ -158,12 +158,22 @@ export function App() {
    * Re-read the page when the user switches tab or navigates, so the panel is
    * never showing a stale answer for a page that is no longer in front of them.
    *
-   * `status === "complete"` alone was not enough. A job board switches advert with
-   * history.pushState: the URL changes, the document does not reload, and Chrome
-   * reports that as a url change with no status. The panel sat on the previous
-   * advert while the user read a new one — and "Complete all" then saved the
-   * previous one.
+   * Events alone do not do it. `chrome.tabs.onUpdated` is documented as firing on
+   * navigation, but it is not dependable for same-document navigation — which is
+   * exactly how a job board changes advert: history.pushState, no reload, no
+   * "complete" status. The panel sat on the previous advert until the user pressed
+   * "Re-read this page", and "Complete all" then saved that previous advert.
+   *
+   * So the panel also watches. Every second and a half, while it is actually
+   * visible, it asks Chrome what the active tab is now and compares the URL and
+   * title with the page it analysed. That costs one call to chrome.tabs.query,
+   * needs no extra permission, and does not care how the page changed.
    */
+  const analysedPage = useRef<{ url: string; title: string } | undefined>(undefined);
+  useEffect(() => {
+    if (state?.page) analysedPage.current = { url: state.page.url, title: state.page.title };
+  }, [state?.page]);
+
   useEffect(() => {
     const onActivated = () => void analyse();
     const onUpdated = (_id: number, change: chrome.tabs.TabChangeInfo, t: chrome.tabs.Tab) => {
@@ -172,9 +182,37 @@ export function App() {
     };
     chrome.tabs.onActivated.addListener(onActivated);
     chrome.tabs.onUpdated.addListener(onUpdated);
+
+    const moved = async (): Promise<void> => {
+      if (document.visibilityState !== "visible") return;
+      const analysed = analysedPage.current;
+      if (!analysed) return;
+
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) return;
+
+      // Without host access for this site Chrome withholds url and title, and
+      // there is nothing to compare — the periodic check simply does nothing.
+      const url = tab.url;
+      const title = tab.title;
+      if (url === undefined && title === undefined) return;
+
+      if ((url !== undefined && url !== analysed.url) || (title !== undefined && title !== analysed.title)) {
+        void analyse();
+      }
+    };
+
+    const timer = setInterval(() => void moved(), 1500);
+    const onVisible = () => void moved();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
     return () => {
       chrome.tabs.onActivated.removeListener(onActivated);
       chrome.tabs.onUpdated.removeListener(onUpdated);
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
     };
   }, [analyse]);
 
@@ -1084,9 +1122,17 @@ export function JobBriefBlock({ brief, now }: { brief: JobBrief | undefined; now
         )}
       </ul>
 
+      {/*
+        * Open by default. These are the requirements — the substance of the
+        * advert — and hiding them behind a click meant a reader reported not
+        * seeing any requirements at all.
+        */}
       {brief.eligibility.length > 0 && (
-        <details className="why disclosure" style={{ marginTop: 10 }}>
-          <summary>What the advert says it needs</summary>
+        <details className="why disclosure" style={{ marginTop: 10 }} open>
+          <summary>
+            What the advert says it needs
+            <span className="section__count">{brief.eligibility.length}</span>
+          </summary>
           <ul className="list">
             {brief.eligibility.map((line) => (
               <li className="row" key={line}>

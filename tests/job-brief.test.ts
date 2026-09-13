@@ -467,3 +467,77 @@ describe("buildJobBrief — quoting without cutting words in half", () => {
     expect(quote).not.toMatch(/\benga…$/);
   });
 });
+
+describe("buildJobBrief — the many names an advert gives its requirements", () => {
+  const under = (heading: string) =>
+    build(page({ text: `${heading}\nA current first aid certificate\nAvailability for weekend shifts\nWhat we offer\nA pension` }));
+
+  it("finds them under the headings real adverts use", () => {
+    for (const heading of [
+      "Person Specification",
+      "Essential",
+      "Requirements",
+      "About you",
+      "What you'll bring",
+      "What you'll need",
+      "Skills and experience",
+      "Qualifications",
+      "Who you are",
+      "We're looking for",
+      "You may be a good fit if you",
+      "Selection criteria",
+    ]) {
+      const brief = under(heading);
+      expect(brief.eligibility, `nothing found under "${heading}"`).toContain("A current first aid certificate");
+    }
+  });
+
+  it("still quotes nothing on an advert that lists no requirements", () => {
+    expect(build(page({ text: "We are a friendly team. Come and work with us." })).eligibility).toHaveLength(0);
+  });
+});
+
+describe("buildJobBrief — more of what real adverts write", () => {
+  it("finds requirements under Ashby's wording", () => {
+    const brief = build(
+      page({
+        text: "You Might Be A Good Fit If You\nHave built production systems\nEnjoy working across layers\nAbout OpenAI\nWe do research",
+      }),
+    );
+    expect(brief.eligibility).toContain("Have built production systems");
+  });
+
+  it("reads a location from a labelled line", () => {
+    const brief = build(page({ text: "AI Systems Engineer\nLocation\n\nSan Francisco\n\nEmployment Type\n\nFull time" }));
+    expect(brief.location?.value).toBe("San Francisco");
+  });
+
+  it("reads a location from a job address label", () => {
+    const brief = build(page({ text: "Job address\n53 Thicketford Road, Bolton BL2 2LS\nFull job description" }));
+    expect(brief.location?.value).toContain("Bolton");
+  });
+
+  it("does not call a benefits line a location", () => {
+    const brief = build(page({ text: "We are hiring.\nRelocation support for eligible employees\nApply now." }));
+    expect(brief.location).toBeUndefined();
+  });
+});
+
+describe("buildJobBrief — headings that end in a colon", () => {
+  it("reads the requirements under \"You'll ideally have:\"", () => {
+    const brief = build(
+      page({
+        text: "You'll ideally have:\n3+ years' commercial software engineering experience\nCommercial experience with React\nWhat we offer\nA pension",
+      }),
+    );
+    expect(brief.eligibility).toContain("3+ years' commercial software engineering experience");
+    expect(brief.eligibility).not.toContain("A pension");
+  });
+
+  it("still refuses to open a section on a sentence ending in a full stop", () => {
+    const brief = build(
+      page({ text: "Consultancy experience would be helpful, but it is not essential.\nSecurity requirements\nYou will need clearance." }),
+    );
+    expect(brief.eligibility).not.toContain("Security requirements");
+  });
+});

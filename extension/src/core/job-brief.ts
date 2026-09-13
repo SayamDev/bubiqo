@@ -87,9 +87,17 @@ export const BLOCKER_RULES: readonly BlockerRule[] = [
   },
 ];
 
-/** Headings an advert puts its conditions under. */
+/**
+ * Headings an advert puts its conditions under.
+ *
+ * Every one of these is taken from an advert seen in the wild. A list built from
+ * the phrasings I would have chosen myself covered "Requirements" and "Essential"
+ * and missed "About you", "What you'll bring" and "You may be a good fit if you" —
+ * which is how most adverts outside the public sector actually word it, and why
+ * the panel showed no requirements at all on them.
+ */
 const ELIGIBILITY_HEADING =
-  /\b(?:eligib|essential(?: requirements| criteria)?|you must|what you(?:'|’)?ll need|requirements|security requirements|to apply|person specification)\b/i;
+  /\b(?:eligib|essential(?: requirements| criteria)?|you must|what you(?:'|’)?ll (?:need|bring|have)|you(?:'|’)?ll ideally have|requirements|security requirements|to apply|person specification|about you|who you are|we(?:'|’)?re looking for|you (?:may|might) be a good fit|ideal candidate|skills? and experience|qualifications|selection criteria|what we(?:'|’)?re looking for)\b/i;
 
 /**
  * Headings that mean the conditions have ended and the sales pitch has resumed.
@@ -206,8 +214,14 @@ function readEligibility(page: PageContext, text: string): string[] {
    * "essential" and is under eighty characters — and the section then quoted the
    * real heading beneath it back as if it were a requirement.
    */
+  /*
+   * A colon is how an advert writes a heading — "Essential:", "You'll ideally
+   * have:" — so rejecting it lost the requirements on a LinkedIn advert entirely.
+   * A full stop still disqualifies: that is a sentence, and it was a sentence
+   * containing the word "essential" that used to open a section wrongly.
+   */
   const isHeading = (line: string): boolean =>
-    line.length > 0 && line.length < 80 && !/[.!?:;]$/.test(line) && !/^[-•*\u2022]/.test(line);
+    line.length > 0 && line.length < 80 && !/[.!?;]$/.test(line) && !/^[-•*\u2022]/.test(line);
 
   const opensSection = (line: string): boolean => isHeading(line) && ELIGIBILITY_HEADING.test(line);
   const closesSection = (line: string): boolean =>
@@ -397,6 +411,18 @@ const POSTCODE_LINE = /^[^\n]{0,80}\b[A-Z]{1,2}\d{1,2}[A-Z]?\s+\d[A-Z]{2}\b[^\n]
 function readProseLocation(text: string, entities: readonly Entity[]): BriefField<string> | undefined {
   const address = entities.find((e) => e.type === "address");
   if (address) return field(address.value, "prose", tidyQuote(address.source), address.confidence);
+
+  /*
+   * A labelled line. Ashby prints "Location" and then the place on the next line;
+   * Indeed prints "Job address" the same way. Reading the label is exact, where
+   * guessing which capitalised phrase in an advert is a place is not.
+   */
+  const lines = text.split("\n").map((l) => l.trim());
+  for (const [index, line] of lines.entries()) {
+    if (!/^(?:location|job address|office location|based in)\s*:?$/i.test(line)) continue;
+    const value = lines.slice(index + 1).find((l) => l.length > 1 && l.length < 90);
+    if (value) return field(value, "prose", `${line}: ${value}`, 0.8);
+  }
 
   const match = POSTCODE_LINE.exec(text);
   return match ? field(match[0].trim(), "prose", match[0].trim(), 0.7) : undefined;
