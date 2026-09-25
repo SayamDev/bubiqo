@@ -511,7 +511,8 @@ export function App() {
     <div className="app" {...(surface ? { "data-surface": surface } : {})}>
       <Header state={state} />
 
-      <nav className="tabs" role="tablist" aria-label="Bubiqo sections">
+      <nav className="tabs" aria-label="Bubiqo sections">
+        <div className="tabs__list" role="tablist" aria-label="Bubiqo sections">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -546,6 +547,8 @@ export function App() {
             {t.label}
           </button>
         ))}
+        </div>
+        <ThemeToggle choice={state?.settings.theme ?? "system"} />
       </nav>
 
       <p aria-live="polite" className="visually-hidden">{announcement}</p>
@@ -628,6 +631,7 @@ function ThemeToggle({ choice }: { choice: "system" | "light" | "dark" }) {
       title={`Switch to ${next} mode`}
     >
       {showingDark ? <SunMark className="theme-toggle__mark" /> : <MoonMark className="theme-toggle__mark" />}
+      <span className="theme-toggle__word">{showingDark ? "Light" : "Dark"}</span>
     </button>
   );
 }
@@ -701,7 +705,6 @@ function Header({ state }: { state: PanelState | undefined }) {
           height={40}
         />
         <span className="brand__name">bubiqo</span>
-        <ThemeToggle choice={state?.settings.theme ?? "system"} />
       </div>
 
       {analysis && !blocked ? (
