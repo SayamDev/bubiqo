@@ -39,7 +39,12 @@ const billPage = {
   structuredData: [],
   links: [],
 } as unknown as PageContext;
-const page = location.search.includes("bill") ? billPage : (indeedViewjob as unknown as PageContext);
+const payoutPage = {
+  ...billPage,
+  title: "Daily Payout Report",
+  text: "Your daily payouts report\nDear ajmal butt,\nThis is an overview of your processed card payments as of 24/09/2026.\nSumUp processed card payments\nTotal of all gross card payments before fees and deductions are applied\n£214.85\nSumUp processing fees\nTotal of all processing fees for card payments\n-£2.24\nDeductions\nTotal of refunds, chargebacks, loan repayments and subscriptions\n£0.00\nPaid out amount\nThe amount deposited in your payout account\n£130.63\nTo be paid out\nPayments still to be paid out. Fees and deductions will be applied before payout\n£81.98\nSumUp Payments Limited",
+} as unknown as PageContext;
+const page = location.search.includes("payout") ? payoutPage : location.search.includes("bill") ? billPage : (indeedViewjob as unknown as PageContext);
 const analysis = analyse(page, registry, { settings: DEFAULT_SETTINGS, now: NOW });
 
 const savedFrom = (raw: unknown, id: string, minutesAgo: number) => {
