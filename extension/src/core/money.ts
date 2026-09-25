@@ -83,3 +83,38 @@ export function formatRange(code: string, low: number, high: number): string {
 export function looksLikeSalary(value: number): boolean {
   return value >= 10_000 && value <= 5_000_000;
 }
+
+/** An amount as a person reads it: "GBP 70000–85000" becomes "£70,000–85,000". */
+const CODE_TO_SYMBOL: Readonly<Record<string, string>> = {
+  GBP: "£",
+  USD: "$",
+  EUR: "€",
+  JPY: "¥",
+  INR: "₹",
+};
+
+export function displayMoney(value: string): string {
+  const match = /^([A-Z]{3})\s+(-?)(\d+(?:\.\d+)?)(?:\s*[–-]\s*(\d+(?:\.\d+)?))?(?:\s+(DR|CR))?$/.exec(value.trim());
+  if (!match) return value;
+
+  const [, code = "", minus = "", low = "", high, marker] = match;
+  const symbol = CODE_TO_SYMBOL[code];
+  const group = (n: string): string => {
+    const [whole = "", fraction] = n.split(".");
+    const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return fraction ? `${grouped}.${fraction}` : grouped;
+  };
+
+  const amount = high ? `${group(low)}–${group(high)}` : group(low);
+  const money = symbol ? `${symbol}${amount}` : `${code} ${amount}`;
+
+  /*
+   * "DR" and "CR" are accountants' words. On a bill, DR is what you owe and CR
+   * is money in your favour, so say that — the marker already carries the
+   * direction, and a minus sign beside it only adds confusion.
+   */
+  if (marker === "DR") return `${money} owed`;
+  if (marker === "CR") return `${money} in credit`;
+  return minus ? `-${money}` : money;
+}
+

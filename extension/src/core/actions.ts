@@ -15,6 +15,7 @@ import { assertWellFormed } from "./safety";
 import { formatDue } from "./dates";
 import { preferredTitle } from "./storage-hygiene";
 import { briefToEntities } from "./job-brief";
+import { displayMoney } from "./money";
 
 const ok = (message: string, handle: string | undefined, undoable: boolean): ActionResult =>
   handle === undefined ? { ok: true, message, undoable } : { ok: true, message, handle, undoable };
@@ -308,10 +309,18 @@ export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {
       execute: async (input) => {
         // Same rule as saving: on a job advert, copy the Brief rather than every
         // amount and name the page happened to contain.
-        const lines = (input.brief ? briefToEntities(input.brief, input.entities, input.page.url) : input.entities)
-          .filter((e) => e.sensitivity !== "sensitive")
+        //
+        // Elsewhere — an invoice, a statement — the useful things came out in page
+        // order, with "currency: GBP" repeated beside every amount and the same
+        // reference twice. Lead with what a bill is about (how much, by when,
+        // which account), drop the repeats, and write money the way people do.
+        const lines = orderForCopy(
+          (input.brief ? briefToEntities(input.brief, input.entities, input.page.url) : input.entities).filter(
+            (e) => e.sensitivity !== "sensitive",
+          ),
+        )
           .slice(0, 12)
-          .map((e) => `${e.type.replace(/_/g, " ")}: ${e.value}`);
+          .map((e) => `${e.type.replace(/_/g, " ")}: ${e.type === "amount" ? displayMoney(e.value) : e.value}`);
         if (lines.length === 0) return failed("There was nothing safe to copy from this page.");
 
         const text = lines.join("\n");
@@ -366,4 +375,26 @@ export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {
     registry.set(definition.id, definition);
   }
   return registry;
+}
+
+/** Most useful first; drops bare currency codes and exact repeats. */
+const COPY_ORDER: readonly string[] = ["amount", "deadline", "date", "reference", "organisation", "person", "email", "phone", "address", "url"];
+
+function orderForCopy<T extends { type: string; value: string }>(entities: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique = entities.filter((e) => {
+    if (e.type === "currency") return false;
+    const key = `${e.type}|${e.value}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const rank = (type: string): number => {
+    const at = COPY_ORDER.indexOf(type);
+    return at === -1 ? COPY_ORDER.length : at;
+  };
+  return unique
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => rank(a.e.type) - rank(b.e.type) || a.i - b.i)
+    .map(({ e }) => e);
 }
