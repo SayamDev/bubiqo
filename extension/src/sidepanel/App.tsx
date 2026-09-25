@@ -31,7 +31,6 @@ import {
   QuietMark,
   ActionIcon,
   HeaderArt,
-  BriefcaseMark,
   BlockMark,
   RefreshMark,
   ShareMark,
@@ -39,6 +38,12 @@ import {
   ActivityMark,
   BellMark,
   TickMark,
+  CopyMark,
+  OpenMark,
+  KeepMark,
+  SunMark,
+  MoonMark,
+  SurfaceMark,
   DialMark,
   LockMark,
   PaletteMark,
@@ -502,6 +507,7 @@ export function App() {
   const surface = state?.analysis?.classification.surface;
 
   return (
+    <PanelActions.Provider value={panelActions}>
     <div className="app" {...(surface ? { "data-surface": surface } : {})}>
       <Header state={state} />
 
@@ -552,7 +558,6 @@ export function App() {
         </div>
       )}
 
-      <PanelActions.Provider value={panelActions}>
       <main className="main" id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
         {tab === "now" && (
           <NowTab
@@ -582,7 +587,6 @@ export function App() {
         {tab === "activity" && <ActivityTab state={state} now={now} onChange={apply} />}
         {tab === "settings" && <SettingsTab state={state} onChange={apply} onCopyDiagnostics={copyText} />}
       </main>
-      </PanelActions.Provider>
 
       <footer className="footer">
         <ShieldIcon />
@@ -590,6 +594,7 @@ export function App() {
         <span className="footer__owner">© {new Date().getFullYear()} Sayam Ajmal</span>
       </footer>
     </div>
+    </PanelActions.Provider>
   );
 }
 
@@ -601,6 +606,31 @@ const MODES = [
   { id: "helpful", name: "Helpful", what: "Shows what it is confident about. The middle setting, and the default." },
   { id: "proactive", name: "Proactive", what: "Also raises things you have not asked about but might forget." },
 ] as const;
+
+/**
+ * Light or dark, one press, from anywhere.
+ *
+ * The choice lived three screens deep in Settings. It is the kind of thing
+ * people change at night with the panel already open, so it sits by the name.
+ * "System" is still there in Settings; this switches to whichever is not
+ * currently showing.
+ */
+function ThemeToggle({ choice }: { choice: "system" | "light" | "dark" }) {
+  const { apply } = useContext(PanelActions);
+  const systemDark = typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
+  const showingDark = choice === "dark" || (choice === "system" && systemDark);
+  const next = showingDark ? "light" : "dark";
+  return (
+    <button
+      className="theme-toggle"
+      onClick={async () => apply(await send({ type: "SET_SETTINGS", settings: { theme: next } as never }))}
+      aria-label={`Switch to ${next} mode`}
+      title={`Switch to ${next} mode`}
+    >
+      {showingDark ? <SunMark className="theme-toggle__mark" /> : <MoonMark className="theme-toggle__mark" />}
+    </button>
+  );
+}
 
 function Header({ state }: { state: PanelState | undefined }) {
   const analysis = state?.analysis;
@@ -671,11 +701,12 @@ function Header({ state }: { state: PanelState | undefined }) {
           height={40}
         />
         <span className="brand__name">bubiqo</span>
+        <ThemeToggle choice={state?.settings.theme ?? "system"} />
       </div>
 
       {analysis && !blocked ? (
         <span className="chip">
-          <span className="chip__dot" aria-hidden="true" />
+          <SurfaceMark surface={analysis.classification.surface} className="chip__mark" />
           {surfaceChip(analysis.classification.surface)}
         </span>
       ) : (
@@ -785,6 +816,7 @@ function NowTab(props: NowProps) {
         * question and there is nothing on screen answering it.
         */}
       <MoneyBlock summary={analysis.bill} now={now} />
+      <JobBriefBlock brief={analysis.brief} now={now} onHoldCondition={props.onHoldCondition} />
 
       {showIntro && (
         <div className="intro">
@@ -933,7 +965,6 @@ function NowTab(props: NowProps) {
         )}
       </section>
 
-      <JobBriefBlock brief={analysis?.brief} now={now} onHoldCondition={props.onHoldCondition} />
 
             <BriefingBlock briefing={briefing} now={now} />
 
@@ -1061,13 +1092,14 @@ function DetailsActions({ text, alreadySaved = false }: { text: string; alreadyS
             <TickMark className="done-chip__tick" />
             Copied
           </span>
-          <button className="btn btn--quiet btn--small" onClick={() => void undoCopy()}>
+          <button className="tool tool--quiet" onClick={() => void undoCopy()}>
             Undo copy
           </button>
         </>
       ) : (
-        <button className="btn btn--small" onClick={() => void doCopy()}>
-          {copied === "cleared" ? "Clipboard cleared. Copy again" : "Copy"}
+        <button className="tool" onClick={() => void doCopy()}>
+          <CopyMark className="tool__mark" />
+          {copied === "cleared" ? "Cleared. Copy again" : "Copy"}
         </button>
       )}
 
@@ -1084,7 +1116,7 @@ function DetailsActions({ text, alreadySaved = false }: { text: string; alreadyS
         </span>
       ) : (
         <button
-          className="btn btn--quiet btn--small"
+          className="tool"
           onClick={() => void doSave()}
           disabled={save.kind === "saving"}
           aria-busy={save.kind === "saving"}
@@ -1094,10 +1126,11 @@ function DetailsActions({ text, alreadySaved = false }: { text: string; alreadyS
               <span className="spinner" aria-hidden="true" />
               Saving
             </>
-          ) : alreadySaved ? (
-            "Save again"
           ) : (
-            "Save to Memory"
+            <>
+              <KeepMark className="tool__mark" />
+              {alreadySaved ? "Save again" : "Save to Memory"}
+            </>
           )}
         </button>
       )}
@@ -1187,12 +1220,17 @@ function MoneyBlock({ summary, now }: { summary: MoneySummary | undefined; now: 
     .join("\n");
 
   return (
-    <section className={`money money--${kind}`} aria-labelledby="money-title">
-      <header className="money__head">
-        <p className="money__kind" id="money-title">
-          {MONEY_TITLE[kind]}
-        </p>
-        {summary.from && <p className="money__from">{summary.from}</p>}
+    <section className={`feature money money--${kind}`} data-surface="invoice" aria-labelledby="money-title">
+      <header className="feature__band">
+        <span className="feature__icon" aria-hidden="true">
+          <SurfaceMark surface="invoice" className="feature__mark" />
+        </span>
+        <span className="feature__titles">
+          <span className="feature__kind" id="money-title">
+            {MONEY_TITLE[kind]}
+          </span>
+          {summary.from && <span className="feature__from">{summary.from}</span>}
+        </span>
       </header>
 
       <div className="money__hero">
@@ -1245,16 +1283,19 @@ function MoneyBlock({ summary, now }: { summary: MoneySummary | undefined; now: 
         </dl>
       )}
 
-      <button
-        className="btn btn--quiet btn--small money__copy"
-        onClick={async () => {
-          await copy(summaryText);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }}
-      >
-        {copied ? "Copied" : "Copy details"}
-      </button>
+      <div className="toolbar money__tools">
+        <button
+          className={`tool${copied ? " tool--done" : ""}`}
+          onClick={async () => {
+            await copy(summaryText);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+        >
+          {copied ? <TickMark className="tool__mark" /> : <CopyMark className="tool__mark" />}
+          {copied ? "Copied" : "Copy details"}
+        </button>
+      </div>
     </section>
   );
 }
@@ -1630,30 +1671,31 @@ function ReminderCard({
         <span className="kind kind--reminder">reminder</span>
       </div>
 
-      <div className="card__actions">
+      <div className="toolbar card__actions">
         {confirming ? (
-          <>
+          <span className="toolbar__confirm" role="group" aria-label="Confirm delete">
             <button
-              className="btn btn--small btn--danger"
+              className="tool tool--danger-solid"
               onClick={async () => {
                 setConfirming(false);
                 onChange(await send({ type: "DELETE_REMINDER", id: reminder.id }));
               }}
             >
+              <TrashMark className="tool__mark" />
               Delete this reminder
             </button>
-            <button className="btn btn--quiet btn--small" onClick={() => setConfirming(false)}>
+            <button className="tool tool--quiet" onClick={() => setConfirming(false)}>
               Keep it
             </button>
-          </>
+          </span>
         ) : (
           <button
-            className="btn btn--quiet btn--small btn--icon"
+            className="tool tool--icon tool--danger"
             onClick={() => setConfirming(true)}
             aria-label={`Delete reminder: ${reminder.title}`}
             title="Delete"
           >
-            <TrashMark className="btn__mark" />
+            <TrashMark className="tool__mark" />
           </button>
         )}
       </div>
@@ -1715,7 +1757,7 @@ export function SavedItem({
    * listed here instead.
    */
   const shownTypes: readonly EntityType[] = isJob
-    ? ["organisation", "amount", "address", "deadline", "employment_type", "working_pattern", "url", "requirement", "blocker", "email", "phone", "person"]
+    ? ["job_title", "organisation", "amount", "address", "deadline", "employment_type", "working_pattern", "url", "requirement", "blocker", "email", "phone", "person"]
     : ["url"];
   const otherDetails = item.entities.filter((e) => !shownTypes.includes(e.type));
   const detailsText = item.entities.filter((e) => e.type !== "currency").map((e) => `${e.type.replace(/_/g, " ")}: ${e.type === "amount" ? displayMoney(e.value) : e.value}`).join("\n");
@@ -1772,7 +1814,13 @@ export function SavedItem({
             {source ? ` · ${source}` : ""}
           </p>
         </div>
-        <span className={`kind kind--${item.kind}`}>{item.kind}</span>
+        <span className={`kind kind--${item.kind}`}>
+          <SurfaceMark
+            surface={item.kind === "job" ? "job" : item.kind === "invoice" ? "invoice" : item.kind === "note" ? "email" : "generic"}
+            className="kind__mark"
+          />
+          {item.kind}
+        </span>
       </div>
 
       {isJob && blockers.length > 0 && (
@@ -1820,52 +1868,55 @@ export function SavedItem({
         </p>
       )}
 
-      <div className="card__actions">
+      <div className="toolbar card__actions">
         {link && (
-          <a className="btn btn--small" href={link} target="_blank" rel="noreferrer noopener" title={link}>
-            {isJob ? "Open the advert" : "Open the page"}
+          <a className="tool" href={link} target="_blank" rel="noreferrer noopener" title={link}>
+            <OpenMark className="tool__mark" />
+            {isJob ? "Open advert" : "Open page"}
           </a>
         )}
         {detailsText && onCopy && (
           <button
-            className="btn btn--quiet btn--small"
+            className={`tool${shared === "Copied" ? " tool--done" : ""}`}
             onClick={() => {
               onCopy(detailsText);
               setShared("Copied");
               setTimeout(() => setShared(undefined), 2000);
             }}
           >
-            Copy details
+            {shared === "Copied" ? <TickMark className="tool__mark" /> : <CopyMark className="tool__mark" />}
+            {shared === "Copied" ? "Copied" : "Copy"}
           </button>
         )}
-        <button className="btn btn--quiet btn--small" onClick={() => void share()}>
-          <ShareMark className="btn__mark" />
+        <button className="tool" onClick={() => void share()}>
+          <ShareMark className="tool__mark" />
           Share
         </button>
 
         {confirming ? (
-          <>
+          <span className="toolbar__confirm" role="group" aria-label="Confirm delete">
             <button
-              className="btn btn--small btn--danger"
+              className="tool tool--danger-solid"
               onClick={async () => {
                 setConfirming(false);
                 onChange(await send({ type: "DELETE_MEMORY", id: item.id }));
               }}
             >
+              <TrashMark className="tool__mark" />
               Delete for good
             </button>
-            <button className="btn btn--quiet btn--small" onClick={() => setConfirming(false)}>
+            <button className="tool tool--quiet" onClick={() => setConfirming(false)}>
               Keep it
             </button>
-          </>
+          </span>
         ) : (
           <button
-            className="btn btn--quiet btn--small btn--icon"
+            className="tool tool--icon tool--danger"
             onClick={() => setConfirming(true)}
             aria-label={`Delete ${item.title}`}
             title="Delete"
           >
-            <TrashMark className="btn__mark" />
+            <TrashMark className="tool__mark" />
           </button>
         )}
       </div>
@@ -1915,9 +1966,16 @@ export function JobBriefBlock({
   const anyProse = shown.some((fact) => fact.field?.source === "prose");
 
   return (
-    <section className="section brief" aria-labelledby="job-brief-title">
+    <section className="section feature brief" data-surface="job" aria-labelledby="job-brief-title">
+      <div className="feature__band">
+        <span className="feature__icon" aria-hidden="true">
+          <SurfaceMark surface="job" className="feature__mark" />
+        </span>
+        <span className="feature__titles">
+          <span className="feature__kind">Job advert</span>
+        </span>
+      </div>
       <div className="brief__head">
-        <BriefcaseMark className="brief__mark" />
         <div className="brief__heading">
           <h2 className="brief__title" id="job-brief-title">
             {brief.title?.value ?? "This job"}
