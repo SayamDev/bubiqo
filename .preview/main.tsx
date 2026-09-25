@@ -109,6 +109,10 @@ const briefing = { greeting: "Good afternoon", overdue: [], dueToday: [], loose:
             undoHandle: "x1",
           },
         };
+      if (request.type === "SET_SETTINGS") {
+        Object.assign(state, { settings: { ...state.settings, ...(request as { settings: object }).settings } });
+        return { type: "STATE", state: { ...state } };
+      }
       if (request.type === "CALENDAR_FILE") return { type: "ERROR", message: "not in preview" };
       return { type: "STATE", state };
     },

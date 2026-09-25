@@ -1036,21 +1036,21 @@ body::before {
    both themes, the same way the base palette was.
    ========================================================================== */
 
-.app[data-surface="invoice"] {
+[data-surface="invoice"] {
   --accent: #0a6152;
   --accent-hover: #084c41;
   --accent-bg: #d8f1ea;
   --accent-line: #8fcdbf;
 }
 
-.app[data-surface="job"] {
+[data-surface="job"] {
   --accent: #8e3560;
   --accent-hover: #74274d;
   --accent-bg: #fce3ee;
   --accent-line: #eeaecb;
 }
 
-.app[data-surface="generic"] {
+[data-surface="generic"] {
   --accent: #4a5560;
   --accent-hover: #39424b;
   --accent-bg: #e7ecf0;
@@ -1058,24 +1058,24 @@ body::before {
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .app[data-surface="invoice"] {
+  :root:not([data-theme="light"]) [data-surface="invoice"] {
     --accent: #5fd6bd; --accent-hover: #86e6d2; --accent-bg: #0c2e28; --accent-line: #1d5347;
   }
-  :root:not([data-theme="light"]) .app[data-surface="job"] {
+  :root:not([data-theme="light"]) [data-surface="job"] {
     --accent: #f49ac3; --accent-hover: #ffb5d4; --accent-bg: #38152a; --accent-line: #632a4a;
   }
-  :root:not([data-theme="light"]) .app[data-surface="generic"] {
+  :root:not([data-theme="light"]) [data-surface="generic"] {
     --accent: #a8b6c3; --accent-hover: #c3cfd9; --accent-bg: #222a31; --accent-line: #3a454f;
   }
 }
 
-:root[data-theme="dark"] .app[data-surface="invoice"] {
+:root[data-theme="dark"] [data-surface="invoice"] {
   --accent: #5fd6bd; --accent-hover: #86e6d2; --accent-bg: #0c2e28; --accent-line: #1d5347;
 }
-:root[data-theme="dark"] .app[data-surface="job"] {
+:root[data-theme="dark"] [data-surface="job"] {
   --accent: #f49ac3; --accent-hover: #ffb5d4; --accent-bg: #38152a; --accent-line: #632a4a;
 }
-:root[data-theme="dark"] .app[data-surface="generic"] {
+:root[data-theme="dark"] [data-surface="generic"] {
   --accent: #a8b6c3; --accent-hover: #c3cfd9; --accent-bg: #222a31; --accent-line: #3a454f;
 }
 
@@ -2109,9 +2109,9 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
  * The colour follows what the panel is looking at, so the corner of the screen
  * answers "what does it think this page is" without anybody reading a word.
  */
-.app[data-surface="job"] .header__art { color: var(--alert); opacity: 0.5; }
-.app[data-surface="invoice"] .header__art { color: var(--ok); opacity: 0.45; }
-.app[data-surface="email"] .header__art { color: var(--accent); opacity: 0.5; }
+[data-surface="job"] .header__art { color: var(--alert); opacity: 0.5; }
+[data-surface="invoice"] .header__art { color: var(--ok); opacity: 0.45; }
+[data-surface="email"] .header__art { color: var(--accent); opacity: 0.5; }
 
 /* ==========================================================================
    The wordmark, louder
@@ -2399,7 +2399,7 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 .money__seg:nth-child(2) { animation-delay: 80ms; }
 .money__seg:nth-child(3) { animation-delay: 160ms; }
 .money__seg--paid { background: var(--ok); }
-.money__seg--pending { background: var(--accent); }
+.money__seg--pending { background: #d1913a; }
 .money__seg--deduction { background: var(--alert); }
 .money__legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: var(--step--1); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 .money__key { display: inline-flex; align-items: center; gap: 6px; }
@@ -2435,3 +2435,135 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 }
 
 .footer__owner { margin-left: auto; flex: none; white-space: nowrap; opacity: 0.8; }
+
+/* ==========================================================================
+   Theme switch, by the name.
+   ========================================================================== */
+.brand { position: relative; z-index: 1; }
+.tabs { align-items: center; }
+.tabs__list { display: flex; gap: 4px; min-width: 0; }
+.theme-toggle {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px 0 9px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--step-0);
+  font-weight: 650;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1), color 160ms, border-color 160ms, background-color 160ms;
+}
+.theme-toggle:hover { color: var(--accent); border-color: var(--accent-line); background: var(--accent-bg); }
+.theme-toggle:active { transform: scale(0.94); }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.theme-toggle__mark { width: 17px; height: 17px; transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1); }
+.theme-toggle:hover .theme-toggle__mark { transform: rotate(-24deg); }
+
+.chip__mark { width: 13px; height: 13px; flex: none; }
+.kind { display: inline-flex; align-items: center; gap: 5px; }
+.kind__mark { width: 12px; height: 12px; flex: none; }
+.kind--job { background: color-mix(in srgb, #c2477f 16%, transparent); color: color-mix(in srgb, #b03c70 75%, var(--ink)); }
+.kind--invoice { background: color-mix(in srgb, #1f9a82 16%, transparent); color: color-mix(in srgb, #137a66 75%, var(--ink)); }
+.kind--note { background: var(--accent-bg); color: var(--accent); }
+
+/* ==========================================================================
+   Toolbar buttons: one shape for every "do something with this" control.
+   Icon and word together, a quiet surface at rest, the accent on hover, and a
+   green Done state so a press is never silent. Delete stays grey until you
+   point at it, then turns red; confirming is a solid red button.
+   ========================================================================== */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.toolbar__confirm { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.card__actions.toolbar { margin-top: 14px; }
+.card__actions .toolbar__confirm, .card__actions .tool--icon { margin-left: auto; }
+
+.tool {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px 0 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--step-0);
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1), background-color 160ms, border-color 160ms, color 160ms,
+    box-shadow 160ms;
+}
+.tool__mark { width: 15px; height: 15px; flex: none; color: var(--ink-soft); transition: color 160ms, transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+.tool:hover:not(:disabled) { border-color: var(--accent-line); background: var(--accent-bg); color: var(--accent); box-shadow: var(--lift-sm); }
+.tool:hover:not(:disabled) .tool__mark { color: var(--accent); transform: translateY(-1px); }
+.tool:active:not(:disabled) { transform: scale(0.96); }
+.tool:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tool:disabled { opacity: 0.55; cursor: progress; }
+
+.tool--quiet { border-color: transparent; background: none; color: var(--ink-soft); padding: 0 10px; }
+.tool--done, .tool--done:hover:not(:disabled) { background: var(--ok-bg); border-color: transparent; color: var(--ok); }
+.tool--done .tool__mark, .tool--done:hover .tool__mark { color: var(--ok); }
+
+.tool--icon { width: 32px; padding: 0; justify-content: center; }
+.tool--danger:hover:not(:disabled) { background: var(--alert-bg); border-color: color-mix(in srgb, var(--alert) 40%, transparent); color: var(--alert); }
+.tool--danger:hover:not(:disabled) .tool__mark { color: var(--alert); }
+.tool--danger-solid, .tool--danger-solid:hover:not(:disabled) { background: var(--alert); border-color: var(--alert); color: var(--surface); }
+.tool--danger-solid .tool__mark, .tool--danger-solid:hover .tool__mark { color: var(--surface); }
+
+.outcome__actions .tool { min-height: 30px; }
+
+/* ==========================================================================
+   Feature cards: the thing this page is (a bill, a payout, a job) gets a
+   tinted band with its icon, so it reads as the answer rather than one more
+   block in the list.
+   ========================================================================== */
+.feature {
+  position: relative;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--lift-md);
+  overflow: hidden;
+}
+.money.feature { padding: 0 16px 14px; }
+.brief.feature { padding: 0 16px 16px; margin-bottom: 16px; }
+.feature__band {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 -16px 12px;
+  padding: 10px 16px;
+  background: var(--accent-bg);
+  border-bottom: 1px solid var(--accent-line);
+}
+.feature__icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--surface);
+  box-shadow: 0 2px 6px -2px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.feature__mark { width: 17px; height: 17px; }
+.feature__titles { display: flex; flex-direction: column; min-width: 0; }
+.feature__kind { font-size: var(--step-1); font-weight: 750; color: var(--accent); letter-spacing: -0.01em; }
+.feature__from { font-size: var(--step--1); color: color-mix(in srgb, var(--accent) 70%, var(--ink)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.money.feature .money__hero { margin-top: 2px; }
+.money__tools { margin-top: 12px; }
+
+/* Narrow panel: the word goes, the icon stays. */
+@media (max-width: 340px) { .theme-toggle__word { display: none; } .theme-toggle { padding: 0; width: 32px; justify-content: center; } }

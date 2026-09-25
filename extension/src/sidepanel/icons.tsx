@@ -401,3 +401,56 @@ export function TickMark({ className }: MarkProps) {
     </svg>
   );
 }
+
+/** Two sheets, the back one peeking out: copy. */
+export function CopyMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="5.2" y="5.2" width="8.4" height="8.4" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M10.8 5.2V4.4a2 2 0 0 0-2-2H4.4a2 2 0 0 0-2 2v4.4a2 2 0 0 0 2 2h.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** An arrow leaving a box: opens somewhere else. */
+export function OpenMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M9.4 2.6h4v4M13.2 2.8 7.6 8.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 9.6v2a2 2 0 0 1-2 2H4.4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** A bookmark: keep this. */
+export function KeepMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M4.2 2.6h7.6v11l-3.8-2.6-3.8 2.6v-11Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** The sun, for switching to light. */
+export function SunMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="2.9" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M8 1.6v1.3M8 13.1v1.3M1.6 8h1.3M13.1 8h1.3M3.5 3.5l.9.9M11.6 11.6l.9.9M3.5 12.5l.9-.9M11.6 4.4l.9-.9"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** A crescent, for switching to dark. */
+export function MoonMark({ className }: MarkProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M13.3 9.7A5.6 5.6 0 0 1 6.3 2.7a5.6 5.6 0 1 0 7 7Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
+}
