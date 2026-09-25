@@ -1056,7 +1056,7 @@ function DetailsActions({ text, alreadySaved = false }: { text: string; alreadyS
       {copied === "copied" ? (
         <>
           <span className="done-chip" role="status">
-            <span className="done-chip__tick" aria-hidden="true">✓</span>
+            <TickMark className="done-chip__tick" />
             Copied
           </span>
           <button className="btn btn--quiet btn--small" onClick={() => void undoCopy()}>
@@ -1071,7 +1071,7 @@ function DetailsActions({ text, alreadySaved = false }: { text: string; alreadyS
 
       {save.kind === "saved" ? (
         <span className="done-chip done-chip--saved" role="status">
-          <span className="done-chip__tick" aria-hidden="true">✓</span>
+          <TickMark className="done-chip__tick" />
           Saved to Memory
           <button className="btn--link" onClick={showMemory}>View</button>
           {save.undo && (
@@ -1176,7 +1176,7 @@ function BillBlock({ bill, now }: { bill: BillSummary | undefined; now: number }
           setTimeout(() => setCopied(false), 2000);
         }}
       >
-        {copied ? "Copied ✓" : "Copy bill details"}
+        {copied ? "Copied" : "Copy bill details"}
       </button>
     </section>
   );
@@ -1679,7 +1679,7 @@ export function SavedItem({
     }
 
     onCopy?.(text);
-    setShared("Copied — paste it anywhere");
+    setShared("Copied. Paste it anywhere");
     setTimeout(() => setShared(undefined), 2600);
   };
 

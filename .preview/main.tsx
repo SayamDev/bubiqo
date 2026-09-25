@@ -9,7 +9,7 @@
  */
 import { createRoot } from "react-dom/client";
 import "../extension/src/sidepanel/styles.css";
-import { analyse } from "@core/analyse";
+import { analyse, toActionInput } from "@core/analyse";
 import { buildRegistry } from "@core/actions";
 import { briefToEntities } from "@core/job-brief";
 import { DEFAULT_SETTINGS, type PageContext } from "@core/types";
@@ -28,7 +28,18 @@ const noPorts = {
 } as never;
 
 const registry = buildRegistry(noPorts);
-const page = indeedViewjob as unknown as PageContext;
+// ?bill shows a Direct Debit reminder, the shape of the E.ON email.
+const billPage = {
+  url: "https://mail.google.com/mail/u/0/#inbox/demo",
+  domain: "mail.google.com",
+  title: "A reminder about your Direct Debit payment.",
+  text: "Bill scheduled for payment. E.ON Next bill £48.56. Account number: A-48F4A034. Your Direct Debit payment is due soon. We'll take your payment of £48.56 on 1 October. Your current balance is -£194.27 DR. Send us a message on WhatsApp (0808 501 5200). E.ON Next Energy Limited",
+  headings: ["Your Direct Debit payment is due soon."],
+  fields: [],
+  structuredData: [],
+  links: [],
+} as unknown as PageContext;
+const page = location.search.includes("bill") ? billPage : (indeedViewjob as unknown as PageContext);
 const analysis = analyse(page, registry, { settings: DEFAULT_SETTINGS, now: NOW });
 
 const savedFrom = (raw: unknown, id: string, minutesAgo: number) => {
@@ -75,6 +86,13 @@ const briefing = { greeting: "Good afternoon", overdue: [], dueToday: [], loose:
       if (request.type === "BRIEFING") return { type: "BRIEFING", briefing };
       if (request.type === "PAGE_FINGERPRINT") return { type: "FINGERPRINT" };
       // So the finished state of a suggestion card can be looked at.
+      if (request.type === "RUN_ACTION" && (request as { actionId: string }).actionId === "copy_details") {
+        const step = await registry.get("copy_details")!.execute(toActionInput(page, analysis));
+        return {
+          type: "STEP",
+          outcome: { actionId: "copy_details", name: "Copy the key details", status: "done", message: step.message, handle: step.handle },
+        };
+      }
       if (request.type === "RUN_ACTION")
         return {
           type: "STEP",

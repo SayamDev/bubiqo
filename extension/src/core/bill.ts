@@ -31,7 +31,8 @@ export function buildBillSummary(
   entities: readonly Entity[],
   now: number,
 ): BillSummary | undefined {
-  if (surface !== "invoice" && !(surface === "email" && BILL_WORDS.test(pageText))) return undefined;
+  if (surface === "job") return undefined;
+  if (surface !== "invoice" && !BILL_WORDS.test(pageText)) return undefined;
 
   const amounts = entities.filter((e) => e.type === "amount");
   if (amounts.length === 0) return undefined;
