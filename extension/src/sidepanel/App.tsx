@@ -13,7 +13,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { BillSummary } from "@core/bill";
+import type { MoneyLine, MoneySummary } from "@core/bill";
 import type { BriefField, Entity, EntityType, JobBrief, MemoryItem, Problem, Reminder, Suggestion } from "@core/types";
 import type { StepOutcome, CompleteItReport } from "@core/executor";
 import type { Briefing, PageFingerprint, PanelState, Request, Response } from "@shared/messages";
@@ -587,6 +587,7 @@ export function App() {
       <footer className="footer">
         <ShieldIcon />
         <span>Everything stays on this device. Bubiqo never sends the page anywhere.</span>
+        <span className="footer__owner">© {new Date().getFullYear()} Sayam Ajmal</span>
       </footer>
     </div>
   );
@@ -643,6 +644,7 @@ function Header({ state }: { state: PanelState | undefined }) {
                 hasSalary: analysis.brief.salary !== undefined,
               })
             : undefined) ??
+          (analysis.bill && analysis.problems.length === 0 ? moneyHeadline(analysis.bill) : undefined) ??
           attentionHeadline(
             analysis.problems.length,
             analysis.suggestions.length,
@@ -782,7 +784,7 @@ function NowTab(props: NowProps) {
         * for the second and third visit, when "what does this do again?" is a fair
         * question and there is nothing on screen answering it.
         */}
-      <BillBlock bill={analysis.bill} now={now} />
+      <MoneyBlock summary={analysis.bill} now={now} />
 
       {showIntro && (
         <div className="intro">
@@ -1109,74 +1111,149 @@ function DetailsActions({ text, alreadySaved = false }: { text: string; alreadyS
   );
 }
 
+/** "Payout of £130.63", "Bill of £48.56 due", said once, in the header. */
+function moneyHeadline(summary: MoneySummary): string {
+  const amount = displayMoney(summary.headline.value);
+  if (summary.kind === "payout") return `Payout of ${amount}`;
+  if (summary.kind === "receipt") return `You paid ${amount}`;
+  if (summary.kind === "statement") return `Statement: ${amount}`;
+  return `Bill of ${amount} coming up`;
+}
+
+const MONEY_TITLE: Record<MoneySummary["kind"], string> = {
+  bill: "Next bill",
+  payout: "Payout",
+  receipt: "Receipt",
+  statement: "Statement",
+};
+
+const amountOf = (value: string): number => Math.abs(Number(value.split(" ")[1] ?? "0")) || 0;
+
 /**
- * The bill, before anything else on a bill.
+ * The money on this page, read the way its sender meant it.
  *
- * Gmail's own card says "£48.56, Pay bill". This says the same thing plus what
- * Gmail does not: the day it leaves, and whether the account is behind.
+ * A bill leads with what is leaving and when. A payout leads with what arrived,
+ * then shows where the rest of the takings went, as a bar and as a list, so
+ * "£214.85 processed, £130.63 paid out" stops being two numbers you have to
+ * reconcile yourself.
  */
-function BillBlock({ bill, now }: { bill: BillSummary | undefined; now: number }) {
+function MoneyBlock({ summary, now }: { summary: MoneySummary | undefined; now: number }) {
   const { copy } = useContext(PanelActions);
   const [copied, setCopied] = useState(false);
-  if (!bill) return null;
+  if (!summary) return null;
 
-  const days = bill.dueAt !== undefined ? Math.round((bill.dueAt - now) / 86_400_000) : undefined;
-  const when =
-    bill.dueAt === undefined
+  const { kind, headline, lines } = summary;
+  const days = summary.dueAt !== undefined ? Math.round((summary.dueAt - now) / 86_400_000) : undefined;
+  const dateText =
+    summary.dueAt === undefined
       ? undefined
-      : new Date(bill.dueAt).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
-  const inDays = days === undefined ? "" : days <= 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`;
-  const owed = bill.balance !== undefined && / DR$| -\d/.test(bill.balance);
+      : new Date(summary.dueAt).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  const whenLabel = kind === "bill" ? "Leaves" : kind === "receipt" ? "Paid" : "Report for";
+  const inDays =
+    kind !== "bill" || days === undefined ? "" : days < 0 ? "" : days === 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`;
 
-  const summary = [
-    bill.supplier ? `${bill.supplier} bill` : "Bill",
-    bill.payment ? `Payment: ${displayMoney(bill.payment)}` : "",
-    when ? `Date: ${when}` : "",
-    bill.balance ? `Balance: ${displayMoney(bill.balance)}` : "",
-    bill.account ? `Account: ${bill.account}` : "",
+  // The breakdown bar: only meaningful when there is a gross to divide.
+  const gross = lines.find((l) => l.role === "gross") ?? (headline.role === "gross" ? headline : undefined);
+  const all = [headline, ...lines];
+  const segments = gross
+    ? (["paid", "pending", "deduction"] as const)
+        .map((role) => ({
+          role,
+          total: all.filter((l) => l.role === role).reduce((sum, l) => sum + amountOf(l.value), 0),
+        }))
+        .filter((seg) => seg.total > 0)
+    : [];
+  const grossTotal = gross ? amountOf(gross.value) : 0;
+  const showBar = segments.length >= 2 && grossTotal > 0;
+  const segmentName = { paid: "Paid out", pending: "Still to come", deduction: "Fees and deductions" };
+
+  const tone = (line: MoneyLine): string =>
+    / DR$/.test(line.value) || (line.role === "balance" && line.value.includes(" -"))
+      ? "money__value--owed"
+      : line.role === "deduction" || line.value.includes(" -")
+        ? "money__value--out"
+        : line.role === "paid"
+          ? "money__value--in"
+          : "";
+
+  const summaryText = [
+    `${MONEY_TITLE[kind]}${summary.from ? `: ${summary.from}` : ""}`,
+    `${headline.label}: ${displayMoney(headline.value)}`,
+    ...lines.map((l) => `${l.label}: ${displayMoney(l.value)}`),
+    dateText ? `${whenLabel}: ${dateText}` : "",
+    summary.account ? `Reference: ${summary.account}` : "",
   ]
     .filter(Boolean)
     .join("\n");
 
   return (
-    <section className="bill" aria-labelledby="bill-title">
-      <p className="bill__label" id="bill-title">
-        Next bill{bill.supplier ? <span className="bill__supplier"> · {bill.supplier}</span> : null}
-      </p>
-      <div className="bill__main">
-        {bill.payment && <p className="bill__amount">{displayMoney(bill.payment)}</p>}
-        {when && (
-          <p className="bill__when">
-            {when}
-            {inDays && <span className="bill__in">{inDays}</span>}
+    <section className={`money money--${kind}`} aria-labelledby="money-title">
+      <header className="money__head">
+        <p className="money__kind" id="money-title">
+          {MONEY_TITLE[kind]}
+        </p>
+        {summary.from && <p className="money__from">{summary.from}</p>}
+      </header>
+
+      <div className="money__hero">
+        <p className="money__amount">{displayMoney(headline.value)}</p>
+        <p className="money__label">{headline.label}</p>
+        {dateText && (
+          <p className="money__when">
+            {whenLabel} {dateText}
+            {inDays && <span className="money__in">{inDays}</span>}
           </p>
         )}
       </div>
-      {(bill.balance || bill.account) && (
-        <dl className="bill__facts">
-          {bill.balance && (
-            <div>
-              <dt>Balance</dt>
-              <dd className={owed ? "bill__owed" : undefined}>{displayMoney(bill.balance)}</dd>
+
+      {showBar && (
+        <figure className="money__bar" aria-label={`Where the ${displayMoney(gross!.value)} went`}>
+          <div className="money__track">
+            {segments.map((seg) => (
+              <span
+                key={seg.role}
+                className={`money__seg money__seg--${seg.role}`}
+                style={{ flexGrow: Math.max(seg.total / grossTotal, 0.02) }}
+              />
+            ))}
+          </div>
+          <figcaption className="money__legend">
+            {segments.map((seg) => (
+              <span key={seg.role} className="money__key">
+                <span className={`money__dot money__seg--${seg.role}`} aria-hidden="true" />
+                {segmentName[seg.role]} {Math.round((seg.total / grossTotal) * 100)}%
+              </span>
+            ))}
+          </figcaption>
+        </figure>
+      )}
+
+      {lines.length > 0 && (
+        <dl className="money__lines">
+          {lines.map((line) => (
+            <div className={`money__row${line.role === "gross" ? " money__row--gross" : ""}`} key={`${line.label}-${line.value}`}>
+              <dt>{line.label}</dt>
+              <dd className={tone(line)}>{displayMoney(line.value)}</dd>
             </div>
-          )}
-          {bill.account && (
-            <div>
-              <dt>Account</dt>
-              <dd>{bill.account}</dd>
+          ))}
+          {summary.account && (
+            <div className="money__row">
+              <dt>Reference</dt>
+              <dd>{summary.account}</dd>
             </div>
           )}
         </dl>
       )}
+
       <button
-        className="btn btn--quiet btn--small bill__copy"
+        className="btn btn--quiet btn--small money__copy"
         onClick={async () => {
-          await copy(summary);
+          await copy(summaryText);
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         }}
       >
-        {copied ? "Copied" : "Copy bill details"}
+        {copied ? "Copied" : "Copy details"}
       </button>
     </section>
   );

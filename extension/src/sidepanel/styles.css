@@ -2351,35 +2351,32 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 }
 .inline-error { flex-basis: 100%; margin: 4px 0 0; font-size: var(--step--1); color: var(--alert); }
 
-/* Next bill: the payment first, then the day it goes, then where the account stands. */
-.bill {
+/* Money: the figure the page is about, then where it came from and went. */
+.money {
   margin: 0 0 16px;
-  padding: 14px 16px;
+  padding: 16px 16px 12px;
   border-radius: var(--r-card);
   background: var(--surface);
   border: 1px solid var(--line);
   box-shadow: var(--lift-sm);
-  display: grid;
-  gap: 10px;
 }
-.bill__label {
+.money__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.money__kind { margin: 0; font-size: var(--step-0); font-weight: 700; color: var(--ink); }
+.money__from { margin: 0; font-size: var(--step--1); color: var(--ink-faint); text-align: right; }
+
+.money__hero { margin-top: 10px; }
+.money__amount {
   margin: 0;
-  font-size: var(--step-0);
-  font-weight: 650;
-  color: var(--ink-soft);
-}
-.bill__supplier { font-weight: 500; }
-.bill__main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
-.bill__amount {
-  margin: 0;
-  font-size: 1.75rem;
-  font-weight: 750;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  font-size: 2rem;
+  font-weight: 760;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
   font-variant-numeric: tabular-nums;
+  animation: money-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.bill__when { margin: 0; font-size: var(--step-1); font-weight: 600; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-.bill__in {
+.money__label { margin: 4px 0 0; font-size: var(--step-0); color: var(--ink-soft); font-weight: 550; }
+.money__when { margin: 8px 0 0; font-size: var(--step-0); font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.money__in {
   padding: 1px 8px;
   border-radius: var(--r-pill);
   background: var(--accent-bg);
@@ -2387,12 +2384,54 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
   font-size: var(--step--1);
   font-weight: 650;
 }
-.bill__facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0; padding-top: 10px; border-top: 1px solid var(--line); }
-.bill__facts dt { font-size: var(--step--1); color: var(--ink-faint); }
-.bill__facts dd { margin: 2px 0 0; font-size: var(--step-1); font-weight: 650; font-variant-numeric: tabular-nums; }
-.bill__owed { color: var(--alert); }
-.bill__copy { justify-self: start; }
+
+/* The signature: gross split into what arrived, what is coming, what was taken. */
+.money__bar { margin: 14px 0 0; }
+.money__track {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  background: var(--sunk);
+}
+.money__seg { display: block; min-width: 4px; transform-origin: left; animation: money-grow 700ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.money__seg:nth-child(2) { animation-delay: 80ms; }
+.money__seg:nth-child(3) { animation-delay: 160ms; }
+.money__seg--paid { background: var(--ok); }
+.money__seg--pending { background: var(--accent); }
+.money__seg--deduction { background: var(--alert); }
+.money__legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: var(--step--1); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.money__key { display: inline-flex; align-items: center; gap: 6px; }
+.money__dot { width: 8px; height: 8px; border-radius: 50%; animation: none; }
+
+.money__lines { margin: 14px 0 0; padding-top: 6px; border-top: 1px solid var(--line); }
+.money__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+.money__row:last-child { border-bottom: 0; }
+.money__row dt { font-size: var(--step-0); color: var(--ink-soft); min-width: 0; }
+.money__row dd { margin: 0; font-size: var(--step-1); font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.money__row--gross dt { color: var(--ink); font-weight: 600; }
+.money__value--in { color: var(--ok); }
+.money__value--out { color: var(--ink-soft); }
+.money__value--owed { color: var(--alert); }
+.money__copy { margin-top: 8px; }
+
+@keyframes money-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes money-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .money__amount, .money__seg { animation: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .done-chip { animation: none; }
 }
+
+.footer__owner { margin-left: auto; flex: none; white-space: nowrap; opacity: 0.8; }
