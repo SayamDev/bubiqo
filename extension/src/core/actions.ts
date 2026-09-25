@@ -320,7 +320,7 @@ export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {
           ),
         )
           .slice(0, 12)
-          .map((e) => `${e.type.replace(/_/g, " ")}: ${e.type === "amount" ? displayMoney(e.value) : e.value}`);
+          .map((e) => `${e.type.replace(/_/g, " ")}: ${readableValue(e)}`);
         if (lines.length === 0) return failed("There was nothing safe to copy from this page.");
 
         const text = lines.join("\n");
@@ -397,4 +397,20 @@ function orderForCopy<T extends { type: string; value: string }>(entities: reado
     .map((e, i) => ({ e, i }))
     .sort((a, b) => rank(a.e.type) - rank(b.e.type) || a.i - b.i)
     .map(({ e }) => e);
+}
+
+/** Money and dates as people write them, not as they are stored. */
+function readableValue(e: { type: string; value: string; resolvedAt?: number }): string {
+  if (e.type === "amount") return displayMoney(e.value);
+  if ((e.type === "date" || e.type === "deadline") && e.resolvedAt !== undefined) {
+    return new Date(e.resolvedAt).toLocaleString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  return e.value;
 }

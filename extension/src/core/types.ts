@@ -319,6 +319,8 @@ export interface Analysis {
   readonly fromSelection: boolean;
   /** Present only for the `job` Surface. See core/job-brief.ts. */
   readonly brief?: JobBrief;
+  /** Present on bills, statements and payment reminders. See core/bill.ts. */
+  readonly bill?: import("./bill").BillSummary;
 }
 
 // ---------------------------------------------------------------------------
