@@ -2310,3 +2310,21 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
     max-width: 880px;
   }
 }
+
+/* Copied / saved details, readable before they go anywhere. */
+.details {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  display: grid;
+  gap: 6px;
+  user-select: text;
+}
+.details__row { display: grid; grid-template-columns: minmax(72px, auto) 1fr; gap: 10px; align-items: baseline; }
+.details dt {
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+  text-transform: capitalize;
+}
+.details dd { margin: 0; font-size: var(--step--1); font-weight: 600; overflow-wrap: anywhere; }

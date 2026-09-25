@@ -854,7 +854,7 @@ function NowTab(props: NowProps) {
                 suggestion={suggestion}
                 busy={busy}
                 state={props.cardState[suggestion.actionId]}
-                alreadySaved={suggestion.actionId === "save_to_memory" ? state?.alreadySaved : undefined}
+                alreadySaved={suggestion.actionId === "save_to_memory" || suggestion.actionId === "copy_details" ? state?.alreadySaved : undefined}
                 onRun={props.onRun}
                 onUndo={props.onUndo}
                 onCopy={props.onCopy}
@@ -874,7 +874,7 @@ function NowTab(props: NowProps) {
                       suggestion={suggestion}
                       busy={busy}
                       state={props.cardState[suggestion.actionId]}
-                      alreadySaved={suggestion.actionId === "save_to_memory" ? state?.alreadySaved : undefined}
+                      alreadySaved={suggestion.actionId === "save_to_memory" || suggestion.actionId === "copy_details" ? state?.alreadySaved : undefined}
                       onRun={props.onRun}
                       onUndo={props.onUndo}
                       onCopy={props.onCopy}
@@ -1032,7 +1032,7 @@ function SuggestionCard({
           * again is harmless — it refreshes the existing record rather than
           * duplicating — so this is information, not a barrier.
           */}
-        {alreadySaved && !outcome && (
+        {alreadySaved && !outcome && suggestion.actionId === "save_to_memory" && (
           <p className="already">
             <span className="already__tick" aria-hidden="true">✓</span>
             Already in Memory, saved {relativeTime(alreadySaved.savedAt, Date.now())}.{" "}
@@ -1066,7 +1066,7 @@ function SuggestionCard({
               </>
             ) : finished ? (
               "Done"
-            ) : alreadySaved ? (
+            ) : alreadySaved && suggestion.actionId === "save_to_memory" ? (
               "Save again"
             ) : needsApproval ? (
               "Approve and do it"
@@ -1128,11 +1128,27 @@ function SuggestionCard({
               </span>
               <div className="outcome__body">
                 <p className="outcome__message">{outcome.message}</p>
+                {/*
+                  * The details used to live only inside the Copy button: you could
+                  * put them on the clipboard but never read them. Show what will be
+                  * copied, so the user can check it before it goes anywhere.
+                  */}
+                {suggestion.actionId === "copy_details" && outcome.handle && <DetailsPreview text={outcome.handle} />}
                 <div className="outcome__actions">
                   {suggestion.actionId === "copy_details" && outcome.handle && (
-                    <button className="btn btn--small" onClick={() => onCopy(outcome.handle!)}>
-                      Copy
-                    </button>
+                    <>
+                      <button className="btn btn--small" onClick={() => onCopy(outcome.handle!)}>
+                        Copy
+                      </button>
+                      <button
+                        className="btn btn--quiet btn--small"
+                        onClick={() => onRun("save_to_memory")}
+                        disabled={busy}
+                        title="Keep these details in Memory"
+                      >
+                        {alreadySaved ? "Saved ✓ — save again" : "Save to Memory"}
+                      </button>
+                    </>
                   )}
                   {suggestion.actionId === "export_calendar_event" && outcome.handle && (
                     <button className="btn btn--small" onClick={() => onDownload(outcome.handle!)}>
@@ -1193,7 +1209,7 @@ function Results({
               {/* Whatever a step produced, this is where the user collects it. */}
               {outcome.actionId === "copy_details" && outcome.handle && (
                 <>
-                  {" "}
+                  <DetailsPreview text={outcome.handle} />
                   <button className="btn btn--small" onClick={() => onCopy(outcome.handle!)}>
                     Copy
                   </button>
@@ -1373,6 +1389,24 @@ function ReminderCard({
   );
 }
 
+/** "type: value" lines, as copy_details prepares them, laid out as a readable list. */
+function DetailsPreview({ text }: { text: string }) {
+  const rows = text.split("\n").map((line) => {
+    const at = line.indexOf(": ");
+    return at > 0 ? { label: line.slice(0, at), value: line.slice(at + 2) } : { label: "", value: line };
+  });
+  return (
+    <dl className="details">
+      {rows.map((row, i) => (
+        <div className="details__row" key={`${row.label}-${i}`}>
+          <dt>{row.label}</dt>
+          <dd>{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 export function SavedItem({
   item,
   now,
@@ -1401,7 +1435,20 @@ export function SavedItem({
   const blockers = all("blocker");
   const contacts = [of("email"), of("phone"), of("person")].filter((e): e is Entity => e !== undefined);
 
-  const facts: { label: string; value: string }[] = [
+  const isJob = item.kind === "job";
+  /*
+   * The card was written for job adverts. A saved email or invoice has none of
+   * those fields, so it showed a title and nothing else — the details were stored
+   * but there was no way to see them. Anything the job layout does not show is
+   * listed here instead.
+   */
+  const shownTypes: readonly EntityType[] = isJob
+    ? ["organisation", "amount", "address", "deadline", "employment_type", "working_pattern", "url", "requirement", "blocker", "email", "phone", "person"]
+    : ["url"];
+  const otherDetails = item.entities.filter((e) => !shownTypes.includes(e.type));
+  const detailsText = item.entities.filter((e) => e.type !== "currency").map((e) => `${e.type.replace(/_/g, " ")}: ${e.type === "amount" ? displayMoney(e.value) : e.value}`).join("\n");
+
+  const facts: { label: string; value: string }[] = !isJob ? [] : [
     ...(salary ? [{ label: "Pay", value: displayMoney(salary.value) }] : []),
     ...(where ? [{ label: "Where", value: where.value }] : []),
     ...(closes?.resolvedAt ? [{ label: "Closes", value: formatDue(closes.resolvedAt, now) }] : []),
@@ -1456,7 +1503,7 @@ export function SavedItem({
         <span className={`kind kind--${item.kind}`}>{item.kind}</span>
       </div>
 
-      {blockers.length > 0 && (
+      {isJob && blockers.length > 0 && (
         <p className="card__verdict">
           <BlockMark className="verdict__mark" />
           Ruled out — {blockers.map((b) => b.value).join(", ")}
@@ -1474,7 +1521,13 @@ export function SavedItem({
         </dl>
       )}
 
-      {requirements.length > 0 && (
+      {otherDetails.length > 0 && (
+        <DetailsPreview
+          text={otherDetails.map((e) => `${e.type.replace(/_/g, " ")}: ${e.type === "amount" ? displayMoney(e.value) : e.value}`).join("\n")}
+        />
+      )}
+
+      {isJob && requirements.length > 0 && (
         <details className="why disclosure" open={requirements.length <= 3}>
           <summary>
             What it asked for
@@ -1488,7 +1541,7 @@ export function SavedItem({
         </details>
       )}
 
-      {contacts.length > 0 && (
+      {isJob && contacts.length > 0 && (
         <p className="card__contact">
           <span className="card__contactLabel">Contact</span>
           {contacts.map((contact) => contact.value).join(" · ")}
@@ -1498,8 +1551,13 @@ export function SavedItem({
       <div className="card__actions">
         {link && (
           <a className="btn btn--small" href={link} target="_blank" rel="noreferrer noopener" title={link}>
-            Open the advert
+            {isJob ? "Open the advert" : "Open the page"}
           </a>
+        )}
+        {detailsText && onCopy && (
+          <button className="btn btn--quiet btn--small" onClick={() => onCopy(detailsText)}>
+            Copy details
+          </button>
         )}
         <button className="btn btn--quiet btn--small" onClick={() => void share()}>
           <ShareMark className="btn__mark" />

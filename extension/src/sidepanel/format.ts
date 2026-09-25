@@ -68,29 +68,7 @@ export function clockTime(at: number): string {
  * Anything that is not in the stored shape is passed through untouched — a salary
  * the advert wrote as "Competitive" is still the most honest thing to show.
  */
-const CODE_TO_SYMBOL: Readonly<Record<string, string>> = {
-  GBP: "£",
-  USD: "$",
-  EUR: "€",
-  JPY: "¥",
-  INR: "₹",
-};
-
-export function displayMoney(value: string): string {
-  const match = /^([A-Z]{3})\s+(\d+(?:\.\d+)?)(?:\s*[–-]\s*(\d+(?:\.\d+)?))?$/.exec(value.trim());
-  if (!match) return value;
-
-  const [, code = "", low = "", high] = match;
-  const symbol = CODE_TO_SYMBOL[code];
-  const group = (n: string): string => {
-    const [whole = "", fraction] = n.split(".");
-    const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    return fraction ? `${grouped}.${fraction}` : grouped;
-  };
-
-  const amount = high ? `${group(low)}–${group(high)}` : group(low);
-  return symbol ? `${symbol}${amount}` : `${code} ${amount}`;
-}
+export { displayMoney } from "../core/money";
 
 /**
  * The headline on a job advert.

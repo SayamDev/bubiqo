@@ -34,3 +34,13 @@ describe("the headline on a job advert", () => {
     expect(jobHeadline({ blockers: 0, requirements: 0, hasSalary: false })).toBeUndefined();
   });
 });
+
+describe("displayMoney — balances with a sign", () => {
+  it("keeps a minus sign", () => {
+    expect(displayMoney("GBP -194.27")).toBe("-£194.27");
+  });
+  it("reads DR as owed and CR as credit", () => {
+    expect(displayMoney("GBP -194.27 DR")).toBe("£194.27 owed");
+    expect(displayMoney("GBP 12.50 CR")).toBe("£12.50 in credit");
+  });
+});

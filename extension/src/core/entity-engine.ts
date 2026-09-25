@@ -178,14 +178,26 @@ function extractAmounts(text: string): Entity[] {
    * unpunctuated "£ 70000" came out as GBP 700 and "£2400" as GBP 240 — wrong by
    * two orders of magnitude, on invoices as well as salaries.
    */
-  for (const m of text.matchAll(/([£$€¥₹])\s?(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+(?:\.\d{2})?)/g)) {
-    const at = m.index ?? 0;
+  /*
+   * Statements write balances as "-£194.27", "£-194.27", "(£194.27)" or
+   * "£194.27 DR". Dropping the sign turned a debt into what read like money
+   * waiting for you, so the sign and any DR/CR marker are kept.
+   */
+  for (const m of text.matchAll(
+    /(?<![\w.])([-−(]?)\s?([£$€¥₹])\s?([-−]?)(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+(?:\.\d{2})?)(\)?)(?:\s?(DR|CR)\b)?/g,
+  )) {
+    // Measured from the symbol: the optional sign and space before it would
+    // otherwise start the match just outside a range already read.
+    const at = (m.index ?? 0) + m[0].search(/[£$€¥₹]/);
     if (rangeSpans.some(([start, end]) => at >= start && at < end)) continue;
-    const code = SYMBOL_TO_CODE[m[1] ?? ""] ?? "";
-    const numeric = (m[2] ?? "").replace(/,/g, "");
+    const code = SYMBOL_TO_CODE[m[2] ?? ""] ?? "";
+    const bracketed = m[1] === "(" && m[5] === ")";
+    const negative = /[-−]/.test(m[1] ?? "") || /[-−]/.test(m[3] ?? "") || bracketed;
+    const numeric = `${negative ? "-" : ""}${(m[4] ?? "").replace(/,/g, "")}`;
+    const marker = m[6] ? ` ${m[6]}` : "";
     const context = windowAround(text, m.index ?? 0, m[0].length);
     const isSalary = SALARY_HINTS.test(context);
-    out.push(entity("amount", `${code} ${numeric}`, isSalary ? 0.85 : 0.95, context));
+    out.push(entity("amount", `${code} ${numeric}${marker}`, isSalary ? 0.85 : 0.95, context));
     out.push(entity("currency", code, 0.95, context));
   }
 

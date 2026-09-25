@@ -31,7 +31,8 @@ export function amountToConvert(analysis: Analysis, homeCurrency: string): Conve
     if (!code || !raw) continue;
     if (code.toUpperCase() === home) continue;
 
-    const value = Number(raw);
+    // A balance owed ("-194.27") is still that much money to convert.
+    const value = Math.abs(Number(raw));
     if (!Number.isFinite(value) || value <= 0) continue;
 
     if (!best || value > best.value) best = { value, from: code.toUpperCase() };

@@ -665,6 +665,6 @@ describe("saving and copying a job advert", () => {
     const result = await copy!.execute(input);
     expect(result.ok).toBe(true);
     expect(result.handle).toContain("organisation: Data8 Ltd");
-    expect(result.handle).toContain("amount: GBP 35000–40000");
+    expect(result.handle).toContain("amount: £35,000–40,000");
   });
 });
