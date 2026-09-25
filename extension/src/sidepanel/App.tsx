@@ -12,7 +12,8 @@
  *  - the only motion is the browser's own, and reduced-motion is honoured in CSS
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import type { BillSummary } from "@core/bill";
 import type { BriefField, Entity, EntityType, JobBrief, MemoryItem, Problem, Reminder, Suggestion } from "@core/types";
 import type { StepOutcome, CompleteItReport } from "@core/executor";
 import type { Briefing, PageFingerprint, PanelState, Request, Response } from "@shared/messages";
@@ -396,6 +397,11 @@ export function App() {
     }
   }, []);
 
+  const panelActions = useMemo(
+    () => ({ apply, showMemory: () => setTab("memory"), copy: copyText }),
+    [apply, copyText],
+  );
+
   const downloadCalendar = useCallback(async (handle: string) => {
     const response = await send({ type: "DOWNLOAD_CALENDAR", handle });
     if (response.type !== "CALENDAR_FILE") {
@@ -546,6 +552,7 @@ export function App() {
         </div>
       )}
 
+      <PanelActions.Provider value={panelActions}>
       <main className="main" id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
         {tab === "now" && (
           <NowTab
@@ -575,6 +582,7 @@ export function App() {
         {tab === "activity" && <ActivityTab state={state} now={now} onChange={apply} />}
         {tab === "settings" && <SettingsTab state={state} onChange={apply} onCopyDiagnostics={copyText} />}
       </main>
+      </PanelActions.Provider>
 
       <footer className="footer">
         <ShieldIcon />
@@ -774,6 +782,8 @@ function NowTab(props: NowProps) {
         * for the second and third visit, when "what does this do again?" is a fair
         * question and there is nothing on screen answering it.
         */}
+      <BillBlock bill={analysis.bill} now={now} />
+
       {showIntro && (
         <div className="intro">
           <BubbleMark className="intro__mark" />
@@ -975,6 +985,203 @@ function ProblemRow({ problem, now }: { problem: Problem; now: number }) {
   );
 }
 
+/** What the panel shell offers anything deep in the tree: new state, and the way to Memory. */
+const PanelActions = createContext<{
+  apply: (response: Response) => void;
+  showMemory: () => void;
+  copy: (text: string) => Promise<void>;
+}>({ apply: () => undefined, showMemory: () => undefined, copy: async () => undefined });
+
+/**
+ * Copy, undo the copy, and keep the details.
+ *
+ * Every press answers on the button that was pressed. "Save to Memory" used to
+ * run and report its result on a different card, often off screen, so from where
+ * the user was looking nothing happened at all. Now it goes Saving, then Saved
+ * with a way to see it and a way to take it back.
+ *
+ * Undoing a copy clears the clipboard. Chrome will not let an extension read what
+ * was there before without asking for clipboard access, so "put back what I had"
+ * is not on offer, and the label does not pretend otherwise.
+ */
+function DetailsActions({ text, alreadySaved = false }: { text: string; alreadySaved?: boolean }) {
+  const { apply, showMemory, copy } = useContext(PanelActions);
+  const [copied, setCopied] = useState<"idle" | "copied" | "cleared">("idle");
+  const [save, setSave] = useState<
+    { kind: "idle" } | { kind: "saving" } | { kind: "saved"; undo?: string } | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
+  const doCopy = async (): Promise<void> => {
+    await copy(text);
+    setCopied("copied");
+  };
+
+  const undoCopy = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText("");
+    } catch {
+      // The clipboard refused; say nothing changed rather than claim it did.
+      return;
+    }
+    setCopied("cleared");
+    setTimeout(() => setCopied((now) => (now === "cleared" ? "idle" : now)), 2400);
+  };
+
+  const doSave = async (): Promise<void> => {
+    setSave({ kind: "saving" });
+    try {
+      const response = await send({ type: "RUN_ACTION", actionId: "save_to_memory", approved: false });
+      if (response.type === "STEP" && (response.outcome.status === "done" || response.outcome.status === "unconfirmed")) {
+        setSave({ kind: "saved", ...(response.outcome.undoHandle ? { undo: response.outcome.undoHandle } : {}) });
+        apply(await send({ type: "GET_STATE" }));
+      } else {
+        setSave({
+          kind: "error",
+          message: response.type === "STEP" ? response.outcome.message : "Could not save. Try again.",
+        });
+      }
+    } catch {
+      setSave({ kind: "error", message: "Could not save. Try again." });
+    }
+  };
+
+  const undoSave = async (handle: string): Promise<void> => {
+    await send({ type: "UNDO", actionId: "save_to_memory", handle });
+    setSave({ kind: "idle" });
+    apply(await send({ type: "GET_STATE" }));
+  };
+
+  return (
+    <>
+      {copied === "copied" ? (
+        <>
+          <span className="done-chip" role="status">
+            <TickMark className="done-chip__tick" />
+            Copied
+          </span>
+          <button className="btn btn--quiet btn--small" onClick={() => void undoCopy()}>
+            Undo copy
+          </button>
+        </>
+      ) : (
+        <button className="btn btn--small" onClick={() => void doCopy()}>
+          {copied === "cleared" ? "Clipboard cleared. Copy again" : "Copy"}
+        </button>
+      )}
+
+      {save.kind === "saved" ? (
+        <span className="done-chip done-chip--saved" role="status">
+          <TickMark className="done-chip__tick" />
+          Saved to Memory
+          <button className="btn--link" onClick={showMemory}>View</button>
+          {save.undo && (
+            <button className="btn--link btn--link-quiet" onClick={() => void undoSave(save.undo!)}>
+              Undo
+            </button>
+          )}
+        </span>
+      ) : (
+        <button
+          className="btn btn--quiet btn--small"
+          onClick={() => void doSave()}
+          disabled={save.kind === "saving"}
+          aria-busy={save.kind === "saving"}
+        >
+          {save.kind === "saving" ? (
+            <>
+              <span className="spinner" aria-hidden="true" />
+              Saving
+            </>
+          ) : alreadySaved ? (
+            "Save again"
+          ) : (
+            "Save to Memory"
+          )}
+        </button>
+      )}
+
+      {save.kind === "error" && (
+        <p className="inline-error" role="alert">
+          {save.message}
+        </p>
+      )}
+    </>
+  );
+}
+
+/**
+ * The bill, before anything else on a bill.
+ *
+ * Gmail's own card says "£48.56, Pay bill". This says the same thing plus what
+ * Gmail does not: the day it leaves, and whether the account is behind.
+ */
+function BillBlock({ bill, now }: { bill: BillSummary | undefined; now: number }) {
+  const { copy } = useContext(PanelActions);
+  const [copied, setCopied] = useState(false);
+  if (!bill) return null;
+
+  const days = bill.dueAt !== undefined ? Math.round((bill.dueAt - now) / 86_400_000) : undefined;
+  const when =
+    bill.dueAt === undefined
+      ? undefined
+      : new Date(bill.dueAt).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  const inDays = days === undefined ? "" : days <= 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`;
+  const owed = bill.balance !== undefined && / DR$| -\d/.test(bill.balance);
+
+  const summary = [
+    bill.supplier ? `${bill.supplier} bill` : "Bill",
+    bill.payment ? `Payment: ${displayMoney(bill.payment)}` : "",
+    when ? `Date: ${when}` : "",
+    bill.balance ? `Balance: ${displayMoney(bill.balance)}` : "",
+    bill.account ? `Account: ${bill.account}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return (
+    <section className="bill" aria-labelledby="bill-title">
+      <p className="bill__label" id="bill-title">
+        Next bill{bill.supplier ? <span className="bill__supplier"> · {bill.supplier}</span> : null}
+      </p>
+      <div className="bill__main">
+        {bill.payment && <p className="bill__amount">{displayMoney(bill.payment)}</p>}
+        {when && (
+          <p className="bill__when">
+            {when}
+            {inDays && <span className="bill__in">{inDays}</span>}
+          </p>
+        )}
+      </div>
+      {(bill.balance || bill.account) && (
+        <dl className="bill__facts">
+          {bill.balance && (
+            <div>
+              <dt>Balance</dt>
+              <dd className={owed ? "bill__owed" : undefined}>{displayMoney(bill.balance)}</dd>
+            </div>
+          )}
+          {bill.account && (
+            <div>
+              <dt>Account</dt>
+              <dd>{bill.account}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+      <button
+        className="btn btn--quiet btn--small bill__copy"
+        onClick={async () => {
+          await copy(summary);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }}
+      >
+        {copied ? "Copied" : "Copy bill details"}
+      </button>
+    </section>
+  );
+}
+
 function SuggestionCard({
   suggestion,
   busy,
@@ -982,7 +1189,7 @@ function SuggestionCard({
   alreadySaved,
   onRun,
   onUndo,
-  onCopy,
+  onCopy: _onCopy,
   onDownload,
   onDismiss,
   onShowMemory,
@@ -1136,19 +1343,7 @@ function SuggestionCard({
                 {suggestion.actionId === "copy_details" && outcome.handle && <DetailsPreview text={outcome.handle} />}
                 <div className="outcome__actions">
                   {suggestion.actionId === "copy_details" && outcome.handle && (
-                    <>
-                      <button className="btn btn--small" onClick={() => onCopy(outcome.handle!)}>
-                        Copy
-                      </button>
-                      <button
-                        className="btn btn--quiet btn--small"
-                        onClick={() => onRun("save_to_memory")}
-                        disabled={busy}
-                        title="Keep these details in Memory"
-                      >
-                        {alreadySaved ? "Saved ✓ — save again" : "Save to Memory"}
-                      </button>
-                    </>
+                    <DetailsActions text={outcome.handle} alreadySaved={Boolean(alreadySaved)} />
                   )}
                   {suggestion.actionId === "export_calendar_event" && outcome.handle && (
                     <button className="btn btn--small" onClick={() => onDownload(outcome.handle!)}>
@@ -1184,7 +1379,7 @@ function SuggestionCard({
 function Results({
   outcomes,
   onUndo,
-  onCopy,
+  onCopy: _onCopy,
   onDownload,
 }: {
   outcomes: readonly StepOutcome[];
@@ -1210,9 +1405,9 @@ function Results({
               {outcome.actionId === "copy_details" && outcome.handle && (
                 <>
                   <DetailsPreview text={outcome.handle} />
-                  <button className="btn btn--small" onClick={() => onCopy(outcome.handle!)}>
-                    Copy
-                  </button>
+                  <span className="outcome__actions">
+                    <DetailsActions text={outcome.handle} />
+                  </span>
                 </>
               )}
 
@@ -1484,7 +1679,7 @@ export function SavedItem({
     }
 
     onCopy?.(text);
-    setShared("Copied — paste it anywhere");
+    setShared("Copied. Paste it anywhere");
     setTimeout(() => setShared(undefined), 2600);
   };
 
@@ -1555,7 +1750,14 @@ export function SavedItem({
           </a>
         )}
         {detailsText && onCopy && (
-          <button className="btn btn--quiet btn--small" onClick={() => onCopy(detailsText)}>
+          <button
+            className="btn btn--quiet btn--small"
+            onClick={() => {
+              onCopy(detailsText);
+              setShared("Copied");
+              setTimeout(() => setShared(undefined), 2000);
+            }}
+          >
             Copy details
           </button>
         )}

@@ -9,6 +9,7 @@
  * network, no model, no waiting.
  */
 
+import { buildBillSummary } from "./bill";
 import type { ActionDefinition, ActionInput, Analysis, PageContext, Settings } from "./types";
 import { sanitise } from "./sanitize";
 import { narrowToContent } from "./readability";
@@ -94,6 +95,8 @@ export function analyse(
       ? allProblems.filter((p) => p.urgency === "overdue" || p.urgency === "today")
       : allProblems;
 
+  const bill = buildBillSummary(classification.surface, safePage.text, entities, options.now);
+
   const input: ActionInput = { page: safePage, entities, problems, params: {}, ...(brief ? { brief } : {}) };
 
   const suggestions = rankSuggestions(registry, input, {
@@ -117,6 +120,7 @@ export function analyse(
     injectionAttempted: cleaned.injectionAttempted,
     fromSelection,
     ...(brief ? { brief } : {}),
+    ...(bill ? { bill } : {}),
   };
 }
 

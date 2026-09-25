@@ -2328,3 +2328,71 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
   text-transform: capitalize;
 }
 .details dd { margin: 0; font-size: var(--step--1); font-weight: 600; overflow-wrap: anywhere; }
+
+/* A pressed button answers where it was pressed. */
+.done-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--ok-bg);
+  color: var(--ok);
+  font-size: var(--step--1);
+  font-weight: 650;
+  animation: done-in 220ms var(--spring) both;
+}
+.done-chip .btn--link { font-size: var(--step--1); margin-left: 4px; }
+.done-chip__tick { flex: none; width: 14px; height: 14px; color: var(--ok); }
+@keyframes done-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+.inline-error { flex-basis: 100%; margin: 4px 0 0; font-size: var(--step--1); color: var(--alert); }
+
+/* Next bill: the payment first, then the day it goes, then where the account stands. */
+.bill {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--lift-sm);
+  display: grid;
+  gap: 10px;
+}
+.bill__label {
+  margin: 0;
+  font-size: var(--step-0);
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+.bill__supplier { font-weight: 500; }
+.bill__main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.bill__amount {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.bill__when { margin: 0; font-size: var(--step-1); font-weight: 600; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.bill__in {
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: var(--step--1);
+  font-weight: 650;
+}
+.bill__facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.bill__facts dt { font-size: var(--step--1); color: var(--ink-faint); }
+.bill__facts dd { margin: 2px 0 0; font-size: var(--step-1); font-weight: 650; font-variant-numeric: tabular-nums; }
+.bill__owed { color: var(--alert); }
+.bill__copy { justify-self: start; }
+
+@media (prefers-reduced-motion: reduce) {
+  .done-chip { animation: none; }
+}

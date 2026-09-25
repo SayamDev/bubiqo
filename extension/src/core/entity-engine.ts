@@ -118,7 +118,10 @@ function extractPhones(text: string): Entity[] {
   for (const m of text.matchAll(/(?:\+\d{1,3}[\s-]?)?(?:\(?0\d{2,4}\)?[\s-]?)\d{3,4}[\s-]?\d{3,4}\b/g)) {
     const digits = m[0].replace(/\D/g, "");
     if (digits.length < 10 || digits.length > 15) continue;
-    out.push(entity("phone", m[0].trim(), 0.8, windowAround(text, m.index ?? 0, m[0].length), "personal"));
+    // "(0808 501 5200" — the match can start on a bracket the number never closes.
+    let phone = m[0].trim();
+    if (phone.startsWith("(") && !phone.includes(")")) phone = phone.slice(1).trim();
+    out.push(entity("phone", phone, 0.8, windowAround(text, m.index ?? 0, m[0].length), "personal"));
   }
   return out;
 }

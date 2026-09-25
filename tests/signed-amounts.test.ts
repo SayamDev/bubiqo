@@ -37,3 +37,12 @@ describe("amounts on statements keep their sign", () => {
     expect(amounts("Total due £2,880.00")).toContain("GBP 2880.00");
   });
 });
+
+describe("phone numbers", () => {
+  it("drops a bracket that never closes", () => {
+    const phones = extractEntities(page("send us a message on WhatsApp (0808 501 5200) or reply"), Date.UTC(2026, 8, 25))
+      .filter((e) => e.type === "phone")
+      .map((e) => e.value);
+    expect(phones).toContain("0808 501 5200");
+  });
+});
