@@ -109,6 +109,14 @@ const briefing = { greeting: "Good afternoon", overdue: [], dueToday: [], loose:
             undoHandle: "x1",
           },
         };
+      if (request.type === "COMPLETE_IT") {
+        await new Promise((r) => setTimeout(r, 700));
+        const steps = analysis.suggestions
+          .filter((x) => x.risk === "safe")
+          .slice(0, 3)
+          .map((x) => ({ actionId: x.actionId, name: x.name, risk: "safe", status: "done", message: `${x.name}: done.`, undoable: true, undoHandle: "u" }));
+        return { type: "REPORT", report: { steps, done: steps.length, needsApproval: 0, failed: 0 } };
+      }
       if (request.type === "SET_SETTINGS") {
         Object.assign(state, { settings: { ...state.settings, ...(request as { settings: object }).settings } });
         return { type: "STATE", state: { ...state } };
