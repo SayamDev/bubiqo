@@ -44,7 +44,12 @@ const payoutPage = {
   title: "Daily Payout Report",
   text: "Your daily payouts report\nDear ajmal butt,\nThis is an overview of your processed card payments as of 24/09/2026.\nSumUp processed card payments\nTotal of all gross card payments before fees and deductions are applied\n£214.85\nSumUp processing fees\nTotal of all processing fees for card payments\n-£2.24\nDeductions\nTotal of refunds, chargebacks, loan repayments and subscriptions\n£0.00\nPaid out amount\nThe amount deposited in your payout account\n£130.63\nTo be paid out\nPayments still to be paid out. Fees and deductions will be applied before payout\n£81.98\nSumUp Payments Limited",
 } as unknown as PageContext;
-const page = location.search.includes("payout") ? payoutPage : location.search.includes("bill") ? billPage : (indeedViewjob as unknown as PageContext);
+const digestPage = {
+  ...billPage,
+  title: "Your job matches for Software Engineer (Applied AI)",
+  text: "Jobright\nExplore this today's top matches, curated to align with your preferences.\nEuphoric\nComputer Software · Early Stage\n98%\nSoftware Engineer (Applied AI)\n£100K/yr - £130K/yr\nRemote\n9 hours ago · Be an early applicant\nAPPLY NOW\nLSA : London Success Academy\nProfessional Training & Coaching · Early Stage\n97%\nDeveloper Work Placement (Software & Web Development) (Remote)\nRemote\n10 hours ago · Be an early applicant\nAPPLY NOW\nBromcom\nInformation Technology · Growth Stage\n95%\n.NET Full-Stack Developer\nRemote\n15 hours ago · Be an early applicant\nAPPLY NOW",
+} as unknown as PageContext;
+const page = location.search.includes("digest") ? digestPage : location.search.includes("payout") ? payoutPage : location.search.includes("bill") ? billPage : (indeedViewjob as unknown as PageContext);
 const analysis = analyse(page, registry, { settings: DEFAULT_SETTINGS, now: NOW });
 
 const savedFrom = (raw: unknown, id: string, minutesAgo: number) => {

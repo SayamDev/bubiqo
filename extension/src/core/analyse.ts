@@ -10,6 +10,7 @@
  */
 
 import { buildBillSummary } from "./bill";
+import { extractListings } from "./listings";
 import type { ActionDefinition, ActionInput, Analysis, PageContext, Settings } from "./types";
 import { sanitise } from "./sanitize";
 import { narrowToContent } from "./readability";
@@ -82,7 +83,10 @@ export function analyse(
    * Problems come out of it. Only for job adverts: on an invoice there is nothing
    * for it to say.
    */
-  const brief = classification.surface === "job" ? buildJobBrief(safePage, entities, options.now, options.settings.heldConditions) : undefined;
+  // A digest of several adverts is not one job; briefing it produced the email
+  // subject as a title and an industry tag as the employer.
+  const listings = extractListings(safePage.text);
+  const brief = classification.surface === "job" && listings.length === 0 ? buildJobBrief(safePage, entities, options.now, options.settings.heldConditions) : undefined;
 
   const allProblems = scanForProblems(safePage, classification.surface, entities, options.now, brief);
 
@@ -121,6 +125,7 @@ export function analyse(
     fromSelection,
     ...(brief ? { brief } : {}),
     ...(bill ? { bill } : {}),
+    ...(listings.length > 0 ? { listings } : {}),
   };
 }
 

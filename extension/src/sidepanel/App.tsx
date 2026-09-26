@@ -14,6 +14,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { MoneyLine, MoneySummary } from "@core/bill";
+import { listingLines, type Listing } from "@core/listings";
 import type { BriefField, Entity, EntityType, JobBrief, MemoryItem, Problem, Reminder, Suggestion } from "@core/types";
 import type { StepOutcome, CompleteItReport } from "@core/executor";
 import type { Briefing, PageFingerprint, PanelState, Request, Response } from "@shared/messages";
@@ -718,6 +719,7 @@ function Header({ state }: { state: PanelState | undefined }) {
                 hasSalary: analysis.brief.salary !== undefined,
               })
             : undefined) ??
+          (analysis.listings?.length ? `${analysis.listings.length} job matches in this email` : undefined) ??
           (analysis.bill && analysis.problems.length === 0 ? moneyHeadline(analysis.bill) : undefined) ??
           attentionHeadline(
             analysis.problems.length,
@@ -872,6 +874,7 @@ function NowTab(props: NowProps) {
         */}
       <MoneyBlock summary={analysis.bill} now={now} />
       <JobBriefBlock brief={analysis.brief} now={now} onHoldCondition={props.onHoldCondition} />
+      <ListingsBlock listings={analysis.listings} />
 
       {showIntro && (
         <div className="intro">
@@ -1213,6 +1216,60 @@ function moneyHeadline(summary: MoneySummary): string {
   if (summary.kind === "receipt") return `You paid ${amount}`;
   if (summary.kind === "statement") return `Statement: ${amount}`;
   return `Bill of ${amount} coming up`;
+}
+
+/**
+ * A job alert, read as the list it is.
+ *
+ * Each role gets its own row: title first because that is what decides whether
+ * it is worth a look, then who, then pay and where as small facts.
+ */
+function ListingsBlock({ listings }: { listings: readonly Listing[] | undefined }) {
+  const { copy } = useContext(PanelActions);
+  const [copied, setCopied] = useState(false);
+  if (!listings || listings.length === 0) return null;
+  return (
+    <section className="feature listings" data-surface="job" aria-labelledby="listings-title">
+      <header className="feature__band">
+        <span className="feature__icon" aria-hidden="true">
+          <SurfaceMark surface="job" className="feature__mark" />
+        </span>
+        <span className="feature__titles">
+          <span className="feature__kind" id="listings-title">
+            {listings.length} job matches
+          </span>
+          <span className="feature__from">One line each, pay and place where the email gives them</span>
+        </span>
+      </header>
+      <ol className="listings__list">
+        {listings.map((l, i) => (
+          <li className="listings__item" key={`${l.title}-${i}`}>
+            <p className="listings__title">{l.title}</p>
+            {l.company && <p className="listings__company">{l.company}</p>}
+            {(l.pay || l.where) && (
+              <p className="listings__facts">
+                {l.pay && <span className="listings__fact listings__fact--pay">{l.pay}</span>}
+                {l.where && <span className="listings__fact">{l.where}</span>}
+              </p>
+            )}
+          </li>
+        ))}
+      </ol>
+      <div className="toolbar money__tools">
+        <button
+          className={`tool${copied ? " tool--done" : ""}`}
+          onClick={async () => {
+            await copy(listingLines(listings).join("\n"));
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+        >
+          {copied ? <TickMark className="tool__mark" /> : <CopyMark className="tool__mark" />}
+          {copied ? "Copied" : "Copy the list"}
+        </button>
+      </div>
+    </section>
+  );
 }
 
 const MONEY_TITLE: Record<MoneySummary["kind"], string> = {
@@ -1792,7 +1849,7 @@ function DetailsPreview({ text }: { text: string }) {
     return at > 0 ? { label: line.slice(0, at), value: line.slice(at + 2) } : { label: "", value: line };
   });
   return (
-    <dl className="details">
+    <dl className={`details${rows.every((row) => !row.label) ? " details--list" : ""}`}>
       {rows.map((row, i) => (
         <div className="details__row" key={`${row.label}-${i}`}>
           <dt>{row.label}</dt>

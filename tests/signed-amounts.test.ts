@@ -46,3 +46,14 @@ describe("phone numbers", () => {
     expect(phones).toContain("0808 501 5200");
   });
 });
+
+describe("pay written in thousands", () => {
+  it("reads £100K/yr - £130K/yr as one range, not a refund", () => {
+    const got = amounts("Software Engineer (Applied AI)\n£100K/yr - £130K/yr\nRemote");
+    expect(got).toContain("GBP 100000–130000");
+    expect(got.some((v) => v.includes("-130"))).toBe(false);
+  });
+  it("reads a lone £85k as eighty-five thousand", () => {
+    expect(amounts("Salary £85k plus bonus")).toContain("GBP 85000");
+  });
+});
