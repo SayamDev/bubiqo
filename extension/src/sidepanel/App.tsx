@@ -822,6 +822,10 @@ function NowTab(props: NowProps) {
       return typeof entry === "object" && (entry.status === "done" || entry.status === "unconfirmed");
     });
 
+  const waitingOnYou = (state?.analysis?.suggestions ?? []).filter(
+    (suggestion) => suggestion.risk === "confirm" && !(suggestion.actionId in (props.cardState ?? {})),
+  ).length;
+
   // Steps whose card is on screen answer there; the list keeps only the rest.
   const outcomes = (report?.steps ?? []).filter((step) => !(step.actionId in (props.cardState ?? {})));
 
@@ -947,6 +951,7 @@ function NowTab(props: NowProps) {
               <SuggestionCard
                 key={suggestion.actionId}
                 suggestion={suggestion}
+                batchRan={Boolean(report)}
                 busy={busy}
                 state={props.cardState[suggestion.actionId]}
                 alreadySaved={suggestion.actionId === "save_to_memory" || suggestion.actionId === "copy_details" ? state?.alreadySaved : undefined}
@@ -967,6 +972,7 @@ function NowTab(props: NowProps) {
                     <SuggestionCard
                       key={suggestion.actionId}
                       suggestion={suggestion}
+                      batchRan={Boolean(report)}
                       busy={busy}
                       state={props.cardState[suggestion.actionId]}
                       alreadySaved={suggestion.actionId === "save_to_memory" || suggestion.actionId === "copy_details" ? state?.alreadySaved : undefined}
@@ -988,7 +994,7 @@ function NowTab(props: NowProps) {
                   {allDone ? (
                     <>
                       <TickMark className="btn__mark" />
-                      All done
+                      {waitingOnYou > 0 ? `${safeSuggestions.length} done · ${waitingOnYou} needs you` : "All done"}
                     </>
                   ) : busy ? (
                     <>
@@ -1367,8 +1373,11 @@ function SuggestionCard({
   onDownload,
   onDismiss,
   onShowMemory,
+  batchRan = false,
 }: {
   suggestion: Suggestion;
+  /** "Complete all" has run on this page; approval steps it skipped say so. */
+  batchRan?: boolean;
   busy: boolean;
   state?: "running" | StepOutcome;
   alreadySaved?: { id: string; title: string; savedAt: number };
@@ -1407,6 +1416,18 @@ function SuggestionCard({
         </div>
 
         <p className="suggestion__rationale">{suggestion.rationale}</p>
+
+        {/*
+          * Complete all only runs safe steps. The card it skipped used to look
+          * exactly as before, which read as "nothing happened". It now says why
+          * it is still waiting.
+          */}
+        {batchRan && needsApproval && !outcome && !running && (
+          <p className="still-needs">
+            <span className="still-needs__dot" aria-hidden="true" />
+            Still needs you. Complete all skipped this because it leaves this page.
+          </p>
+        )}
 
         {/*
           * Knowing you already have something is useful WHILE you have it. Saving
@@ -1449,6 +1470,11 @@ function SuggestionCard({
               "Done"
             ) : alreadySaved && suggestion.actionId === "save_to_memory" ? (
               "Save again"
+            ) : needsApproval && suggestion.actionId === "open_application_link" ? (
+              <>
+                <OpenMark className="btn__mark" />
+                Open application
+              </>
             ) : needsApproval ? (
               "Approve and do it"
             ) : (
@@ -1485,7 +1511,7 @@ function SuggestionCard({
 
           {!outcome && !running && (
             <button
-              className="btn btn--small suggestion__dismiss"
+              className="tool tool--quiet suggestion__dismiss"
               onClick={() => onDismiss(suggestion.actionId)}
               title="Stop suggesting this"
             >
