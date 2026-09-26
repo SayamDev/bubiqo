@@ -2567,3 +2567,12 @@ body::before { background: radial-gradient(60% 60% at 50% 0%, var(--accent-bg) 0
 
 /* Narrow panel: the word goes, the icon stays. */
 @media (max-width: 340px) { .theme-toggle__word { display: none; } .theme-toggle { padding: 0; width: 32px; justify-content: center; } }
+
+/* A finished card ticks over: the mark pops, the row settles in. */
+.outcome--compact { animation: outcome-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.outcome--compact .result__mark--done { animation: tick-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes outcome-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes tick-pop { 0% { transform: scale(0.3); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .outcome--compact, .outcome--compact .result__mark--done { animation: none; }
+}

@@ -364,12 +364,30 @@ export function App() {
     [apply],
   );
 
-  const completeIt = useCallback(async () => {
+  const completeIt = useCallback(async (ids: readonly string[] = []) => {
     setBusy(true);
-    setCardState({});
+    /*
+     * Each card answers for itself.
+     *
+     * "Complete all" used to leave the three cards untouched and put the results
+     * in a list further down, so the cards still said "Do it" for work already
+     * done. Now every card spins while the batch runs, then ticks over one after
+     * another as its result lands.
+     */
+    setCardState(Object.fromEntries(ids.map((id) => [id, "running" as const])));
     try {
       const response = await send({ type: "COMPLETE_IT" });
       if (response.type === "REPORT") {
+        response.report.steps.forEach((step, index) => {
+          setTimeout(() => setCardState((previous) => ({ ...previous, [step.actionId]: step })), 90 * index);
+        });
+        setTimeout(() => {
+          setCardState((previous) => {
+            const next = { ...previous };
+            for (const id of ids) if (next[id] === "running") delete next[id];
+            return next;
+          });
+        }, 90 * response.report.steps.length);
         setReport(response.report);
         setAnnounce(
           response.report.failed > 0
@@ -379,8 +397,12 @@ export function App() {
         apply(await send({ type: "GET_STATE" }));
         apply(await send({ type: "BRIEFING" }));
       } else {
+        setCardState({});
         apply(response);
       }
+    } catch {
+      setCardState({});
+      setError("Something went wrong. Try again.");
     } finally {
       setBusy(false);
     }
@@ -588,7 +610,7 @@ export function App() {
             report={report}
             safeSuggestions={safeSuggestions}
             onRun={runAction}
-            onCompleteIt={completeIt}
+            onCompleteIt={() => void completeIt(safeSuggestions.map((s) => s.actionId))}
             onUndo={undo}
             onRefresh={analyse}
             onCopy={copyText}
@@ -793,7 +815,15 @@ function NowTab(props: NowProps) {
   const { state, briefing, busy, report, safeSuggestions, showIntro, now } = props;
   const analysis = state?.analysis;
   // Single actions report on their own card now; this list is only Complete It.
-  const outcomes = report?.steps ?? [];
+  const allDone =
+    safeSuggestions.length > 0 &&
+    safeSuggestions.every((suggestion) => {
+      const entry = props.cardState?.[suggestion.actionId];
+      return typeof entry === "object" && (entry.status === "done" || entry.status === "unconfirmed");
+    });
+
+  // Steps whose card is on screen answer there; the list keeps only the rest.
+  const outcomes = (report?.steps ?? []).filter((step) => !(step.actionId in (props.cardState ?? {})));
 
   if (state?.unavailableReason) {
     return (
@@ -954,8 +984,13 @@ function NowTab(props: NowProps) {
 
             {safeSuggestions.length > 1 && (
               <div className="complete-all" style={{ marginTop: 14 }}>
-                <button className="btn btn--primary" onClick={props.onCompleteIt} disabled={busy}>
-                  {busy ? (
+                <button className="btn btn--primary" onClick={props.onCompleteIt} disabled={busy || allDone}>
+                  {allDone ? (
+                    <>
+                      <TickMark className="btn__mark" />
+                      All done
+                    </>
+                  ) : busy ? (
                     <>
                       <span className="spinner" aria-hidden="true" />
                       Working…
