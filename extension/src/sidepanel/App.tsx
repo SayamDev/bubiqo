@@ -180,6 +180,23 @@ export function App() {
   }, [analyse]);
 
   /*
+   * Results belong to the page they were produced on.
+   *
+   * "Saved 4 details to Memory" stayed on the Save card after moving to a
+   * different email, which read as though the new email had been saved. When
+   * the page changes, what was done on the last one is cleared from Now. It is
+   * still in Memory and Activity, where it belongs.
+   */
+  const pageKey = state?.page?.url ?? "";
+  const lastPageKey = useRef(pageKey);
+  useEffect(() => {
+    if (lastPageKey.current === pageKey) return;
+    lastPageKey.current = pageKey;
+    setCardState({});
+    setReport(undefined);
+  }, [pageKey]);
+
+  /*
    * A loading skeleton with nothing coming is the worst state to be stuck in: it
    * looks like work in progress forever. If a reply ever arrives with no analysis
    * and no reason why, re-read the page rather than sitting there. This guards the
@@ -564,6 +581,7 @@ export function App() {
       <main className="main" id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
         {tab === "now" && (
           <NowTab
+            key={pageKey}
             state={state}
             briefing={briefing}
             busy={busy}
