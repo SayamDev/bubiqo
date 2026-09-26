@@ -161,6 +161,19 @@ function extractAmounts(text: string): Entity[] {
     }
   }
 
+  // "£100K/yr - £130K/yr", "£45k-£55k": the same range, written in thousands.
+  for (const m of text.matchAll(
+    /([£$€])\s?(\d{1,3}(?:\.\d)?)\s?[kK](?:\s?\/\s?(?:yr|year|annum))?\s*(?:-|–|—|to)\s*\1?\s?(\d{1,3}(?:\.\d)?)\s?[kK]/g,
+  )) {
+    rangeSpans.push([m.index ?? 0, (m.index ?? 0) + m[0].length]);
+    const code = SYMBOL_TO_CODE[m[1] ?? ""] ?? "";
+    const low = Math.round(Number(m[2]) * 1000);
+    const high = Math.round(Number(m[3]) * 1000);
+    if (!(low > 0 && high >= low)) continue;
+    out.push(entity("amount", formatRange(code, low, high), 0.95, windowAround(text, m.index ?? 0, m[0].length)));
+    out.push(entity("currency", code, 0.95, windowAround(text, m.index ?? 0, m[0].length)));
+  }
+
   for (const m of text.matchAll(
     /([£$€])\s?(\d{1,3}(?:,\d{3})+)\s*(?:-|–|—|to)\s*\1?\s?(\d{1,3}(?:,\d{3})+)/g,
   )) {
@@ -187,7 +200,9 @@ function extractAmounts(text: string): Entity[] {
    * waiting for you, so the sign and any DR/CR marker are kept.
    */
   for (const m of text.matchAll(
-    /(?<![\w.])([-−(]?)\s?([£$€¥₹])\s?([-−]?)(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+(?:\.\d{2})?)(\)?)(?:\s?(DR|CR)\b)?/g,
+    // The sign must touch the symbol: in "£100K/yr - £130K/yr" the spaced dash is
+    // the range, not a minus, and reading it as one turned pay into a refund.
+    /(?<![\w.])([-−(]?)([£$€¥₹])\s?([-−]?)(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+(?:\.\d{1,2})?)(\)?)(?:\s?(DR|CR)\b)?/g,
   )) {
     // Measured from the symbol: the optional sign and space before it would
     // otherwise start the match just outside a range already read.
@@ -196,7 +211,11 @@ function extractAmounts(text: string): Entity[] {
     const code = SYMBOL_TO_CODE[m[2] ?? ""] ?? "";
     const bracketed = m[1] === "(" && m[5] === ")";
     const negative = /[-−]/.test(m[1] ?? "") || /[-−]/.test(m[3] ?? "") || bracketed;
-    const numeric = `${negative ? "-" : ""}${(m[4] ?? "").replace(/,/g, "")}`;
+    // "£100K" is a hundred thousand, not a hundred.
+    const after = text.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 2);
+    const thousands = !m[6] && /^\s?[kK](?![a-z])/.test(after);
+    const base = Number((m[4] ?? "").replace(/,/g, ""));
+    const numeric = `${negative ? "-" : ""}${thousands ? String(Math.round(base * 1000)) : (m[4] ?? "").replace(/,/g, "")}`;
     const marker = m[6] ? ` ${m[6]}` : "";
     const context = windowAround(text, m.index ?? 0, m[0].length);
     const isSalary = SALARY_HINTS.test(context);

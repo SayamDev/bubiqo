@@ -16,6 +16,7 @@ import { formatDue } from "./dates";
 import { preferredTitle } from "./storage-hygiene";
 import { briefToEntities } from "./job-brief";
 import { displayMoney } from "./money";
+import { extractListings, listingLines } from "./listings";
 
 const ok = (message: string, handle: string | undefined, undoable: boolean): ActionResult =>
   handle === undefined ? { ok: true, message, undoable } : { ok: true, message, handle, undoable };
@@ -314,6 +315,14 @@ export function buildRegistry(ports: Ports): Map<string, ActionDefinition> {
         // order, with "currency: GBP" repeated beside every amount and the same
         // reference twice. Lead with what a bill is about (how much, by when,
         // which account), drop the repeats, and write money the way people do.
+        // A digest of several adverts copies as the list of jobs, one per line.
+        const listings = extractListings(input.page.text);
+        if (listings.length > 0) {
+          const text = listingLines(listings).slice(0, 12).join("\n");
+          await ports.clipboard.write(text);
+          return ok(`${listings.length} jobs ready to copy.`, text, false);
+        }
+
         const lines = orderForCopy(
           (input.brief ? briefToEntities(input.brief, input.entities, input.page.url) : input.entities).filter(
             (e) => e.sensitivity !== "sensitive",

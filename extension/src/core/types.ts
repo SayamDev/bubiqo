@@ -321,6 +321,8 @@ export interface Analysis {
   readonly brief?: JobBrief;
   /** Present on bills, statements and payment reminders. See core/bill.ts. */
   readonly bill?: import("./bill").BillSummary;
+  /** Several adverts in one email. See core/listings.ts. */
+  readonly listings?: readonly import("./listings").Listing[];
 }
 
 // ---------------------------------------------------------------------------
